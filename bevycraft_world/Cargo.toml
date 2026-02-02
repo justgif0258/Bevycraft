@@ -1,0 +1,12 @@
+[package]
+name = "bevycraft_world"
+authors.workspace = true
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+bevycraft_core.workspace = true
+
+bevy.workspace = true
+
+const-builder.workspace = true

@@ -1,0 +1,11 @@
+[package]
+name = "bevycraft_render"
+authors.workspace = true
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+bevycraft_core.workspace = true
+bevycraft_world.workspace = true
+
+bevy.workspace = true
