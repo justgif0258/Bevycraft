@@ -29,7 +29,7 @@ rayon = "1.11.0"
 derive_builder = "0.20.2"
 const-builder = "0.1.5"
 
-phf = "0.13.1"
+phf = { version = "0.13.1", features = ["macros"] }
 
 heed = "0.22.1-nested-rtxns-6"
 
