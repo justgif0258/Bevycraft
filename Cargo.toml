@@ -1,0 +1,36 @@
+[workspace]
+resolver = "3"
+members = [
+    "bevycraft_app",
+    "bevycraft_core",
+    "bevycraft_render",
+    "bevycraft_world",
+]
+
+[workspace.package]
+authors = ["GiF"]
+version = "0.1.0-a"
+edition = "2024"
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[workspace.dependencies]
+bevycraft_core = { path = "bevycraft_core" }
+bevycraft_world = { path = "bevycraft_world" }
+bevycraft_render = { path = "bevycraft_render" }
+
+bevy = { version = "0.18.0", features = ["dynamic_linking"] }
+rayon = "1.11.0"
+
+derive_builder = "0.20.2"
+const-builder = "0.1.5"
+
+phf = "0.13.1"
+
+heed = "0.22.1-nested-rtxns-6"
+
+criterion = "0.8.1"
