@@ -1,42 +1,106 @@
-use bevy::platform::hash::FixedHasher;
 use std::borrow::Cow;
 use std::fmt::*;
 use std::hash::*;
 use std::ops::Deref;
-use std::str::{from_utf8_unchecked, FromStr};
+use std::slice::from_raw_parts;
+use std::str::FromStr;
+use std::str::from_utf8_unchecked;
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
 pub struct ResourceId {
-    hash: u64,
-    int: usize,
-    vec: Vec<u8>,
+    namespace: Namespace,
+    path: Path,
 }
 
 impl ResourceId {
-    pub const DEFAULT_NAMESPACE: &'static str = "bevycraft";
+    pub const DEFAULT_NAMESPACE: Namespace = Namespace::new_static("bevycraft");
 
-    #[inline(always)]
+    #[inline]
+    pub const unsafe fn new_static_unchecked(namespace: &'static str, path: &'static str) -> Self {
+        Self {
+            namespace: Namespace::new_static_unchecked(namespace),
+            path: Path::new_static_unchecked(path),
+        }
+    }
+
+    #[inline]
+    pub const fn new_static(namespace: &'static str, path: &'static str) -> Self {
+        Self {
+            namespace: Namespace::new_static(namespace),
+            path: Path::new_static(path),
+        }
+    }
+
+    #[inline]
+    pub const fn default_namespace_static(path: &'static str) -> Self {
+        Self {
+            namespace: Self::DEFAULT_NAMESPACE,
+            path: Path::new_static(path),
+        }
+    }
+
+    #[inline]
+    pub const fn custom_namespace_static(namespace: &'static str, path: &'static str) -> Self {
+        Self {
+            namespace: Namespace::new_static(namespace),
+            path: Path::new_static(path),
+        }
+    }
+
+    #[inline]
+    pub const fn parse_static(location: &'static str) -> Self {
+        let bytes = location.as_bytes();
+        let mut i = 0usize;
+        let mut indent = 0usize;
+
+        while i < bytes.len() {
+            if bytes[i] == b':' {
+                indent = i;
+                break;
+            }
+
+            i += 1;
+        }
+
+        if i != 0 {
+            let ptr = location.as_ptr();
+
+            unsafe {
+                Self::custom_namespace_static(
+                    from_utf8_unchecked(from_raw_parts(ptr, indent)),
+                    from_utf8_unchecked(from_raw_parts(
+                        ptr.add(indent + 1),
+                        location.len() - indent - 1,
+                    )),
+                )
+            }
+        } else {
+            Self::default_namespace_static(location)
+        }
+    }
+
+    #[inline]
     pub unsafe fn new_unchecked(namespace: &str, path: &str) -> Self {
-        let int = namespace.len();
-
-        let mut vec = Vec::from(namespace);
-        vec.extend_from_slice(path.as_bytes());
-
-        let hash = Self::compute_hash(namespace, path);
-
-        Self { hash, int, vec }
+        Self {
+            namespace: Namespace::new_unchecked(namespace),
+            path: Path::new_unchecked(path),
+        }
     }
 
     #[inline]
     fn new(namespace: &str, path: &str) -> Self {
-        Self::assert_namespace(namespace);
-        Self::assert_path(path);
-
-        unsafe { Self::new_unchecked(namespace, path) }
+        Self {
+            namespace: Namespace::new(namespace),
+            path: Path::new(path),
+        }
     }
 
     #[inline]
     pub fn default_namespace(path: &str) -> Self {
-        Self::new(Self::DEFAULT_NAMESPACE, path)
+        Self {
+            namespace: Self::DEFAULT_NAMESPACE,
+            path: Path::new(path),
+        }
     }
 
     #[inline]
@@ -47,75 +111,9 @@ impl ResourceId {
     #[inline]
     pub fn parse(location: &str) -> Self {
         match location.split_once(":") {
-            None => Self::new(Self::DEFAULT_NAMESPACE, location),
+            None => Self::default_namespace(location),
             Some((namespace, path)) => Self::new(namespace, path),
         }
-    }
-
-    #[inline]
-    pub fn as_slice(&self) -> &[u8] {
-        self.vec.as_slice()
-    }
-
-    #[inline]
-    fn compute_hash(namespace: &str, path: &str) -> u64 {
-        let mut hasher = FixedHasher::default().build_hasher();
-
-        namespace.hash(&mut hasher);
-        path.hash(&mut hasher);
-
-        hasher.finish()
-    }
-
-    #[inline]
-    fn assert_namespace(namespace: &str) {
-        assert!(
-            namespace.bytes().all(Self::valid_namespace_byte),
-            "{}",
-            format!("Invalid byte found in namespace '{}'", namespace)
-        );
-    }
-
-    #[inline]
-    fn assert_path(path: &str) {
-        assert!(
-            path.bytes().all(Self::valid_path_byte),
-            "{}",
-            format!("Invalid byte found in path '{}'", path)
-        );
-    }
-
-    #[inline]
-    const fn valid_namespace_byte(byte: u8) -> bool {
-        matches!(byte, b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'-' | b'_')
-    }
-
-    #[inline]
-    const fn valid_path_byte(byte: u8) -> bool {
-        matches!(byte, b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'/')
-    }
-}
-
-impl Clone for ResourceId {
-    #[inline]
-    fn clone(&self) -> Self {
-        unsafe { Self::new_unchecked(self.namespace(), self.path()) }
-    }
-}
-
-impl PartialEq for ResourceId {
-    #[inline]
-    fn eq(&self, other: &Self) -> bool {
-        self.namespace() == other.namespace() && self.path() == other.path()
-    }
-}
-
-impl Eq for ResourceId {}
-
-impl Hash for ResourceId {
-    #[inline]
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write_u64(self.hash);
     }
 }
 
@@ -128,25 +126,15 @@ impl Display for ResourceId {
     }
 }
 
-impl Debug for ResourceId {
-    #[inline]
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        f.debug_struct("ResourceId")
-            .field("namespace", &self.namespace())
-            .field("path", &self.path())
-            .finish()
-    }
-}
-
 impl NamespacedIdentifier for ResourceId {
     #[inline]
     fn namespace(&self) -> &str {
-        unsafe { from_utf8_unchecked(&self.vec[..self.int]) }
+        &self.namespace
     }
 
     #[inline]
     fn path(&self) -> &str {
-        unsafe { from_utf8_unchecked(&self.vec[self.int..]) }
+        &self.path
     }
 }
 
