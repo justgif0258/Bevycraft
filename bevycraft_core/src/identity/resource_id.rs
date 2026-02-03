@@ -1,8 +1,9 @@
+use bevy::platform::hash::FixedHasher;
 use std::borrow::Cow;
 use std::fmt::*;
 use std::hash::*;
-use std::str::from_utf8_unchecked;
-use bevy::platform::hash::FixedHasher;
+use std::ops::Deref;
+use std::str::{from_utf8_unchecked, FromStr};
 
 pub struct ResourceId {
     hash: u64,
@@ -22,11 +23,7 @@ impl ResourceId {
 
         let hash = Self::compute_hash(namespace, path);
 
-        Self {
-            hash,
-            int,
-            vec,
-        }
+        Self { hash, int, vec }
     }
 
     #[inline]
@@ -50,10 +47,8 @@ impl ResourceId {
     #[inline]
     pub fn parse(location: &str) -> Self {
         match location.split_once(":") {
-            None =>
-                Self::new(Self::DEFAULT_NAMESPACE, location),
-            Some((namespace, path)) =>
-                Self::new(namespace, path),
+            None => Self::new(Self::DEFAULT_NAMESPACE, location),
+            Some((namespace, path)) => Self::new(namespace, path),
         }
     }
 
@@ -74,12 +69,20 @@ impl ResourceId {
 
     #[inline]
     fn assert_namespace(namespace: &str) {
-        assert!(namespace.bytes().all(Self::valid_namespace_byte), "{}", format!("Invalid byte found in namespace '{}'", namespace));
+        assert!(
+            namespace.bytes().all(Self::valid_namespace_byte),
+            "{}",
+            format!("Invalid byte found in namespace '{}'", namespace)
+        );
     }
 
     #[inline]
     fn assert_path(path: &str) {
-        assert!(path.bytes().all(Self::valid_path_byte), "{}", format!("Invalid byte found in path '{}'", path));
+        assert!(
+            path.bytes().all(Self::valid_path_byte),
+            "{}",
+            format!("Invalid byte found in path '{}'", path)
+        );
     }
 
     #[inline]
@@ -103,8 +106,7 @@ impl Clone for ResourceId {
 impl PartialEq for ResourceId {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        self.namespace() == other.namespace()
-            && self.path() == other.path()
+        self.namespace() == other.namespace() && self.path() == other.path()
     }
 }
 
@@ -154,23 +156,37 @@ pub trait NamespacedIdentifier {
     fn path(&self) -> &str;
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
-pub struct Namespace<'a>(Cow<'a, str>);
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Default)]
+pub struct Namespace(Cow<'static, str>);
 
-impl<'a> Namespace<'a> {
-    pub const unsafe fn new_unchecked(namespace: &'a str) -> Self {
+impl Namespace {
+    pub const unsafe fn new_static_unchecked(namespace: &'static str) -> Self {
         Self(Cow::Borrowed(namespace))
     }
 
     #[inline]
-    pub const fn new(namespace: &'a str) -> Self {
-        debug_assert!(Self::valid_namespace(namespace), "Invalid byte found in namespace");
-
-        unsafe { Self::new_unchecked(namespace) }
+    pub unsafe fn new_unchecked(namespace: &str) -> Self {
+        Self(Cow::Owned(namespace.to_owned()))
     }
 
-    pub fn as_str(&self) -> &str {
-        &self.0
+    #[inline]
+    pub const fn new_static(namespace: &'static str) -> Self {
+        debug_assert!(
+            Self::valid_namespace(namespace),
+            "Invalid byte found in namespace"
+        );
+
+        unsafe { Self::new_static_unchecked(namespace) }
+    }
+
+    #[inline]
+    pub fn new(namespace: &str) -> Self {
+        debug_assert!(
+            namespace.bytes().all(Self::valid_byte),
+            "Invalid byte found in namespace"
+        );
+
+        unsafe { Self::new_unchecked(namespace) }
     }
 
     #[inline]
@@ -194,61 +210,125 @@ impl<'a> Namespace<'a> {
     }
 }
 
-impl<'a> From<&'a str> for Namespace<'a> {
-    #[inline]
-    fn from(namespace: &'a str) -> Self {
-        Self::new(namespace)
+impl Deref for Namespace {
+    type Target = str;
+
+    #[inline(always)]
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
-pub struct Path<'a>(Cow<'a, str>);
+impl Display for Namespace {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        f.write_str(&self)
+    }
+}
 
-impl<'a> Path<'a> {
-    pub const unsafe fn new_unchecked(path: &'a str) -> Self {
+impl From<String> for Namespace {
+    fn from(value: String) -> Self {
+        debug_assert!(
+            value.bytes().all(Self::valid_byte),
+            "Invalid byte found in namespace"
+        );
+
+        Self(Cow::Owned(value))
+    }
+}
+
+impl FromStr for Namespace {
+    type Err = ();
+
+    #[inline]
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        Ok(Self::new(s))
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Default)]
+pub struct Path(Cow<'static, str>);
+
+impl Path {
+    pub const unsafe fn new_static_unchecked(path: &'static str) -> Self {
         Self(Cow::Borrowed(path))
     }
 
     #[inline]
-    pub const fn new(path: &'a str) -> Self {
+    pub unsafe fn new_unchecked(path: &str) -> Self {
+        Self(Cow::Owned(path.to_owned()))
+    }
+
+    #[inline]
+    pub const fn new_static(path: &'static str) -> Self {
         debug_assert!(Self::valid_path(path), "Invalid byte found in path");
+
+        unsafe { Self::new_static_unchecked(path) }
+    }
+
+    #[inline]
+    pub fn new(path: &str) -> Self {
+        debug_assert!(
+            path.bytes().all(Self::valid_byte),
+            "Invalid byte found in path"
+        );
 
         unsafe { Self::new_unchecked(path) }
     }
 
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-
-
     #[inline]
     #[must_use]
-    pub fn prefix(&self, prefix: &'a str) -> Self {
-        debug_assert!(Self::valid_path(prefix), "Invalid byte found in prefix");
+    pub fn prefix(&mut self, prefix: &str) -> &Self {
+        debug_assert!(
+            prefix.bytes().all(Self::valid_byte),
+            "Invalid byte found in prefix"
+        );
 
-        match &self.0 {
-            Cow::Borrowed(b) => {
-                Self(Cow::Owned(format!("{}{}", prefix, b)))
-            }
-            Cow::Owned(o) => {
-                Self(Cow::Owned(format!("{}{}", prefix, o)))
-            }
-        }
+        self.0.to_mut().insert_str(0, prefix);
+
+        self
     }
 
     #[inline]
     #[must_use]
-    pub fn suffix(&self, suffix: &'a str) -> Self {
-        debug_assert!(Self::valid_path(suffix), "Invalid byte found in suffix");
+    pub fn suffix(&mut self, suffix: &str) -> &Self {
+        debug_assert!(
+            suffix.bytes().all(Self::valid_byte),
+            "Invalid byte found in suffix"
+        );
 
-        match &self.0 {
-            Cow::Borrowed(b) => {
-                Self(Cow::Owned(format!("{}{}", b, suffix)))
-            }
-            Cow::Owned(o) => {
-                Self(Cow::Owned(format!("{}{}", o, suffix)))
-            }
-        }
+        self.0.to_mut().push_str(suffix);
+
+        self
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn clone_prefixed(&self, prefix: &str) -> Self {
+        debug_assert!(
+            prefix.bytes().all(Self::valid_byte),
+            "Invalid byte found in prefix"
+        );
+
+        let mut cloned = self.clone();
+
+        cloned.0.to_mut().insert_str(0, prefix);
+
+        cloned
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn clone_suffixed(&self, suffix: &str) -> Self {
+        debug_assert!(
+            suffix.bytes().all(Self::valid_byte),
+            "Invalid byte found in suffix"
+        );
+
+        let mut cloned = self.clone();
+
+        cloned.0.to_mut().push_str(suffix);
+
+        cloned
     }
 
     #[inline]
@@ -272,15 +352,37 @@ impl<'a> Path<'a> {
     }
 }
 
-impl Display for Path<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        f.write_str(self.as_str())
+impl Deref for Path {
+    type Target = str;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
-impl<'a> From<&'a str> for Path<'a> {
+impl Display for Path {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        f.write_str(&self)
+    }
+}
+
+impl From<String> for Path {
+    fn from(value: String) -> Self {
+        debug_assert!(
+            value.bytes().all(Self::valid_byte),
+            "Invalid byte found in path"
+        );
+
+        Self(Cow::Owned(value))
+    }
+}
+
+impl FromStr for Path {
+    type Err = ();
+
     #[inline]
-    fn from(path: &'a str) -> Self {
-        Self::new(path)
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        Ok(Self::new(s))
     }
 }
