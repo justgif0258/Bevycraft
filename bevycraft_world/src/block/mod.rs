@@ -3,6 +3,7 @@ use crate::prelude::*;
 pub mod block;
 pub mod block_state;
 pub mod state_definition;
+mod blockable;
 
 pub const GRASS_BLOCK: Block = Block::new(
     BlockBehaviour::builder()

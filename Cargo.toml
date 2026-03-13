@@ -19,20 +19,31 @@ opt-level = 1
 opt-level = 3
 
 [workspace.dependencies]
-bevycraft_core = { path = "bevycraft_core" }
-bevycraft_world = { path = "bevycraft_world" }
-bevycraft_render = { path = "bevycraft_render" }
 
-bevy = { version = "0.18.0", features = ["dynamic_linking"] }
-rayon = "1.11.0"
+winapi              = { version = "0.3.9", features = ["memoryapi", "winnt", "heapapi"] }
+libc                = { version = "0.2.182", features = [] }
+ctor                = { version = "0.6.3", features = [] }
 
-derive_builder = "0.20.2"
-const-builder = "0.1.5"
+bevycraft_core      = { path = "bevycraft_core" }
+bevycraft_world     = { path = "bevycraft_world" }
+bevycraft_render    = { path = "bevycraft_render" }
 
-phf = { version = "0.13.1", features = ["macros"] }
-frozen-collections = { version = "0.8.0", features = ["macros"] }
+bevy                = { version = "0.18.0", features = ["dynamic_linking"] }
+rand                = { version = "0.10.0", features = [] }
+rayon               = { version = "1.11.0", features = [] }
 
-rkyv = { version = "0.8.14", features = ["bytecheck"] }
-heed = "0.22.1-nested-rtxns-6"
+const-builder       = { version = "0.1.5", features = [] }
 
-criterion = "0.8.1"
+lasso               = { version = "0.7.3", features = ["multi-threaded", "inline-more"] }
+
+rapidhash           = { version = "4.4.1", features = ["default"] }
+boomphf             = { version = "0.6.0", features = ["rayon"] }
+crossbeam-queue     = { version = "0.3.12", features = [] }
+
+ron                 = { version = "0.12.0", features = [] }
+serde               = { version = "1.0.228", features = ["derive"] }
+bitcode             = { version = "0.6.9", features = ["derive", "serde"] }
+
+heed                = { version = "0.22.1-nested-rtxns-6", features = [] }
+
+criterion           = { version = "0.8.1", features = [] }

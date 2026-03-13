@@ -12,9 +12,10 @@ pub mod prelude {
         },
     };
     pub use crate::morton::morton_3d::*;
+    #[allow(deprecated)]
     pub use crate::spatial::{
-        child_descriptor::ChildDescriptor,
-        svo::Svo,
+        node_64::Node64,
+        tree_64::Tree64,
     };
 }
 

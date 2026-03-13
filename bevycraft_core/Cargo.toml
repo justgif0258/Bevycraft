@@ -4,8 +4,16 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+
+winapi.workspace = true
+libc.workspace = true
+ctor.workspace = true
+
 bevy.workspace = true
 
-phf.workspace = true
+lasso.workspace = true
+rapidhash.workspace = true
+boomphf.workspace = true
+crossbeam-queue.workspace = true
 
-rkyv.workspace = true
+serde.workspace = true

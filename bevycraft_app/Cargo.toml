@@ -4,14 +4,19 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+winapi.workspace = true
+
 bevycraft_core.workspace = true
 bevycraft_world.workspace = true
 
 bevy.workspace = true
+rand.workspace = true
+rayon.workspace = true
 
-phf.workspace = true
+lasso.workspace = true
+rapidhash.workspace = true
 
-rkyv.workspace = true
+bitcode.workspace = true
 
 criterion.workspace = true
 

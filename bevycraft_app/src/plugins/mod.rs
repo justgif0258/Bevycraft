@@ -1,2 +1,1 @@
-pub mod game_registries;
-mod default_registries;
+pub mod core_registries;

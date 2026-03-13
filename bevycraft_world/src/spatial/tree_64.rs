@@ -4,18 +4,18 @@ use bevy::prelude::UVec3;
 use crate::prelude::{Morton3D, Node64};
 
 pub struct Tree64<T: Default + Send + Sync> {
-    root: Node64,
-    node_pool: Vec<Node64>,
-    leaf_pool: Vec<T>,
-    depth: NonZeroUsize,
+    root        : Node64,
+    node_pool   : Vec<Node64>,
+    leaf_pool   : Vec<T>,
+    depth       : NonZeroUsize,
 }
 
 impl<T: Default + Send + Sync> Tree64<T> {
-    pub const MAX_DEPTH: usize = 15;
+    pub const MAX_DEPTH: usize = 16;
 
     #[inline]
     pub const fn new(depth: usize) -> Self {
-        debug_assert!(depth <= Self::MAX_DEPTH, "Maximum supported depth is 15");
+        debug_assert!(depth <= Self::MAX_DEPTH, "Maximum supported depth is 16");
 
         let depth = NonZeroUsize::new(depth)
             .expect("Depth should be non-zero");
@@ -100,11 +100,11 @@ impl<T: Default + Send + Sync> Tree64<T> {
     }
 
     #[inline]
-    pub const fn get_morton_idx(&self, current_depth: usize, morton: &Morton3D) -> usize {
+    pub fn get_morton_idx(&self, current_depth: usize, morton: &Morton3D) -> usize {
         debug_assert!(current_depth <= self.depth(), "Current depth should be within the Tree's defined depth");
 
         let shift = (self.depth() - current_depth) * 6;
 
-        ((morton.raw() >> shift) & 0x3F) as usize
+        ((morton >> shift) & 0x3F).raw() as usize
     }
 }

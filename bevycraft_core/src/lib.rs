@@ -1,23 +1,19 @@
 extern crate core;
 
-mod identity;
-mod registry;
 mod memory;
-mod io;
+mod util;
+mod registries;
 
 pub mod prelude {
-    pub use crate::identity::{
-        resource_id::*,
-    };
-    pub use crate::registry::{
-        compiled_registry::CompiledRegistry,
-        registry_solver::RegistrySolver,
+    pub use crate::registries::{
+        record::*,
+        registration_id::*,
+        entry::*,
+        commit::Commit,
+        mapped_commit::*,
     };
     pub use crate::memory::{
-        simple_pool::SimplePool,
+        virtualized_pool::*,
         packed_array_u32::PackedArrayU32,
-    };
-    pub use crate::io::{
-        serializable_registry::SerializableRegistry,
     };
 }

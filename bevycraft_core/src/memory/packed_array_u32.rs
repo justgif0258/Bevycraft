@@ -1,6 +1,7 @@
 use std::alloc::*;
 use std::fmt::{Debug, Formatter};
-use std::num::{NonZeroUsize};
+use std::num::NonZeroUsize;
+use std::ops::Add;
 use std::ptr::*;
 
 /// ## Packed Index Array
@@ -15,20 +16,17 @@ pub struct PackedArrayU32 {
 }
 
 impl PackedArrayU32 {
-    const MAX_BITS: usize = u32::BITS as usize;
+    pub const MAX_BITS: usize = u32::BITS as usize;
 
     const INITIAL_BITS: NonZeroUsize = unsafe { NonZeroUsize::new_unchecked(1) };
 
     pub fn new(size: usize) -> Self {
         let layout = unsafe {
-            Layout::from_size_align_unchecked(
-                alloc_size(size, 1usize),
-                align_of::<u8>(),
-            )
+            Layout::from_size_align_unchecked(alloc_size(size, 1usize), align_of::<u8>())
         };
 
-        let buffer = NonNull::new(unsafe { alloc_zeroed(layout) })
-            .expect("Failed to allocate memory");
+        let buffer =
+            NonNull::new(unsafe { alloc_zeroed(layout) }).expect("Failed to allocate memory");
 
         Self {
             buffer,
@@ -42,12 +40,7 @@ impl PackedArrayU32 {
     pub const fn zeroed() -> Self {
         Self {
             buffer: NonNull::dangling(),
-            layout: unsafe {
-                Layout::from_size_align_unchecked(
-                    0usize,
-                    align_of::<u8>()
-                )
-            },
+            layout: unsafe { Layout::from_size_align_unchecked(0usize, align_of::<u8>()) },
             bits: Self::INITIAL_BITS,
             size: 0,
         }
@@ -56,18 +49,14 @@ impl PackedArrayU32 {
     pub fn with_bit_length(size: usize, bits: usize) -> Self {
         debug_assert!(bits <= Self::MAX_BITS, "Bit length must not exceed 32-bits");
 
-        let bits = NonZeroUsize::new(bits)
-            .expect("Bit length must be non-zero");
+        let bits = NonZeroUsize::new(bits).expect("Bit length must be non-zero");
 
         let layout = unsafe {
-            Layout::from_size_align_unchecked(
-                alloc_size(size, bits.get()),
-                align_of::<u8>(),
-            )
+            Layout::from_size_align_unchecked(alloc_size(size, bits.get()), align_of::<u8>())
         };
 
-        let buffer = NonNull::new(unsafe { alloc_zeroed(layout) })
-            .expect("Failed to allocate memory");
+        let buffer =
+            NonNull::new(unsafe { alloc_zeroed(layout) }).expect("Failed to allocate memory");
 
         Self {
             buffer,
@@ -83,14 +72,8 @@ impl PackedArrayU32 {
 
         Self {
             buffer: NonNull::dangling(),
-            layout: unsafe {
-                Layout::from_size_align_unchecked(
-                    0usize,
-                    align_of::<u8>()
-                )
-            },
-            bits: NonZeroUsize::new(bits)
-                .expect("Bit length must be non-zero"),
+            layout: unsafe { Layout::from_size_align_unchecked(0usize, align_of::<u8>()) },
+            bits: NonZeroUsize::new(bits).expect("Bit length must be non-zero"),
             size: 0,
         }
     }
@@ -106,67 +89,76 @@ impl PackedArrayU32 {
     pub fn set(&mut self, index: usize, value: u32) {
         debug_assert!(index < self.size, "Index out of bounds");
 
+        debug_assert!(
+            required_bits(value) <= self.bit_length(),
+            "Value bit length was too large to fit into the current array",
+        );
+
         unsafe { self.set_unchecked(index, value) }
     }
 
     #[inline]
-    pub fn grow_bits_by_powf2(&mut self) {
-        self.resize_bits(1isize << self.bit_length());
+    pub fn grow_bits(&mut self) {
+        debug_assert!(
+            (self.bit_length() << 1) <= Self::MAX_BITS,
+            "Unable to resize bits. New bit length exceeded the 32-bit limit"
+        );
+
+        unsafe { self.resize_bits(self.bit_length() as isize) }
     }
 
     #[inline]
     pub fn grow_bits_by(&mut self, amount: usize) {
-        self.resize_bits(amount as isize);
+        debug_assert!(
+            self.bit_length().add(amount) <= Self::MAX_BITS,
+            "Unable to resize bits. New bit length exceeded the 32-bit limit"
+        );
+
+        unsafe { self.resize_bits(amount as isize) }
     }
 
-    fn resize_bits(&mut self, resize_factor: isize) {
+    #[inline]
+    pub fn shrink_bits_by(&mut self, amount: usize) {
+        unsafe { self.resize_bits(-(amount as isize)) }
+    }
+
+    pub unsafe fn resize_bits(&mut self, resize_factor: isize) {
         let old_bits = self.bit_length();
         let new_bits = (old_bits as isize + resize_factor).max(0) as usize;
 
-        debug_assert!(new_bits <= Self::MAX_BITS, "Bit length must not exceed 32-bits");
-        debug_assert!(new_bits != 0, "Bit length must be non-zero");
+        let bits = NonZeroUsize::new(new_bits).expect("Resized bit length must be non-zero");
 
-        if self.size > 0 {
-            let new_layout = unsafe {
-                Layout::from_size_align_unchecked(
+        unsafe {
+            if self.size > 0 {
+                let new_layout = Layout::from_size_align_unchecked(
                     alloc_size(self.size, new_bits),
-                    align_of::<u8>()
-                )
-            };
+                    align_of::<u8>(),
+                );
 
-            let new_buffer = NonNull::new(unsafe { alloc_zeroed(new_layout) })
-                .expect("Failed to reallocate memory");
+                let new_buffer =
+                    NonNull::new(alloc_zeroed(new_layout)).expect("Failed to reallocate memory");
 
+                let mut src_index = 0usize;
+                let mut dst_index = 0usize;
 
-            let mut src_index = 0usize;
-            let mut dst_index = 0usize;
+                for _ in 0..self.size {
+                    let value =
+                        Self::read_bits_from_buffer(self.buffer.as_ptr(), src_index, old_bits);
 
-            for _ in 0..self.size {
-                unsafe {
-                    let value = Self::read_bits_from_buffer(
-                        self.buffer.as_ptr(),
-                        src_index,
-                        old_bits
-                    );
+                    Self::write_bits_to_buffer(new_buffer.as_ptr(), dst_index, new_bits, value);
 
-                    Self::write_bits_to_buffer(
-                        new_buffer.as_ptr(),
-                        dst_index,
-                        new_bits,
-                        value
-                    );
+                    src_index += old_bits;
+                    dst_index += new_bits;
                 }
 
-                src_index += old_bits;
-                dst_index += new_bits;
-            }
+                dealloc(self.buffer.as_ptr(), self.layout);
 
-            unsafe { dealloc(self.buffer.as_ptr(), self.layout) };
-            self.buffer = new_buffer;
-            self.layout = new_layout;
+                self.buffer = new_buffer;
+                self.layout = new_layout;
+            }
         }
 
-        self.bits = unsafe { NonZeroUsize::new_unchecked(new_bits) };
+        self.bits = bits;
     }
 
     /// **Undefined behaviour warning!**
@@ -243,11 +235,10 @@ impl PackedArrayU32 {
         unsafe {
             let layout = Layout::from_size_align_unchecked(
                 alloc_size(size, self.bit_length()),
-                align_of::<u8>()
+                align_of::<u8>(),
             );
 
-            self.buffer = NonNull::new(alloc_zeroed(layout))
-                .expect("Failed to allocate memory");
+            self.buffer = NonNull::new(alloc_zeroed(layout)).expect("Failed to allocate memory");
 
             self.layout = layout;
         }
@@ -261,15 +252,12 @@ impl PackedArrayU32 {
 
             self.buffer = NonNull::dangling();
 
-            self.layout = Layout::from_size_align_unchecked(
-                0usize,
-                align_of::<u8>(),
-            );
+            self.layout = Layout::from_size_align_unchecked(0usize, align_of::<u8>());
 
             self.size = 0usize;
         }
     }
-    
+
     #[inline]
     pub const fn len(&self) -> usize {
         self.size
@@ -282,7 +270,11 @@ impl PackedArrayU32 {
 
     #[inline]
     pub const fn allocated_memory(&self) -> usize {
-        if !self.is_empty() { self.layout.size() } else { 0usize }
+        if !self.is_empty() {
+            self.layout.size()
+        } else {
+            0usize
+        }
     }
 
     #[inline]

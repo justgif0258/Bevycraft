@@ -10,5 +10,3 @@ bevycraft_core.workspace = true
 bevy.workspace = true
 
 const-builder.workspace = true
-
-rkyv.workspace = true

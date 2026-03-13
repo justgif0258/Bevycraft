@@ -1,24 +1,22 @@
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering::Relaxed;
 use bevy::prelude::*;
-use bevycraft_app::prelude::*;
-use bevycraft_core::prelude::*;
-use bevycraft_world::prelude::*;
+use bevycraft_core::prelude::{VirtualizedPool};
 
-fn main() {
-    let mut packed = PackedArrayU32::with_bit_length(4096, 12);
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let u = AtomicUsize::new(0);
 
-    println!("{:?}", packed);
+    u.fetch_sub(1, Relaxed);
+
+    println!("{:?}", u);
 
     /*
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(GameRegistries::default())
-        .add_systems(Startup, init)
+        .insert_resource(VirtualizedPool::<u16>::new(8192, 8192))
         .run();
-    */
-}
 
-fn init(root: Res<GameRegistries>) {
-    let result = root.get_registered::<Block>(&ResourceId::parse("cobblestone").unwrap());
+     */
 
-    println!("{:#?}", result);
+    Ok(())
 }

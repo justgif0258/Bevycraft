@@ -6,8 +6,8 @@ const CHILD_MASK : u32 = 0x7FFFFFFF;
 #[repr(C, packed(4))]
 #[derive(Clone, Ord, PartialOrd, Eq, PartialEq, Default)]
 pub struct Node64 {
-    child_ptr: u32,
-    child_mask: u64,
+    child_ptr   : u32,
+    child_mask  : u64,
 }
 
 impl Node64 {
@@ -29,7 +29,7 @@ impl Node64 {
 
     #[inline]
     const fn new(is_brick: bool, child_ptr: u32, child_mask: u64) -> Self {
-        debug_assert!(child_ptr <= Self::MAX, "A child pointer has overflown (MAX = 2_147_483_647)");
+        assert!(child_ptr <= Self::MAX, "A child pointer has overflown (MAX = 2_147_483_647)");
 
         Self {
             child_ptr: ((is_brick as u32) << BRICK_SHIFT) & child_ptr,
@@ -49,8 +49,7 @@ impl Node64 {
 
     #[inline]
     pub const fn is_empty(&self) -> bool {
-        self.child_ptr == 0x0
-            && self.child_mask == 0x0
+        self.child_mask == 0x0
     }
 
     #[inline]
@@ -65,7 +64,7 @@ impl Node64 {
 
     #[inline]
     pub const fn set_child_ptr(&mut self, child_ptr: u32) {
-        debug_assert!(child_ptr <= Self::MAX, "A child pointer has overflown (MAX = 2_147_483_647)");
+        assert!(child_ptr <= Self::MAX, "A child pointer has overflown (MAX = 2_147_483_647)");
 
         self.child_ptr &= BRICK_MASK;
         self.child_ptr |= child_ptr;
