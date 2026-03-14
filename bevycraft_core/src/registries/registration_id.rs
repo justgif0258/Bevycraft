@@ -1,4 +1,8 @@
 use {
+    bevy::platform::collections::HashMap,
+    lasso::{Capacity, Spur, ThreadedRodeo},
+    rapidhash::fast::RandomState,
+    serde::*,
     std::{
         error::Error,
         fmt::{Debug, Display, Formatter, Write},
@@ -6,36 +10,18 @@ use {
         mem::transmute,
         sync::OnceLock,
     },
-    bevy::platform::collections::HashMap,
-    lasso::{Capacity, Spur, ThreadedRodeo},
-    rapidhash::fast::RandomState,
-    serde::*,
 };
 
 pub type RegistrationMap<V> = HashMap<RegistrationId, V, IdentityHasherBuilder>;
 
-pub type RapidThreadedRodeo = ThreadedRodeo<Spur, RandomState>;
+type RapidThreadedRodeo = ThreadedRodeo<Spur, RandomState>;
 
 static GLOBAL_INTERN: OnceLock<RapidThreadedRodeo> = OnceLock::new();
 
-#[ctor::ctor]
-fn init_interner() {
-    let interner = ThreadedRodeo::with_capacity_and_hasher(
-        Capacity::for_strings(256),
-        RandomState::new(),
-    );
-
-    interner.get_or_intern(RegistrationId::DEFAULT_NAMESPACE);
-
-    GLOBAL_INTERN.set(interner)
-        .expect("Failed to init interner");
-}
-
-#[repr(C)]
 #[derive(Ord, PartialOrd, Eq, PartialEq, Clone)]
 pub struct RegistrationId {
-    namespace   : Spur,
-    path        : Spur,
+    namespace: Spur,
+    path: Spur,
 }
 
 impl<'de> Deserialize<'de> for RegistrationId {
@@ -51,27 +37,18 @@ impl<'de> Deserialize<'de> for RegistrationId {
 impl Serialize for RegistrationId {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: Serializer
+        S: Serializer,
     {
         serializer.serialize_str(&self.to_string())
     }
 }
 
-impl TryFrom<&str> for RegistrationId {
-    type Error = RegistrationIdError;
+impl<'a> TryFrom<&'a str> for RegistrationId {
+    type Error = RegistrationIdError<'a>;
 
     #[inline]
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
+    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
         Self::try_parsing(value)
-    }
-}
-
-impl TryFrom<String> for RegistrationId {
-    type Error = RegistrationIdError;
-
-    #[inline]
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        Self::try_parsing(value.as_str())
     }
 }
 
@@ -103,7 +80,7 @@ impl RegistrationId {
     pub const DEFAULT_NAMESPACE: &'static str = "bevycraft";
 
     #[inline]
-    pub fn try_parsing(raw: &str) -> Result<Self, RegistrationIdError> {
+    pub fn try_parsing(raw: &str) -> Result<Self, RegistrationIdError<'_>> {
         match raw.split_once(':') {
             None => Self::try_with_default_namespace(raw),
             Some((n, p)) => Self::try_new(n, p),
@@ -111,45 +88,29 @@ impl RegistrationId {
     }
 
     #[inline]
-    pub fn try_with_custom_namespace(
-        namespace: &str,
-        path: &str,
-    ) -> Result<Self, RegistrationIdError> {
+    pub fn try_with_custom_namespace<'a>(
+        namespace: &'a str,
+        path: &'a str,
+    ) -> Result<Self, RegistrationIdError<'a>> {
         Self::try_new(namespace, path)
     }
 
     #[inline]
-    pub fn try_with_default_namespace(path: &str) -> Result<Self, RegistrationIdError> {
-        if let Some(interned) = try_get_spur(path) {
-            return Ok(
-                Self {
-                    namespace: Self::compute_namespace(Self::DEFAULT_NAMESPACE),
-                    path: interned,
-                }
-            )
-        }
-
-        if !Self::can_use_path(path) {
-            return Err(RegistrationIdError::IllegalPath(path.to_string()));
-        }
-
-        unsafe { Ok(Self::new_unchecked(Self::DEFAULT_NAMESPACE, path)) }
+    pub fn try_with_default_namespace(path: &str) -> Result<Self, RegistrationIdError<'_>> {
+        Ok(Self {
+            namespace: unsafe {
+                Self::compute_namespace(Self::DEFAULT_NAMESPACE).unwrap_unchecked()
+            },
+            path: Self::compute_path(path)?,
+        })
     }
 
     #[inline]
-    fn try_new(
-        namespace: &str,
-        path: &str,
-    ) -> Result<Self, RegistrationIdError> {
-        if !Self::can_use_namespace(namespace) {
-            return Err(RegistrationIdError::IllegalNamespace(namespace.to_string()))
-        }
-
-        if !Self::can_use_path(path) {
-            return Err(RegistrationIdError::IllegalPath(path.to_string()))
-        }
-
-        unsafe { Ok(Self::new_unchecked(namespace, path)) }
+    fn try_new<'a>(namespace: &'a str, path: &'a str) -> Result<Self, RegistrationIdError<'a>> {
+        Ok(Self {
+            namespace: Self::compute_namespace(namespace)?,
+            path: Self::compute_path(path)?,
+        })
     }
 
     #[inline]
@@ -161,37 +122,30 @@ impl RegistrationId {
     }
 
     #[inline]
-    pub fn with_custom_namespace(
-        namespace: &str,
-        path: &str,
-    ) -> Self {
+    pub fn with_custom_namespace(namespace: &str, path: &str) -> Self {
         Self::new(namespace, path)
     }
 
     #[inline]
     pub fn with_default_namespace(path: &str) -> Self {
         Self {
-            namespace: Self::compute_namespace(Self::DEFAULT_NAMESPACE),
-            path: Self::compute_path(path),
+            namespace: unsafe {
+                Self::compute_namespace(Self::DEFAULT_NAMESPACE).unwrap_unchecked()
+            },
+            path: Self::compute_path(path).unwrap(),
         }
     }
 
     #[inline]
-    fn new(
-        namespace: &str,
-        path: &str,
-    ) -> Self {
+    fn new(namespace: &str, path: &str) -> Self {
         Self {
-            namespace: Self::compute_namespace(namespace),
-            path: Self::compute_path(path),
+            namespace: Self::compute_namespace(namespace).unwrap(),
+            path: Self::compute_path(path).unwrap(),
         }
     }
 
     #[inline]
-    pub unsafe fn new_unchecked(
-        namespace: &str,
-        path: &str,
-    ) -> Self {
+    pub unsafe fn new_unchecked(namespace: &str, path: &str) -> Self {
         Self {
             namespace: get_or_intern_str(namespace),
             path: get_or_intern_str(path),
@@ -214,44 +168,49 @@ impl RegistrationId {
     }
 
     #[inline]
-    fn compute_path(str: &str) -> Spur {
-        if let Some(interned) = try_get_spur(str) {
-            return interned;
+    fn compute_path(str: &str) -> Result<Spur, RegistrationIdError<'_>> {
+        match try_get_spur(str) {
+            Some(interned) => Ok(interned),
+            None => {
+                if Self::can_use_path(str) {
+                    return Err(RegistrationIdError::IllegalPath(str));
+                }
+
+                Ok(get_or_intern_str(str))
+            }
         }
-
-        assert!(Self::can_use_path(str), "Illegal path: {}", str);
-
-        get_or_intern_str(str)
     }
 
     #[inline]
-    fn compute_namespace(str: &str) -> Spur {
-        if let Some(interned) = try_get_spur(str) {
-            return interned;
+    fn compute_namespace(str: &str) -> Result<Spur, RegistrationIdError<'_>> {
+        match try_get_spur(str) {
+            Some(interned) => Ok(interned),
+            None => {
+                if Self::can_use_namespace(str) {
+                    return Err(RegistrationIdError::IllegalNamespace(str));
+                }
+
+                Ok(get_or_intern_str(str))
+            }
         }
-
-        assert!(Self::can_use_namespace(str), "Illegal namespace: {}", str);
-
-        get_or_intern_str(str)
     }
 
     #[inline]
     fn can_use_path(path: &str) -> bool {
-        path.as_bytes()
-            .iter()
-            .all(Self::is_valid_path_byte)
+        path.as_bytes().iter().all(Self::is_valid_path_byte)
     }
 
     #[inline]
     fn can_use_namespace(namespace: &str) -> bool {
-        namespace.as_bytes()
+        namespace
+            .as_bytes()
             .iter()
             .all(Self::is_valid_namespace_byte)
     }
 
     #[inline]
     const fn is_valid_path_byte(byte: &u8) -> bool {
-        matches!(byte, b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'_' | b'-' | b'/' | b'.')
+        matches!(byte, b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'_' | b'-' | b'/')
     }
 
     #[inline]
@@ -277,47 +236,45 @@ impl<'de> de::Visitor<'de> for RegistrationIdVisitor {
     }
 }
 
-pub enum RegistrationIdError {
-    IllegalNamespace(String),
-    IllegalPath(String),
+pub enum RegistrationIdError<'a> {
+    IllegalNamespace(&'a str),
+    IllegalPath(&'a str),
     IllegalFormat,
-    Custom(String)
+    Custom(String),
 }
 
-impl de::Error for RegistrationIdError {
+impl de::Error for RegistrationIdError<'_> {
     fn custom<T>(msg: T) -> Self
     where
-        T: Display
+        T: Display,
     {
         Self::Custom(msg.to_string())
     }
 }
 
-impl Error for RegistrationIdError {}
+impl Error for RegistrationIdError<'_> {}
 
-impl Debug for RegistrationIdError {
+impl Debug for RegistrationIdError<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self)
     }
 }
 
-impl Display for RegistrationIdError {
+impl Display for RegistrationIdError<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             RegistrationIdError::IllegalNamespace(n) => {
                 f.write_str("Illegal namespace: ")?;
                 f.write_str(n)
-            },
+            }
             RegistrationIdError::IllegalPath(s) => {
                 f.write_str("Illegal path: ")?;
                 f.write_str(s)
             }
             RegistrationIdError::IllegalFormat => {
                 f.write_str("Illegal RegistrationId format (expected 'namespace:path')")
-            },
-            RegistrationIdError::Custom(msg) => {
-                f.write_str(msg)
-            },
+            }
+            RegistrationIdError::Custom(msg) => f.write_str(msg),
         }
     }
 }
@@ -333,7 +290,7 @@ impl Hasher for IdentityHasher {
     #[inline]
     #[allow(unused_variables)]
     fn write(&mut self, bytes: &[u8]) {
-        panic!("IdentityHasher does not allow writing bytes")
+        self.0 = u64::from_ne_bytes(bytes.try_into().unwrap());
     }
 
     #[inline]
@@ -355,27 +312,23 @@ impl BuildHasher for IdentityHasherBuilder {
 
 #[inline]
 fn resolve_spur(spur: &Spur) -> &str {
-    unsafe {
-        GLOBAL_INTERN.get()
-            .unwrap_unchecked()
-            .resolve(spur)
-    }
+    interner().resolve(spur)
 }
 
 #[inline]
 fn try_get_spur(str: &str) -> Option<Spur> {
-    unsafe {
-        GLOBAL_INTERN.get()
-            .unwrap_unchecked()
-            .get(str)
-    }
+    interner().get(str)
 }
 
 #[inline]
 fn get_or_intern_str(str: &str) -> Spur {
-    unsafe {
-        GLOBAL_INTERN.get()
-            .unwrap_unchecked()
-            .get_or_intern(str)
-    }
+    interner().get_or_intern(str)
+}
+
+#[must_use]
+#[inline(always)]
+fn interner() -> &'static RapidThreadedRodeo {
+    GLOBAL_INTERN.get_or_init(|| {
+        ThreadedRodeo::with_capacity_and_hasher(Capacity::for_strings(256), RandomState::new())
+    })
 }
