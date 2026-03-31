@@ -7,7 +7,6 @@ edition = "2024"
 
 winapi.workspace = true
 libc.workspace = true
-ctor.workspace = true
 
 bevy.workspace = true
 

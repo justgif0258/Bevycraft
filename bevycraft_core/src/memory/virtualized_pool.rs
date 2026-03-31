@@ -2,18 +2,20 @@ use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
 use std::mem::transmute;
 use std::num::NonZeroUsize;
-use std::sync::atomic::{AtomicPtr, AtomicU64, AtomicUsize};
+use std::sync::atomic::AtomicUsize;
 
 use bevy::ecs::resource::Resource;
+use crossbeam_queue::ArrayQueue;
 
 #[derive(Resource)]
+#[rustfmt::skip]
 pub struct VirtualizedPool<T> {
-    handle: *mut (),
-    paging: Paging,
-    capacity: Capacity,
-    next: AtomicUsize,
-    free_list: AtomicPtr<()>,
-    _marker: PhantomData<T>,
+    handle      : *mut (),
+    paging      : Paging,
+    capacity    : Capacity,
+    next        : AtomicUsize,
+    free_list   : ArrayQueue<*mut ()>,
+    _marker     : PhantomData<T>,
 }
 
 unsafe impl<T: Sized> Send for VirtualizedPool<T> {}
@@ -72,7 +74,7 @@ impl<T> VirtualizedPool<T> {
             paging,
             capacity,
             next: AtomicUsize::new(0),
-            free_list: AtomicPtr::new(std::ptr::null_mut()),
+            free_list: ArrayQueue::new(capacity.get()),
             _marker: PhantomData,
         })
     }
@@ -87,6 +89,8 @@ impl<T> VirtualizedPool<T> {
                 let next = self.next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
                 if next >= self.capacity() {
+                    self.next.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+
                     return None;
                 }
 
@@ -104,45 +108,12 @@ impl<T> VirtualizedPool<T> {
     #[inline]
     #[must_use]
     unsafe fn read_ptr(&self) -> Option<*mut ()> {
-        let mut current = self.free_list.load(std::sync::atomic::Ordering::Relaxed);
-
-        loop {
-            if current.is_null() {
-                return None;
-            }
-
-            let new = unsafe { *(current as *mut *mut ()) };
-
-            match self.free_list.compare_exchange_weak(
-                current,
-                new,
-                std::sync::atomic::Ordering::SeqCst,
-                std::sync::atomic::Ordering::Acquire,
-            ) {
-                Ok(_) => return Some(current),
-                Err(val) => current = val,
-            }
-        }
+        self.free_list.pop()
     }
 
     #[inline]
     unsafe fn write_ptr(&self, ptr: *mut ()) {
-        let mut current = self.free_list.load(std::sync::atomic::Ordering::Relaxed);
-
-        loop {
-            match self.free_list.compare_exchange_weak(
-                current,
-                ptr,
-                std::sync::atomic::Ordering::SeqCst,
-                std::sync::atomic::Ordering::Acquire,
-            ) {
-                Ok(_) => unsafe {
-                    (ptr as *mut *mut ()).write(current);
-                    break;
-                },
-                Err(val) => current = val,
-            }
-        }
+        self.free_list.push(ptr).expect("Free list overflowed")
     }
 
     #[inline]
@@ -180,14 +151,12 @@ impl<T> Drop for VirtualizedPool<T> {
     }
 }
 
+#[rustfmt::skip]
 pub struct Page<'pool, T> {
-    page: *mut (),
-    handle: &'pool VirtualizedPool<T>,
-    _marker: PhantomData<&'pool T>,
+    page    : *mut (),
+    handle  : &'pool VirtualizedPool<T>,
+    _marker : PhantomData<&'pool T>,
 }
-
-unsafe impl<'pool, T: Sized> Send for Page<'pool, T> {}
-unsafe impl<'pool, T: Sized> Sync for Page<'pool, T> {}
 
 impl<T> Page<'_, T> {
     #[inline]

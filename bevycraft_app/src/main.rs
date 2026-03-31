@@ -1,14 +1,22 @@
-use std::sync::atomic::AtomicUsize;
-use std::sync::atomic::Ordering::Relaxed;
 use bevy::prelude::*;
-use bevycraft_core::prelude::{VirtualizedPool};
+use bevycraft_world::{
+    prelude::{Block, BlockBehaviour},
+    presets::block::BlockFlags,
+};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let u = AtomicUsize::new(0);
+    let stone = BlockBehaviour::new()
+        .hardness(2.0)
+        .toughness(6.0)
+        .flags(
+            BlockFlags::COLLIDABLE
+                | BlockFlags::OCCLUDABLE
+                | BlockFlags::CAN_SUPPORT
+                | BlockFlags::DOES_SPAWN,
+        )
+        .build();
 
-    u.fetch_sub(1, Relaxed);
-
-    println!("{:?}", u);
+    println!("{:?}", stone);
 
     /*
     App::new()

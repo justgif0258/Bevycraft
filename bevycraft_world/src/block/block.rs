@@ -1,110 +1,110 @@
-use const_builder::ConstBuilder;
+use bevycraft_core::prelude::Recordable;
+use builder_pattern::Builder;
 
-#[derive(Debug)]
-pub struct Block {
-    properties: BlockBehaviour,
+pub trait Block: Recordable {
+    fn get_behaviour(&self) -> BlockBehaviour;
 }
 
-impl Block {
-    pub const fn new(behaviour: BlockBehaviour) -> Self {
-        Self { properties: behaviour }
-    }
-}
-
-impl BehaviourTrait for Block {
-    #[inline]
-    fn hardness(&self) -> f32 {
-        self.properties.hardness
-    }
-
-    #[inline]
-    fn toughness(&self) -> f32 {
-        self.properties.toughness
-    }
-
-    #[inline]
-    fn friction(&self) -> f32 {
-        self.properties.friction
-    }
-
-    #[inline]
-    fn emission(&self) -> f32 {
-        self.properties.emission
-    }
-
-    #[inline]
-    fn light_influence(&self) -> i32 {
-        self.properties.light_influence.cast_signed()
-    }
-
-    #[inline]
-    fn translucent(&self) -> bool {
-        self.properties.translucent
-    }
-
-    #[inline]
-    fn replaceable(&self) -> bool {
-        self.properties.replaceable
-    }
-
-    #[inline]
-    fn occludable(&self) -> bool {
-        self.properties.occludable
-    }
-
-    #[inline]
-    fn air(&self) -> bool {
-        self.properties.air
-    }
-}
-
-#[derive(ConstBuilder, Debug)]
-#[builder(rename = "BehaviourBuilder")]
+#[derive(Builder, Debug)]
 pub struct BlockBehaviour {
-    #[builder(default = 1.0)]
-    pub(super) hardness: f32,
+    #[into]
+    #[public]
+    #[default(0.0)]
+    hardness: f32,
 
-    #[builder(default = 1.0)]
-    pub(super) toughness: f32,
+    #[into]
+    #[public]
+    #[default(0.0)]
+    toughness: f32,
 
-    #[builder(default = 0.6)]
-    pub(super) friction: f32,
+    #[into]
+    #[public]
+    #[default(0.6)]
+    friction: f32,
 
-    #[builder(default = 0.0)]
-    pub(super) emission: f32,
+    #[into]
+    #[public]
+    #[default(0.0)]
+    emission: f32,
 
-    #[builder(default = 0)]
-    pub(super) light_influence: u32,
-
-    #[builder(default = false)]
-    pub(super) translucent: bool,
-
-    #[builder(default = false)]
-    pub(super) replaceable: bool,
-
-    #[builder(default = true)]
-    pub(super) occludable: bool,
-
-    #[builder(default = false)]
-    pub(super) air: bool,
+    #[into]
+    #[public]
+    #[default(BlockFlags::empty())]
+    flags: BlockFlags,
 }
 
-pub trait BehaviourTrait {
-    fn hardness(&self) -> f32;
+impl BlockBehaviour {
+    #[inline]
+    pub const fn hardness(&self) -> f32 {
+        self.hardness
+    }
 
-    fn toughness(&self) -> f32;
+    #[inline]
+    pub const fn toughness(&self) -> f32 {
+        self.toughness
+    }
 
-    fn friction(&self) -> f32;
+    #[inline]
+    pub const fn friction(&self) -> f32 {
+        self.friction
+    }
 
-    fn emission(&self) -> f32;
+    #[inline]
+    pub const fn emission(&self) -> f32 {
+        self.emission
+    }
 
-    fn light_influence(&self) -> i32;
+    #[inline]
+    pub const fn air(&self) -> bool {
+        self.flags.contains(BlockFlags::AIR)
+    }
 
-    fn translucent(&self) -> bool;
+    #[inline]
+    pub const fn collidable(&self) -> bool {
+        self.flags.contains(BlockFlags::COLLIDABLE)
+    }
 
-    fn replaceable(&self) -> bool;
+    #[inline]
+    pub const fn occludable(&self) -> bool {
+        self.flags.contains(BlockFlags::OCCLUDABLE)
+    }
 
-    fn occludable(&self) -> bool;
+    #[inline]
+    pub const fn translucent(&self) -> bool {
+        self.flags.contains(BlockFlags::TRANSLUCENT)
+    }
 
-    fn air(&self) -> bool;
+    #[inline]
+    pub const fn replaceable(&self) -> bool {
+        self.flags.contains(BlockFlags::REPLACEABLE)
+    }
+
+    #[inline]
+    pub const fn can_support(&self) -> bool {
+        self.flags.contains(BlockFlags::CAN_SUPPORT)
+    }
+
+    #[inline]
+    pub const fn does_spawn(&self) -> bool {
+        self.flags.contains(BlockFlags::DOES_SPAWN)
+    }
+
+    #[inline]
+    pub const fn does_connect(&self) -> bool {
+        self.flags.contains(BlockFlags::DOES_CONNECT)
+    }
+}
+
+bitflags::bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub struct BlockFlags: u8 {
+        const AIR = 0b1000_0000;
+        const COLLIDABLE = 0b0000_0001;
+        const OCCLUDABLE = 0b0000_0010;
+        const TRANSLUCENT = 0b0000_0100;
+        const REPLACEABLE = 0b0000_1000;
+        const CAN_SUPPORT = 0b0001_0000;
+        const DOES_SPAWN = 0b0010_0000;
+        const DOES_CONNECT = 0b0100_0000;
+    }
 }

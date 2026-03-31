@@ -12,29 +12,29 @@ use {
     },
 };
 
-pub type RegistrationMap<V> = HashMap<RegistrationId, V, IdentityHasherBuilder>;
+static GLOBAL_INTERN: OnceLock<RapidThreadedRodeo> = OnceLock::new();
+
+pub type AssetMap<V> = HashMap<AssetLocation, V, AssetHasherBuilder>;
 
 type RapidThreadedRodeo = ThreadedRodeo<Spur, RandomState>;
 
-static GLOBAL_INTERN: OnceLock<RapidThreadedRodeo> = OnceLock::new();
-
-#[derive(Ord, PartialOrd, Eq, PartialEq, Clone)]
-pub struct RegistrationId {
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd)]
+pub struct AssetLocation {
     namespace: Spur,
     path: Spur,
 }
 
-impl<'de> Deserialize<'de> for RegistrationId {
+impl<'de> Deserialize<'de> for AssetLocation {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        RegistrationId::try_from(deserializer.deserialize_str(RegistrationIdVisitor)?)
+        AssetLocation::try_from(deserializer.deserialize_str(AssetLocationVisitor)?)
             .map_err(de::Error::custom)
     }
 }
 
-impl Serialize for RegistrationId {
+impl Serialize for AssetLocation {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -43,8 +43,8 @@ impl Serialize for RegistrationId {
     }
 }
 
-impl<'a> TryFrom<&'a str> for RegistrationId {
-    type Error = RegistrationIdError<'a>;
+impl<'a> TryFrom<&'a str> for AssetLocation {
+    type Error = AssetLocationError<'a>;
 
     #[inline]
     fn try_from(value: &'a str) -> Result<Self, Self::Error> {
@@ -52,14 +52,14 @@ impl<'a> TryFrom<&'a str> for RegistrationId {
     }
 }
 
-impl Hash for RegistrationId {
+impl Hash for AssetLocation {
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
         state.write_u64(self.hash_u64())
     }
 }
 
-impl Debug for RegistrationId {
+impl Debug for AssetLocation {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("RegistrationId")
             .field("namespace", &self.namespace())
@@ -68,7 +68,7 @@ impl Debug for RegistrationId {
     }
 }
 
-impl Display for RegistrationId {
+impl Display for AssetLocation {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.namespace())?;
         f.write_char(':')?;
@@ -76,11 +76,11 @@ impl Display for RegistrationId {
     }
 }
 
-impl RegistrationId {
+impl AssetLocation {
     pub const DEFAULT_NAMESPACE: &'static str = "bevycraft";
 
     #[inline]
-    pub fn try_parsing(raw: &str) -> Result<Self, RegistrationIdError<'_>> {
+    pub fn try_parsing(raw: &str) -> Result<Self, AssetLocationError<'_>> {
         match raw.split_once(':') {
             None => Self::try_with_default_namespace(raw),
             Some((n, p)) => Self::try_new(n, p),
@@ -91,12 +91,12 @@ impl RegistrationId {
     pub fn try_with_custom_namespace<'a>(
         namespace: &'a str,
         path: &'a str,
-    ) -> Result<Self, RegistrationIdError<'a>> {
+    ) -> Result<Self, AssetLocationError<'a>> {
         Self::try_new(namespace, path)
     }
 
     #[inline]
-    pub fn try_with_default_namespace(path: &str) -> Result<Self, RegistrationIdError<'_>> {
+    pub fn try_with_default_namespace(path: &str) -> Result<Self, AssetLocationError<'_>> {
         Ok(Self {
             namespace: unsafe {
                 Self::compute_namespace(Self::DEFAULT_NAMESPACE).unwrap_unchecked()
@@ -106,7 +106,7 @@ impl RegistrationId {
     }
 
     #[inline]
-    fn try_new<'a>(namespace: &'a str, path: &'a str) -> Result<Self, RegistrationIdError<'a>> {
+    fn try_new<'a>(namespace: &'a str, path: &'a str) -> Result<Self, AssetLocationError<'a>> {
         Ok(Self {
             namespace: Self::compute_namespace(namespace)?,
             path: Self::compute_path(path)?,
@@ -163,17 +163,17 @@ impl RegistrationId {
     }
 
     #[inline]
-    pub const fn hash_u64(&self) -> u64 {
+    const fn hash_u64(&self) -> u64 {
         unsafe { transmute::<_, u64>((self.namespace, self.path)) }
     }
 
     #[inline]
-    fn compute_path(str: &str) -> Result<Spur, RegistrationIdError<'_>> {
+    fn compute_path(str: &str) -> Result<Spur, AssetLocationError<'_>> {
         match try_get_spur(str) {
             Some(interned) => Ok(interned),
             None => {
-                if Self::can_use_path(str) {
-                    return Err(RegistrationIdError::IllegalPath(str));
+                if !Self::can_use_path(str) {
+                    return Err(AssetLocationError::IllegalPath(str));
                 }
 
                 Ok(get_or_intern_str(str))
@@ -182,12 +182,12 @@ impl RegistrationId {
     }
 
     #[inline]
-    fn compute_namespace(str: &str) -> Result<Spur, RegistrationIdError<'_>> {
+    fn compute_namespace(str: &str) -> Result<Spur, AssetLocationError<'_>> {
         match try_get_spur(str) {
             Some(interned) => Ok(interned),
             None => {
-                if Self::can_use_namespace(str) {
-                    return Err(RegistrationIdError::IllegalNamespace(str));
+                if !Self::can_use_namespace(str) {
+                    return Err(AssetLocationError::IllegalNamespace(str));
                 }
 
                 Ok(get_or_intern_str(str))
@@ -219,9 +219,9 @@ impl RegistrationId {
     }
 }
 
-pub struct RegistrationIdVisitor;
+pub struct AssetLocationVisitor;
 
-impl<'de> de::Visitor<'de> for RegistrationIdVisitor {
+impl<'de> de::Visitor<'de> for AssetLocationVisitor {
     type Value = &'de str;
 
     fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
@@ -236,14 +236,14 @@ impl<'de> de::Visitor<'de> for RegistrationIdVisitor {
     }
 }
 
-pub enum RegistrationIdError<'a> {
+pub enum AssetLocationError<'a> {
     IllegalNamespace(&'a str),
     IllegalPath(&'a str),
     IllegalFormat,
     Custom(String),
 }
 
-impl de::Error for RegistrationIdError<'_> {
+impl de::Error for AssetLocationError<'_> {
     fn custom<T>(msg: T) -> Self
     where
         T: Display,
@@ -252,43 +252,42 @@ impl de::Error for RegistrationIdError<'_> {
     }
 }
 
-impl Error for RegistrationIdError<'_> {}
+impl Error for AssetLocationError<'_> {}
 
-impl Debug for RegistrationIdError<'_> {
+impl Debug for AssetLocationError<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self)
     }
 }
 
-impl Display for RegistrationIdError<'_> {
+impl Display for AssetLocationError<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            RegistrationIdError::IllegalNamespace(n) => {
+            AssetLocationError::IllegalNamespace(n) => {
                 f.write_str("Illegal namespace: ")?;
                 f.write_str(n)
             }
-            RegistrationIdError::IllegalPath(s) => {
+            AssetLocationError::IllegalPath(s) => {
                 f.write_str("Illegal path: ")?;
                 f.write_str(s)
             }
-            RegistrationIdError::IllegalFormat => {
-                f.write_str("Illegal RegistrationId format (expected 'namespace:path')")
+            AssetLocationError::IllegalFormat => {
+                f.write_str("Illegal AssetLocation format (expected 'namespace:path')")
             }
-            RegistrationIdError::Custom(msg) => f.write_str(msg),
+            AssetLocationError::Custom(msg) => f.write_str(msg),
         }
     }
 }
 
-pub struct IdentityHasher(u64);
+pub struct AssetHasher(u64);
 
-impl Hasher for IdentityHasher {
+impl Hasher for AssetHasher {
     #[inline]
     fn finish(&self) -> u64 {
         self.0
     }
 
     #[inline]
-    #[allow(unused_variables)]
     fn write(&mut self, bytes: &[u8]) {
         self.0 = u64::from_ne_bytes(bytes.try_into().unwrap());
     }
@@ -300,27 +299,27 @@ impl Hasher for IdentityHasher {
 }
 
 #[derive(Default)]
-pub struct IdentityHasherBuilder;
+pub struct AssetHasherBuilder;
 
-impl BuildHasher for IdentityHasherBuilder {
-    type Hasher = IdentityHasher;
+impl BuildHasher for AssetHasherBuilder {
+    type Hasher = AssetHasher;
 
     fn build_hasher(&self) -> Self::Hasher {
-        IdentityHasher(0)
+        AssetHasher(0)
     }
 }
 
-#[inline]
+#[inline(always)]
 fn resolve_spur(spur: &Spur) -> &str {
     interner().resolve(spur)
 }
 
-#[inline]
+#[inline(always)]
 fn try_get_spur(str: &str) -> Option<Spur> {
     interner().get(str)
 }
 
-#[inline]
+#[inline(always)]
 fn get_or_intern_str(str: &str) -> Spur {
     interner().get_or_intern(str)
 }

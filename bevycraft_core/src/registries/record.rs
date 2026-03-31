@@ -1,101 +1,18 @@
 use {
     crate::prelude::*,
-    bevy::ecs::resource::Resource,
-    boomphf::Mphf,
     std::{any::TypeId, sync::Arc},
 };
 
-#[derive(Resource, Debug)]
-pub struct MappedRecord<T: Recordable> {
-    m_hasher: Mphf<RegistrationId>,
-    entries: Box<[Entry<T>]>,
-}
-
-impl<T: Recordable> MappedRecord<T> {
-    pub const BASE: f64 = 3.3f64;
-
-    pub fn new<C: Commit<T>>(commit: C) -> Self {
-        let keys = commit.keys();
-
-        let m_hasher = Self::gen_phf(keys);
-
-        let entries = Self::gen_boxed_entries(&m_hasher, commit);
-
-        Self { m_hasher, entries }
-    }
-
-    fn gen_boxed_entries<C: Commit<T>>(phf: &Mphf<RegistrationId>, commit: C) -> Box<[Entry<T>]> {
-        let entries = commit.consume();
-
-        let mut boxed = Box::<[Entry<T>]>::new_uninit_slice(entries.len());
-
-        entries.into_iter().for_each(|entry| {
-            let idx = phf.hash(entry.key()) as usize;
-
-            boxed[idx].write(entry);
-        });
-
-        unsafe { boxed.assume_init() }
-    }
-
-    fn gen_phf(keys: Vec<RegistrationId>) -> Mphf<RegistrationId> {
-        Mphf::new(Self::BASE, keys.as_slice())
-    }
-}
-
-impl<T: Recordable> Record<T> for MappedRecord<T> {
-    #[inline]
-    fn get_by_key(&self, key: &RegistrationId) -> Option<&T> {
-        let idx = self.m_hasher.try_hash(key)?;
-
-        self.entries.get(idx as usize).and_then(|entry| {
-            if entry.key() == key {
-                return Some(entry.val());
-            }
-
-            None
-        })
-    }
-
-    #[inline]
-    fn get_by_id(&self, index: usize) -> Option<&T> {
-        self.entries.get(index).map(|entry| entry.val())
-    }
-
-    #[inline]
-    fn idx_to_key(&self, index: usize) -> Option<&RegistrationId> {
-        self.entries.get(index).map(|entry| entry.key())
-    }
-
-    #[inline]
-    fn key_to_idx(&self, key: &RegistrationId) -> Option<usize> {
-        self.m_hasher.try_hash(key).map(|idx| idx as usize)
-    }
-
-    #[inline]
-    fn keys(&self) -> Vec<&RegistrationId> {
-        self.entries
-            .iter()
-            .map(|entry| entry.key())
-            .collect::<Vec<_>>()
-    }
-
-    #[inline]
-    fn len(&self) -> usize {
-        self.entries.len()
-    }
-}
-
 pub trait Record<T: Recordable> {
-    fn get_by_key(&self, key: &RegistrationId) -> Option<&T>;
+    fn get_by_key(&self, key: &AssetLocation) -> Option<&T>;
 
     fn get_by_id(&self, id: usize) -> Option<&T>;
 
-    fn idx_to_key(&self, id: usize) -> Option<&RegistrationId>;
+    fn idx_to_key(&self, id: usize) -> Option<&AssetLocation>;
 
-    fn key_to_idx(&self, key: &RegistrationId) -> Option<usize>;
+    fn key_to_idx(&self, key: &AssetLocation) -> Option<usize>;
 
-    fn keys(&self) -> Vec<&RegistrationId>;
+    fn keys(&self) -> Vec<&AssetLocation>;
 
     fn len(&self) -> usize;
 }
@@ -113,14 +30,14 @@ unsafe impl<T> Recordable for T
 where
     T: Send + Sync + 'static,
 {
-    #[inline]
+    #[inline(always)]
     fn type_id(&self) -> TypeId {
         TypeId::of::<T>()
     }
 }
 
 impl dyn Recordable {
-    #[inline]
+    #[inline(always)]
     pub fn downcast<T: Recordable>(self: Box<Self>) -> Result<Box<T>, Box<Self>> {
         if self.is::<T>() {
             unsafe { return Ok(self.downcast_unchecked()) }
@@ -129,7 +46,7 @@ impl dyn Recordable {
         Err(self)
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn downcast_arc<T: Recordable>(self: Arc<Self>) -> Result<Arc<T>, Arc<Self>> {
         if self.is::<T>() {
             unsafe { return Ok(self.downcast_arc_unchecked()) }
@@ -138,7 +55,7 @@ impl dyn Recordable {
         Err(self)
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn downcast_ref<T: Recordable>(&self) -> Option<&T> {
         if self.is::<T>() {
             unsafe { return Some(self.downcast_ref_unchecked()) }
@@ -147,7 +64,7 @@ impl dyn Recordable {
         None
     }
 
-    #[inline]
+    #[inline(always)]
     pub unsafe fn downcast_unchecked<T: Recordable>(self: Box<Self>) -> Box<T> {
         unsafe {
             let raw = Box::into_raw(self);
@@ -156,7 +73,7 @@ impl dyn Recordable {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     pub unsafe fn downcast_arc_unchecked<T: Recordable>(self: Arc<Self>) -> Arc<T> {
         unsafe {
             let raw = Arc::into_raw(self);
@@ -165,12 +82,12 @@ impl dyn Recordable {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     pub unsafe fn downcast_ref_unchecked<T: Recordable>(&self) -> &T {
         unsafe { &*(self as *const Self as *const T) }
     }
 
-    #[inline]
+    #[inline(always)]
     fn is<T: Recordable>(&self) -> bool {
         self.type_id() == TypeId::of::<T>()
     }

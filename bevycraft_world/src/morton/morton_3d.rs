@@ -1,15 +1,15 @@
+use bevy::math::*;
 use std::arch::x86_64::{_pdep_u64, _pext_u64};
 use std::hash::{Hash, Hasher};
 use std::ops::{BitAnd, Shl, Shr};
-use bevy::math::*;
 
-const MASK_X    : u64 = 0b00010010_01001001_00100100_10010010_01001001_00100100_10010010_01001001;
-const MASK_Y    : u64 = MASK_X << 1;
-const MASK_Z    : u64 = MASK_X << 2;
+const MASK_X: u64 = 0x1249249249249249;
+const MASK_Y: u64 = MASK_X << 1;
+const MASK_Z: u64 = MASK_X << 2;
 
-const MASK_YZ   : u64 = !MASK_X;
-const MASK_XZ   : u64 = !MASK_Y;
-const MASK_XY   : u64 = !MASK_Z;
+const MASK_YZ: u64 = !MASK_X;
+const MASK_XZ: u64 = !MASK_Y;
+const MASK_XY: u64 = !MASK_Z;
 
 pub trait MortonEncodable {
     fn encode_x(&self) -> u32;
@@ -22,8 +22,6 @@ pub trait MortonEncodable {
 pub trait MortonDecodable {
     fn decode(x: u64, y: u64, z: u64) -> Self;
 }
-
-const MORTON_INDEX_MASK: u64 = 0x7;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Morton3D(u64);
@@ -41,7 +39,6 @@ impl From<Morton3D> for u64 {
 }
 
 impl Hash for Morton3D {
-    
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
         state.write_u64(self.0)
@@ -49,7 +46,6 @@ impl Hash for Morton3D {
 }
 
 impl Morton3D {
-
     #[inline]
     pub fn encode<T: MortonEncodable>(value: T) -> Self {
         unsafe { Self::interleave(value) }
@@ -89,7 +85,7 @@ impl Morton3D {
     pub const fn dec_z(&mut self) {
         self.0 = ((self.0 & MASK_Z).wrapping_sub(4) & MASK_Z) | (self.0 & MASK_XY);
     }
-    
+
     #[inline]
     pub const fn raw(&self) -> u64 {
         self.0
@@ -102,7 +98,7 @@ impl Morton3D {
         Self(
             _pdep_u64(value.encode_x() as u64, MASK_X)
                 | _pdep_u64(value.encode_y() as u64, MASK_Y)
-                | _pdep_u64(value.encode_z() as u64, MASK_Z)
+                | _pdep_u64(value.encode_z() as u64, MASK_Z),
         )
     }
 
@@ -112,7 +108,7 @@ impl Morton3D {
         Self(
             Morton3D::split_bits(value.encode_x())
                 | (Morton3D::split_bits(value.encode_y()) << 1)
-                | (Morton3D::split_bits(value.encode_z()) << 2)
+                | (Morton3D::split_bits(value.encode_z()) << 2),
         )
     }
 
@@ -300,7 +296,6 @@ impl MortonEncodable for UVec3 {
 }
 
 impl MortonDecodable for UVec3 {
-
     #[inline]
     fn decode(x: u64, y: u64, z: u64) -> Self {
         Self::new(x as _, y as _, z as _)
@@ -308,7 +303,6 @@ impl MortonDecodable for UVec3 {
 }
 
 impl MortonEncodable for [u32; 3] {
-
     #[inline]
     fn encode_x(&self) -> u32 {
         self[0]
@@ -326,7 +320,6 @@ impl MortonEncodable for [u32; 3] {
 }
 
 impl MortonDecodable for [u32; 3] {
-
     #[inline]
     fn decode(x: u64, y: u64, z: u64) -> Self {
         [x as _, y as _, z as _]
@@ -348,7 +341,6 @@ impl MortonEncodable for (u32, u32, u32) {
 }
 
 impl MortonDecodable for (u32, u32, u32) {
-
     #[inline]
     fn decode(x: u64, y: u64, z: u64) -> Self {
         (x as _, y as _, z as _)

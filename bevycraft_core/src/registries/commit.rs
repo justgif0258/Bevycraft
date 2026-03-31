@@ -1,13 +1,11 @@
 use crate::prelude::*;
 
-pub trait Commit<T: Recordable> {
-    fn make() -> Self;
-
-    fn push(&mut self, key: RegistrationId, recordable: T);
+pub trait Commit<T: Recordable>: Default {
+    fn push(&mut self, key: AssetLocation, recordable: T);
 
     fn append(&mut self, entry: Entry<T>);
 
-    fn keys(&self) -> Vec<RegistrationId>;
+    fn keys(&self) -> Vec<AssetLocation>;
 
     fn merge(&mut self, other: Self);
 

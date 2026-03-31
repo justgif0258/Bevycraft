@@ -4,7 +4,7 @@ use std::num::NonZeroUsize;
 use std::ops::Add;
 use std::ptr::*;
 
-/// ## Packed Index Array
+/// # Packed Index Array
 /// Fast, memory-safe and efficient array with dynamically bit-sized indices.
 /// The bit-size of each index is based on how many bits is needed for the
 /// largest index to be represented.
@@ -202,7 +202,7 @@ impl PackedArrayU32 {
     ) -> u32 {
         let mut row = unsafe { (buffer.add(bit_index >> 3) as *const u64).read_unaligned() };
 
-        row >>= (bit_index & 7);
+        row >>= bit_index & 7;
         row &= mask(n_bits);
 
         row as u32

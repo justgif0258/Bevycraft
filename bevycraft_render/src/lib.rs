@@ -1,5 +1,5 @@
-mod block_renderer;
+mod voxel;
 
 pub mod prelude {
-    pub use crate::block_renderer::*;
+    pub use crate::voxel::*;
 }

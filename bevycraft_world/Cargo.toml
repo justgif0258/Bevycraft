@@ -1,3 +1,4 @@
+
 [package]
 name = "bevycraft_world"
 authors.workspace = true
@@ -9,4 +10,6 @@ bevycraft_core.workspace = true
 
 bevy.workspace = true
 
-const-builder.workspace = true
+bitflags.workspace = true
+
+builder-pattern.workspace = true

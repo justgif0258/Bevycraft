@@ -1,19 +1,12 @@
 extern crate core;
 
 mod memory;
-mod util;
 mod registries;
+mod util;
 
 pub mod prelude {
+    pub use crate::memory::{packed_array_u32::PackedArrayU32, virtualized_pool::*};
     pub use crate::registries::{
-        record::*,
-        registration_id::*,
-        entry::*,
-        commit::Commit,
-        mapped_commit::*,
-    };
-    pub use crate::memory::{
-        virtualized_pool::*,
-        packed_array_u32::PackedArrayU32,
+        asset_location::*, commit::*, entry::*, mapped_commit::*, mapped_record::*, record::*,
     };
 }

@@ -37,7 +37,7 @@ impl<T: Recordable> Entries<T> {
     }
 
     #[inline]
-    pub fn add(&mut self, key: RegistrationId, val: T) {
+    pub fn add(&mut self, key: AssetLocation, val: T) {
         assert!(!self.contains(&key), "Found duplicate key '{}'", &key);
 
         self.0.push(Entry::new(key, val));
@@ -65,21 +65,21 @@ impl<T: Recordable> Entries<T> {
     }
 
     #[inline]
-    pub fn contains(&self, key: &RegistrationId) -> bool {
+    pub fn contains(&self, key: &AssetLocation) -> bool {
         self.0.iter().any(|e| e == key)
     }
 }
 
 #[derive(Debug)]
 pub struct Entry<T: Recordable> {
-    key: RegistrationId,
+    key: AssetLocation,
     val: T,
 }
 
 impl<T: Recordable> Hash for Entry<T> {
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write_u64(self.key.hash_u64())
+        self.key.hash(state);
     }
 }
 
@@ -97,9 +97,9 @@ impl<T: Recordable> PartialOrd for Entry<T> {
     }
 }
 
-impl<T: Recordable> PartialOrd<RegistrationId> for Entry<T> {
+impl<T: Recordable> PartialOrd<AssetLocation> for Entry<T> {
     #[inline]
-    fn partial_cmp(&self, other: &RegistrationId) -> Option<Ordering> {
+    fn partial_cmp(&self, other: &AssetLocation) -> Option<Ordering> {
         self.key.partial_cmp(other)
     }
 }
@@ -113,21 +113,21 @@ impl<T: Recordable> PartialEq for Entry<T> {
     }
 }
 
-impl<T: Recordable> PartialEq<RegistrationId> for Entry<T> {
+impl<T: Recordable> PartialEq<AssetLocation> for Entry<T> {
     #[inline]
-    fn eq(&self, other: &RegistrationId) -> bool {
+    fn eq(&self, other: &AssetLocation) -> bool {
         self.key.eq(other)
     }
 }
 
 impl<T: Recordable> Entry<T> {
     #[inline]
-    pub fn new(key: RegistrationId, val: T) -> Self {
+    pub fn new(key: AssetLocation, val: T) -> Self {
         Self { key, val }
     }
 
     #[inline]
-    pub fn key(&self) -> &RegistrationId {
+    pub fn key(&self) -> &AssetLocation {
         &self.key
     }
 
@@ -137,7 +137,7 @@ impl<T: Recordable> Entry<T> {
     }
 
     #[inline]
-    pub fn take(self) -> (RegistrationId, T)
+    pub fn take(self) -> (AssetLocation, T)
     where
         T: Sized + Recordable,
     {

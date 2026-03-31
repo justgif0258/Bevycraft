@@ -1,3 +1,4 @@
+
 [workspace]
 resolver = "3"
 members = [
@@ -19,31 +20,39 @@ opt-level = 1
 opt-level = 3
 
 [workspace.dependencies]
+# OS Dependencies
+winapi = { version = "0.3.9", features = ["memoryapi", "winnt"] }
+libc = { version = "0.2.183", features = [] }
 
-winapi              = { version = "0.3.9", features = ["memoryapi", "winnt", "heapapi"] }
-libc                = { version = "0.2.182", features = [] }
-ctor                = { version = "0.6.3", features = [] }
+# Bevycraft API
+bevycraft_core = { path = "bevycraft_core" }
+bevycraft_world = { path = "bevycraft_world" }
+bevycraft_render = { path = "bevycraft_render" }
 
-bevycraft_core      = { path = "bevycraft_core" }
-bevycraft_world     = { path = "bevycraft_world" }
-bevycraft_render    = { path = "bevycraft_render" }
+# Bevy
+bevy = { version = "0.18.1", features = ["dynamic_linking"] }
 
-bevy                = { version = "0.18.0", features = ["dynamic_linking"] }
-rand                = { version = "0.10.0", features = [] }
-rayon               = { version = "1.11.0", features = [] }
+# Parallelism
+rayon = { version = "1.11.0", features = [] }
+lasso = { version = "0.7.3", features = ["multi-threaded", "inline-more"] }
+crossbeam-queue = { version = "0.3.12", features = [] }
 
-const-builder       = { version = "0.1.5", features = [] }
+# Utilities
+builder-pattern = { version = "0.4.2", features = [] }
+rand = { version = "0.10.0", features = [] }
 
-lasso               = { version = "0.7.3", features = ["multi-threaded", "inline-more"] }
+# Hashing
+rapidhash = { version = "4.4.1", features = ["default"] }
+boomphf = { version = "0.6.0", features = ["rayon"] }
 
-rapidhash           = { version = "4.4.1", features = ["default"] }
-boomphf             = { version = "0.6.0", features = ["rayon"] }
-crossbeam-queue     = { version = "0.3.12", features = [] }
+# Serialization
+ron = { version = "0.12.1", features = [] }
+serde = { version = "1.0.228", features = ["derive"] }
+bitcode = { version = "0.6.9", features = ["derive", "serde"] }
+bitflags = { version = "2.11.0", features = [] }
 
-ron                 = { version = "0.12.0", features = [] }
-serde               = { version = "1.0.228", features = ["derive"] }
-bitcode             = { version = "0.6.9", features = ["derive", "serde"] }
+# Database
+heed = { version = "0.22.1-nested-rtxns-6", features = [] }
 
-heed                = { version = "0.22.1-nested-rtxns-6", features = [] }
-
-criterion           = { version = "0.8.1", features = [] }
+# Benchmarking
+criterion = { version = "0.8.2", features = [] }
