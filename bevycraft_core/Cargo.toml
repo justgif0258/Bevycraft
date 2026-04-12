@@ -1,18 +1,14 @@
+
 [package]
 name = "bevycraft_core"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-
-winapi.workspace = true
-libc.workspace = true
-
 bevy.workspace = true
 
-lasso.workspace = true
 rapidhash.workspace = true
 boomphf.workspace = true
-crossbeam-queue.workspace = true
 
 serde.workspace = true
+bitcode.workspace = true

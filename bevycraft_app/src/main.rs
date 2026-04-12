@@ -1,30 +1,27 @@
 use bevy::prelude::*;
-use bevycraft_world::{
-    prelude::{Block, BlockBehaviour},
-    presets::block::BlockFlags,
-};
+use bevycraft_world::builtin::*;
+use bevycraft_world::prelude::{BlockDefinition, BlockFlags};
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let stone = BlockBehaviour::new()
-        .hardness(2.0)
-        .toughness(6.0)
-        .flags(
-            BlockFlags::COLLIDABLE
-                | BlockFlags::OCCLUDABLE
-                | BlockFlags::CAN_SUPPORT
-                | BlockFlags::DOES_SPAWN,
-        )
+fn main() -> AppExit {
+    App::new()
+        .add_plugins((
+            DefaultPlugins,
+        ))
+        .insert_resource(Time::<Fixed>::from_hz(64.0))
+        .add_systems(PreStartup, startup)
+        .run()
+}
+
+fn startup() {
+    let stone = BlockDefinition::new()
+        .add(&HARDNESS, 2.0)
+        .add(&TOUGHNESS, 6.0)
+        .add(&FLAGS, BlockFlags::CAN_SUPPORT | BlockFlags::COLLIDABLE | BlockFlags::OCCLUDABLE)
         .build();
 
-    println!("{:?}", stone);
+    let q = &FRICTION;
 
-    /*
-    App::new()
-        .add_plugins(DefaultPlugins)
-        .insert_resource(VirtualizedPool::<u16>::new(8192, 8192))
-        .run();
+    let result = *stone.get(q);
 
-     */
-
-    Ok(())
+    println!("Value of '{}': {:?}", q.name(), result);
 }

@@ -1,93 +1,95 @@
 use {
-    bevy::platform::collections::HashMap,
-    lasso::{Capacity, Spur, ThreadedRodeo},
-    rapidhash::fast::RandomState,
+    bitcode::{Decode, Encode},
     serde::*,
     std::{
         error::Error,
         fmt::{Debug, Display, Formatter, Write},
-        hash::{BuildHasher, Hash, Hasher},
-        mem::transmute,
-        sync::OnceLock,
+        hash::Hash,
     },
 };
 
-static GLOBAL_INTERN: OnceLock<RapidThreadedRodeo> = OnceLock::new();
-
-pub type AssetMap<V> = HashMap<AssetLocation, V, AssetHasherBuilder>;
-
-type RapidThreadedRodeo = ThreadedRodeo<Spur, RandomState>;
-
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Decode, Encode, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct AssetLocation {
-    namespace: Spur,
-    path: Spur,
+    namespace: String,
+    path: String,
 }
 
 impl<'de> Deserialize<'de> for AssetLocation {
+    #[inline(always)]
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        AssetLocation::try_from(deserializer.deserialize_str(AssetLocationVisitor)?)
-            .map_err(de::Error::custom)
+        deserializer.deserialize_str(AssetLocationVisitor)
     }
 }
 
 impl Serialize for AssetLocation {
+    #[inline(always)]
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        serializer.serialize_str(&self.to_string())
+        serializer.collect_str(self)
     }
 }
 
 impl<'a> TryFrom<&'a str> for AssetLocation {
     type Error = AssetLocationError<'a>;
 
-    #[inline]
+    #[inline(always)]
     fn try_from(value: &'a str) -> Result<Self, Self::Error> {
-        Self::try_parsing(value)
-    }
-}
-
-impl Hash for AssetLocation {
-    #[inline]
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write_u64(self.hash_u64())
+        Self::try_parse(value)
     }
 }
 
 impl Debug for AssetLocation {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("RegistrationId")
-            .field("namespace", &self.namespace())
-            .field("path", &self.path())
+            .field("namespace", &self.namespace)
+            .field("path", &self.path)
             .finish()
     }
 }
 
 impl Display for AssetLocation {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.namespace())?;
+        f.write_str(&self.namespace)?;
         f.write_char(':')?;
-        f.write_str(&self.path())
+        f.write_str(&self.path)
+    }
+}
+
+impl Default for AssetLocation {
+    #[inline(always)]
+    fn default() -> Self {
+        Self {
+            namespace: String::from(Self::DEFAULT_NAMESPACE),
+            path: String::from("air"),
+        }
     }
 }
 
 impl AssetLocation {
     pub const DEFAULT_NAMESPACE: &'static str = "bevycraft";
 
-    #[inline]
-    pub fn try_parsing(raw: &str) -> Result<Self, AssetLocationError<'_>> {
-        match raw.split_once(':') {
-            None => Self::try_with_default_namespace(raw),
-            Some((n, p)) => Self::try_new(n, p),
-        }
+    #[inline(always)]
+    fn try_new<'a>(namespace: &'a str, path: &'a str) -> Result<Self, AssetLocationError<'a>> {
+        Ok(Self {
+            namespace: Self::compute_namespace(namespace)?,
+            path: Self::compute_path(path)?,
+        })
     }
 
-    #[inline]
+    #[inline(always)]
+    pub fn try_with_default_namespace(path: &str) -> Result<Self, AssetLocationError<'_>> {
+        Ok(Self {
+            namespace: Self::DEFAULT_NAMESPACE.to_string(),
+            path: Self::compute_path(path)?,
+        })
+    }
+
+    #[inline(always)]
     pub fn try_with_custom_namespace<'a>(
         namespace: &'a str,
         path: &'a str,
@@ -96,111 +98,103 @@ impl AssetLocation {
     }
 
     #[inline]
-    pub fn try_with_default_namespace(path: &str) -> Result<Self, AssetLocationError<'_>> {
-        Ok(Self {
-            namespace: unsafe {
-                Self::compute_namespace(Self::DEFAULT_NAMESPACE).unwrap_unchecked()
-            },
-            path: Self::compute_path(path)?,
-        })
-    }
+    pub fn try_parse(location: &str) -> Result<Self, AssetLocationError<'_>> {
+        match location.split_once(':') {
+            None => Self::try_with_default_namespace(location),
+            Some((n, p)) => {
+                if p.contains(':') {
+                    return Err(AssetLocationError::IllegalFormat);
+                }
 
-    #[inline]
-    fn try_new<'a>(namespace: &'a str, path: &'a str) -> Result<Self, AssetLocationError<'a>> {
-        Ok(Self {
-            namespace: Self::compute_namespace(namespace)?,
-            path: Self::compute_path(path)?,
-        })
-    }
-
-    #[inline]
-    pub fn parse(raw: &str) -> Self {
-        match raw.split_once(':') {
-            None => Self::with_default_namespace(raw),
-            Some((n, p)) => Self::new(n, p),
+                Self::try_new(n, p)
+            }
         }
     }
 
-    #[inline]
-    pub fn with_custom_namespace(namespace: &str, path: &str) -> Self {
-        Self::new(namespace, path)
-    }
-
-    #[inline]
+    #[inline(always)]
     pub fn with_default_namespace(path: &str) -> Self {
-        Self {
-            namespace: unsafe {
-                Self::compute_namespace(Self::DEFAULT_NAMESPACE).unwrap_unchecked()
-            },
-            path: Self::compute_path(path).unwrap(),
+        Self::try_with_default_namespace(path).unwrap()
+    }
+
+    #[inline(always)]
+    pub fn with_custom_namespace(namespace: &str, path: &str) -> Self {
+        Self::try_new(namespace, path).unwrap()
+    }
+
+    #[inline(always)]
+    pub fn parse(location: &str) -> Self {
+        Self::try_parse(location).unwrap()
+    }
+
+    #[inline(always)]
+    pub fn try_prefixing<'a>(
+        &'a self,
+        prefix: &'a str,
+    ) -> Result<Self, AssetLocationError<'a>> {
+        if !Self::can_use_path(prefix) {
+            return Err(AssetLocationError::IllegalPrefix(prefix));
         }
+
+        Ok(Self {
+            namespace: self.namespace.clone(),
+            path: format!("{}{}", prefix, &self.path),
+        })
     }
 
-    #[inline]
-    fn new(namespace: &str, path: &str) -> Self {
-        Self {
-            namespace: Self::compute_namespace(namespace).unwrap(),
-            path: Self::compute_path(path).unwrap(),
+    #[inline(always)]
+    pub fn try_suffixing<'a>(
+        &'a self,
+        suffix: &'a str,
+    ) -> Result<Self, AssetLocationError<'a>> {
+        if !Self::can_use_path(suffix) {
+            return Err(AssetLocationError::IllegalSuffix(suffix));
         }
+
+        Ok(Self {
+            namespace: self.namespace.clone(),
+            path: format!("{}{}", &self.path, suffix),
+        })
     }
 
-    #[inline]
-    pub unsafe fn new_unchecked(namespace: &str, path: &str) -> Self {
-        Self {
-            namespace: get_or_intern_str(namespace),
-            path: get_or_intern_str(path),
-        }
+    #[inline(always)]
+    pub fn prefix(&mut self, prefix: &str) -> Self {
+        self.try_prefixing(prefix).unwrap()
     }
 
-    #[inline]
-    pub fn path(&self) -> &str {
-        resolve_spur(&self.path)
+    #[inline(always)]
+    pub fn suffix(&mut self, suffix: &str) -> Self {
+        self.try_suffixing(suffix).unwrap()
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn namespace(&self) -> &str {
-        resolve_spur(&self.namespace)
+        &self.namespace
     }
 
-    #[inline]
-    const fn hash_u64(&self) -> u64 {
-        unsafe { transmute::<_, u64>((self.namespace, self.path)) }
+    #[inline(always)]
+    pub fn path(&self) -> &str {
+        &self.path
     }
 
-    #[inline]
-    fn compute_path(str: &str) -> Result<Spur, AssetLocationError<'_>> {
-        match try_get_spur(str) {
-            Some(interned) => Ok(interned),
-            None => {
-                if !Self::can_use_path(str) {
-                    return Err(AssetLocationError::IllegalPath(str));
-                }
-
-                Ok(get_or_intern_str(str))
-            }
+    #[inline(always)]
+    fn compute_namespace(str: &str) -> Result<String, AssetLocationError<'_>> {
+        if !Self::can_use_namespace(str) {
+            return Err(AssetLocationError::IllegalNamespace(str));
         }
+
+        Ok(str.to_string())
     }
 
-    #[inline]
-    fn compute_namespace(str: &str) -> Result<Spur, AssetLocationError<'_>> {
-        match try_get_spur(str) {
-            Some(interned) => Ok(interned),
-            None => {
-                if !Self::can_use_namespace(str) {
-                    return Err(AssetLocationError::IllegalNamespace(str));
-                }
-
-                Ok(get_or_intern_str(str))
-            }
+    #[inline(always)]
+    fn compute_path(str: &str) -> Result<String, AssetLocationError<'_>> {
+        if !Self::can_use_path(str) {
+            return Err(AssetLocationError::IllegalPath(str));
         }
+
+        Ok(str.to_string())
     }
 
-    #[inline]
-    fn can_use_path(path: &str) -> bool {
-        path.as_bytes().iter().all(Self::is_valid_path_byte)
-    }
-
-    #[inline]
+    #[inline(always)]
     fn can_use_namespace(namespace: &str) -> bool {
         namespace
             .as_bytes()
@@ -208,39 +202,94 @@ impl AssetLocation {
             .all(Self::is_valid_namespace_byte)
     }
 
-    #[inline]
-    const fn is_valid_path_byte(byte: &u8) -> bool {
-        matches!(byte, b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'_' | b'-' | b'/')
+    #[inline(always)]
+    fn can_use_path(path: &str) -> bool {
+        path.as_bytes().iter().all(Self::is_valid_path_byte)
     }
 
-    #[inline]
-    const fn is_valid_namespace_byte(byte: &u8) -> bool {
-        matches!(byte, b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'_' | b'-')
+    #[inline(always)]
+    fn is_valid_namespace_byte(byte: &u8) -> bool {
+        byte.is_ascii_alphanumeric() || byte == &b'_' || byte == &b'-'
+    }
+
+    #[inline(always)]
+    fn is_valid_path_byte(byte: &u8) -> bool {
+        byte.is_ascii_alphanumeric() || byte == &b'_' || byte == &b'-' || byte == &b'/'
     }
 }
 
 pub struct AssetLocationVisitor;
 
 impl<'de> de::Visitor<'de> for AssetLocationVisitor {
-    type Value = &'de str;
+    type Value = AssetLocation;
 
     fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
-        formatter.write_str("A valid string")
+        formatter.write_str("A valid AssetLocation")
     }
 
+    #[inline(always)]
+    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        AssetLocation::try_parse(v).map_err(E::custom)
+    }
+
+    #[inline(always)]
     fn visit_borrowed_str<E>(self, v: &'de str) -> Result<Self::Value, E>
     where
         E: de::Error,
     {
-        Ok(v)
+        match v.split_once(':') {
+            None => Err(E::custom(AssetLocationError::IllegalFormat)),
+            Some((namespace, path)) => {
+                if path.contains(':') {
+                    return Err(E::custom(AssetLocationError::IllegalFormat));
+                }
+
+                AssetLocation::try_new(namespace, path).map_err(E::custom)
+            }
+        }
     }
 }
 
 pub enum AssetLocationError<'a> {
     IllegalNamespace(&'a str),
     IllegalPath(&'a str),
+    IllegalPrefix(&'a str),
+    IllegalSuffix(&'a str),
     IllegalFormat,
     Custom(String),
+}
+
+impl AssetLocationError<'_> {
+    fn format_error(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AssetLocationError::IllegalNamespace(n) => {
+                f.write_str("Illegal namespace: ")?;
+                f.write_str(n)
+            }
+            AssetLocationError::IllegalPath(s) => {
+                f.write_str("Illegal path: ")?;
+                f.write_str(s)
+            }
+            AssetLocationError::IllegalPrefix(s) => {
+                f.write_str("Illegal prefix: ")?;
+                f.write_str(s)
+            }
+            AssetLocationError::IllegalSuffix(s) => {
+                f.write_str("Illegal suffix: ")?;
+                f.write_str(s)
+            }
+            AssetLocationError::IllegalFormat => {
+                f.write_str("Illegal AssetLocation format (expected 'namespace:path')")
+            }
+            AssetLocationError::Custom(msg) => {
+                f.write_str("Unexpected AssetLocation error: ")?;
+                f.write_str(msg)
+            }
+        }
+    }
 }
 
 impl de::Error for AssetLocationError<'_> {
@@ -256,78 +305,12 @@ impl Error for AssetLocationError<'_> {}
 
 impl Debug for AssetLocationError<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self)
+        self.format_error(f)
     }
 }
 
 impl Display for AssetLocationError<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            AssetLocationError::IllegalNamespace(n) => {
-                f.write_str("Illegal namespace: ")?;
-                f.write_str(n)
-            }
-            AssetLocationError::IllegalPath(s) => {
-                f.write_str("Illegal path: ")?;
-                f.write_str(s)
-            }
-            AssetLocationError::IllegalFormat => {
-                f.write_str("Illegal AssetLocation format (expected 'namespace:path')")
-            }
-            AssetLocationError::Custom(msg) => f.write_str(msg),
-        }
+        self.format_error(f)
     }
-}
-
-pub struct AssetHasher(u64);
-
-impl Hasher for AssetHasher {
-    #[inline]
-    fn finish(&self) -> u64 {
-        self.0
-    }
-
-    #[inline]
-    fn write(&mut self, bytes: &[u8]) {
-        self.0 = u64::from_ne_bytes(bytes.try_into().unwrap());
-    }
-
-    #[inline]
-    fn write_u64(&mut self, i: u64) {
-        self.0 = i
-    }
-}
-
-#[derive(Default)]
-pub struct AssetHasherBuilder;
-
-impl BuildHasher for AssetHasherBuilder {
-    type Hasher = AssetHasher;
-
-    fn build_hasher(&self) -> Self::Hasher {
-        AssetHasher(0)
-    }
-}
-
-#[inline(always)]
-fn resolve_spur(spur: &Spur) -> &str {
-    interner().resolve(spur)
-}
-
-#[inline(always)]
-fn try_get_spur(str: &str) -> Option<Spur> {
-    interner().get(str)
-}
-
-#[inline(always)]
-fn get_or_intern_str(str: &str) -> Spur {
-    interner().get_or_intern(str)
-}
-
-#[must_use]
-#[inline(always)]
-fn interner() -> &'static RapidThreadedRodeo {
-    GLOBAL_INTERN.get_or_init(|| {
-        ThreadedRodeo::with_capacity_and_hasher(Capacity::for_strings(256), RandomState::new())
-    })
 }

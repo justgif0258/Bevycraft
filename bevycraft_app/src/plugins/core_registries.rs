@@ -1,10 +1,6 @@
 use bevy::prelude::Resource;
-use bevycraft_core::prelude::MappedRecord;
-use bevycraft_world::prelude::Block;
 
-pub struct CoreRegistries {
-    pub blocks: MappedRecord<Box<dyn Block>>,
-}
+pub struct CoreRegistries {}
 
 #[derive(Resource, Debug, Default)]
 pub enum RegistriesState {

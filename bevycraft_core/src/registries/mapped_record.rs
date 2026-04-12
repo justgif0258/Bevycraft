@@ -1,36 +1,27 @@
 use bevy::ecs::resource::Resource;
 use boomphf::Mphf;
 
-use crate::prelude::{AssetLocation, Commit, Entry, Record, Recordable};
+use crate::prelude::{AssetLocation, Commit, Record, Recordable};
 
 #[derive(Resource, Debug)]
 pub struct MappedRecord<T: Recordable> {
     m_hasher: Mphf<AssetLocation>,
-    entries: Box<[Entry<T>]>,
+    entries: Box<[(AssetLocation, T)]>,
 }
 
 impl<T: Recordable> MappedRecord<T> {
-    pub const BASE: f64 = 3.3f64;
+    const BASE: f64 = 3.3f64;
 
-    pub fn new<C: Commit<T>>(commit: C) -> Self {
-        let keys = commit.keys();
+    fn gen_boxed_entries<C>(phf: &Mphf<AssetLocation>, commit: C) -> Box<[(AssetLocation, T)]>
+    where
+        C: Commit<Value = T>,
+    {
+        let mut boxed = Box::<[(AssetLocation, T)]>::new_uninit_slice(commit.len());
 
-        let m_hasher = Self::gen_phf(keys);
+        commit.into_iter().for_each(|(key, value)| {
+            let idx = phf.hash(&key) as usize;
 
-        let entries = Self::gen_boxed_entries(&m_hasher, commit);
-
-        Self { m_hasher, entries }
-    }
-
-    fn gen_boxed_entries<C: Commit<T>>(phf: &Mphf<AssetLocation>, commit: C) -> Box<[Entry<T>]> {
-        let entries = commit.consume();
-
-        let mut boxed = Box::<[Entry<T>]>::new_uninit_slice(entries.len());
-
-        entries.into_iter().for_each(|entry| {
-            let idx = phf.hash(entry.key()) as usize;
-
-            boxed[idx].write(entry);
+            boxed[idx].write((key, value));
         });
 
         unsafe { boxed.assume_init() }
@@ -41,41 +32,59 @@ impl<T: Recordable> MappedRecord<T> {
     }
 }
 
-impl<T: Recordable> Record<T> for MappedRecord<T> {
+impl<T: Recordable> Record for MappedRecord<T> {
+    type Value = T;
+
+    fn finish<C>(commit: C) -> Self
+    where
+        C: Commit<Value = Self::Value>,
+    {
+        let keys = commit.cloned_keys();
+
+        let m_hasher = Self::gen_phf(keys);
+
+        let entries = Self::gen_boxed_entries(&m_hasher, commit);
+
+        Self { m_hasher, entries }
+    }
+
     #[inline]
     fn get_by_key(&self, key: &AssetLocation) -> Option<&T> {
         let idx = self.m_hasher.try_hash(key)?;
 
-        self.entries.get(idx as usize).and_then(|entry| {
-            if entry.key() == key {
-                return Some(entry.val());
+        self.entries.get(idx as usize).and_then(|(k, v)| {
+            if k != key {
+                return None;
             }
 
-            None
+            Some(v)
         })
     }
 
     #[inline]
     fn get_by_id(&self, index: usize) -> Option<&T> {
-        self.entries.get(index).map(|entry| entry.val())
-    }
-
-    #[inline]
-    fn idx_to_key(&self, index: usize) -> Option<&AssetLocation> {
-        self.entries.get(index).map(|entry| entry.key())
+        self.entries.get(index).map(|(_, v)| v)
     }
 
     #[inline]
     fn key_to_idx(&self, key: &AssetLocation) -> Option<usize> {
-        self.m_hasher.try_hash(key).map(|idx| idx as usize)
+        self.m_hasher.try_hash(key).and_then(|idx| {
+            if &self.entries[idx as usize].0 != key {
+                return None;
+            }
+
+            Some(idx as usize)
+        })
+    }
+
+    #[inline]
+    fn idx_to_key(&self, index: usize) -> Option<&AssetLocation> {
+        self.entries.get(index).map(|(k, _)| k)
     }
 
     #[inline]
     fn keys(&self) -> Vec<&AssetLocation> {
-        self.entries
-            .iter()
-            .map(|entry| entry.key())
-            .collect::<Vec<_>>()
+        self.entries.iter().map(|(k, _)| k).collect::<Vec<_>>()
     }
 
     #[inline]

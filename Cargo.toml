@@ -20,10 +20,6 @@ opt-level = 1
 opt-level = 3
 
 [workspace.dependencies]
-# OS Dependencies
-winapi = { version = "0.3.9", features = ["memoryapi", "winnt"] }
-libc = { version = "0.2.183", features = [] }
-
 # Bevycraft API
 bevycraft_core = { path = "bevycraft_core" }
 bevycraft_world = { path = "bevycraft_world" }
@@ -35,13 +31,15 @@ bevy = { version = "0.18.1", features = ["dynamic_linking"] }
 # Parallelism
 rayon = { version = "1.11.0", features = [] }
 lasso = { version = "0.7.3", features = ["multi-threaded", "inline-more"] }
-crossbeam-queue = { version = "0.3.12", features = [] }
 
 # Utilities
 builder-pattern = { version = "0.4.2", features = [] }
+bitflags = { version = "2.11.0", features = [] }
+voxelis = { version = "25.4.0", features = [] }
 rand = { version = "0.10.0", features = [] }
 
 # Hashing
+frozen-collections = { version = "0.9.1", features = [] }
 rapidhash = { version = "4.4.1", features = ["default"] }
 boomphf = { version = "0.6.0", features = ["rayon"] }
 
@@ -49,7 +47,6 @@ boomphf = { version = "0.6.0", features = ["rayon"] }
 ron = { version = "0.12.1", features = [] }
 serde = { version = "1.0.228", features = ["derive"] }
 bitcode = { version = "0.6.9", features = ["derive", "serde"] }
-bitflags = { version = "2.11.0", features = [] }
 
 # Database
 heed = { version = "0.22.1-nested-rtxns-6", features = [] }

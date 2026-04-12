@@ -10,6 +10,10 @@ bevycraft_core.workspace = true
 
 bevy.workspace = true
 
+rayon.workspace = true
+
+frozen-collections.workspace = true
+
 bitflags.workspace = true
 
 builder-pattern.workspace = true

@@ -43,6 +43,11 @@ impl<T: PartialEq + Eq> Section<T> {
         self.content.get(idx as usize)
     }
 
+    #[inline(always)]
+    pub fn get_y_index(&self) -> usize {
+        self.y
+    }
+
     #[inline]
     fn map_to_flat_index(pos: UVec3) -> usize {
         debug_assert!(pos.cmplt(Self::SECTION_SIZE).all(), "Tried indexing out of the section boundaries");

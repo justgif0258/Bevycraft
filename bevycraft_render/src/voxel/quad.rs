@@ -1,14 +1,15 @@
+use crate::prelude::TextureId;
+
 #[derive(Debug, Clone)]
-#[rustfmt::skip]
 pub struct Quad {
-    vertices    : [[f32; 3]; 4],
-    uvs         : [[f32; 2]; 4],
-    texture     : usize,
-    orientation : Orientation,
+    vertices    : [[f32; 3]; 2],
+    uvs         : [[f32; 2]; 2],
+    texture     : TextureId,
+    orientation : QuadDir,
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum Orientation {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum QuadDir {
     PosX,
     NegX,
     PosY,
