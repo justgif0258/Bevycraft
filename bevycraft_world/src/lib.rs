@@ -14,15 +14,11 @@ pub mod prelude {
                 integer_property::IntegerProperty,
             },
             definition::{
-                definition::{
-                    Definition,
-                    ErasedDefinition,
-                },
                 block_definition::*,
                 block_flags::BlockFlags,
-                block_physics::BlockPhysics,
             },
             block::Block,
+            block_record::BlockRecord,
         },
         chunk::{
             section::Section,
@@ -36,18 +32,5 @@ pub mod prelude {
             node_64::Node64, 
             tree_64::Tree64
         },
-    };
-}
-
-pub mod builtin {
-    pub use crate::{
-        block::definition::{
-            HARDNESS,
-            TOUGHNESS,
-            FRICTION, 
-            VISCOSITY,
-            EMISSION,
-            FLAGS,
-        }
     };
 }

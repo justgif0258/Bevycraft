@@ -19,6 +19,7 @@ pub trait ErasedProperty: Recordable {
 impl Eq for dyn ErasedProperty {}
 
 impl PartialEq for dyn ErasedProperty {
+    #[inline(always)]
     fn eq(&self, other: &Self) -> bool {
         ErasedProperty::type_id(self) == ErasedProperty::type_id(other)
             && self.name() == other.name()

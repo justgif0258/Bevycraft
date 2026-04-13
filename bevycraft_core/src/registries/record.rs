@@ -17,10 +17,6 @@ pub trait Record: Resource {
     where
         C: Commit<Value = Self::Value>;
 
-    fn get_by_key(&self, key: &AssetLocation) -> Option<&Self::Value>;
-
-    fn get_by_id(&self, id: usize) -> Option<&Self::Value>;
-
     fn key_to_idx(&self, key: &AssetLocation) -> Option<usize>;
 
     fn idx_to_key(&self, id: usize) -> Option<&AssetLocation>;

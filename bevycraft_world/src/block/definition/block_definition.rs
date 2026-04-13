@@ -1,55 +1,102 @@
-use bevy::platform::hash::NoOpHash;
-use frozen_collections::FzHashMap;
-use bevycraft_core::prelude::Recordable;
-use crate::prelude::{Definition, ErasedDefinition};
+use builder_pattern::Builder;
+use crate::prelude::{BlockFlags};
 
-#[derive(Debug)]
+#[derive(Builder, Debug, Clone, PartialEq)]
 pub struct BlockDefinition {
-    definitions: FzHashMap<&'static dyn ErasedDefinition, Box<dyn Recordable>, NoOpHash>,
+    #[into]
+    #[public]
+    #[default(0.0)]
+    hardness: f32,
+
+    #[into]
+    #[public]
+    #[default(0.0)]
+    toughness: f32,
+
+    #[into]
+    #[public]
+    #[default(0.6)]
+    friction: f32,
+
+    #[into]
+    #[public]
+    #[default(0.0)]
+    viscosity: f32,
+
+    #[into]
+    #[public]
+    #[default(BlockFlags::empty())]
+    flags: BlockFlags,
 }
 
 impl BlockDefinition {
-    pub const fn new() -> BlockDefinitionBuilder {
-        BlockDefinitionBuilder(Vec::new())
+    #[inline(always)]
+    pub const fn hardness(&self) -> f32 {
+        self.hardness
     }
 
     #[inline(always)]
-    pub fn get<T: Recordable>(&self, definition: &'static Definition<T>) -> &T {
-        if let Some(value) = self.definitions.get(definition.as_erased()) {
-            unsafe {
-                return value.as_ref()
-                    .downcast_ref_unchecked()
-            }
-        }
-
-        definition.default()
-    }
-}
-
-pub struct BlockDefinitionBuilder(Vec<(&'static dyn ErasedDefinition, Box<dyn Recordable>)>);
-
-impl BlockDefinitionBuilder {
-    #[inline(always)]
-    pub fn add<T: Recordable>(mut self, definition: &'static Definition<T>, value: T) -> Self {
-        assert!(!self.contains(definition), "Tried adding duplicate '{}' definition", definition.name());
-
-        self.0.push((
-            definition,
-            Box::new(definition.normalize(value)),
-        ));
-
-        self
+    pub const fn toughness(&self) -> f32 {
+        self.toughness
     }
 
     #[inline(always)]
-    pub fn build(self) -> BlockDefinition {
-        BlockDefinition {
-            definitions: FzHashMap::with_hasher(self.0, NoOpHash)
-        }
+    pub const fn friction(&self) -> f32 {
+        self.friction
     }
 
     #[inline(always)]
-    fn contains<T: Recordable>(&self, definition: &'static Definition<T>) -> bool {
-        self.0.iter().find(|(s, _)| *s == definition.as_erased()).is_some()
+    pub const fn viscosity(&self) -> f32 {
+        self.viscosity
+    }
+
+    #[inline(always)]
+    pub const fn air(&self) -> bool {
+        self.flags.contains(BlockFlags::AIR)
+    }
+
+    #[inline(always)]
+    pub const fn collidable(&self) -> bool {
+        self.flags.contains(BlockFlags::COLLIDABLE)
+    }
+
+    #[inline(always)]
+    pub const fn occludable(&self) -> bool {
+        self.flags.contains(BlockFlags::OCCLUDABLE)
+    }
+
+    #[inline(always)]
+    pub const fn translucent(&self) -> bool {
+        self.flags.contains(BlockFlags::TRANSLUCENT)
+    }
+
+    #[inline(always)]
+    pub const fn replaceable(&self) -> bool {
+        self.flags.contains(BlockFlags::REPLACEABLE)
+    }
+
+    #[inline(always)]
+    pub const fn can_support(&self) -> bool {
+        self.flags.contains(BlockFlags::CAN_SUPPORT)
+    }
+
+    #[inline(always)]
+    pub const fn does_connect(&self) -> bool {
+        self.flags.contains(BlockFlags::DOES_CONNECT)
+    }
+
+    #[inline(always)]
+    pub const fn does_spawn(&self) -> bool {
+        self.flags.contains(BlockFlags::DOES_SPAWN)
+    }
+
+    #[inline(always)]
+    pub const fn climbable(&self) -> bool {
+        self.flags.contains(BlockFlags::CLIMBABLE)
+    }
+
+    #[inline(always)]
+    pub const fn passable(&self) -> bool {
+        self.flags.contains(BlockFlags::PASSABLE)
     }
 }

@@ -13,6 +13,7 @@ bevy.workspace = true
 rayon.workspace = true
 
 frozen-collections.workspace = true
+boomphf.workspace = true
 
 bitflags.workspace = true
 

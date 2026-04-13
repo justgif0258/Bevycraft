@@ -1614,6 +1614,7 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "bevycraft_core",
+ "bevycraft_render",
  "bevycraft_world",
  "bitcode",
  "criterion",
@@ -1641,6 +1642,7 @@ dependencies = [
  "bevy",
  "bevycraft_core",
  "bevycraft_world",
+ "frozen-collections",
 ]
 
 [[package]]
@@ -1650,6 +1652,7 @@ dependencies = [
  "bevy",
  "bevycraft_core",
  "bitflags 2.11.0",
+ "boomphf",
  "builder-pattern",
  "frozen-collections",
  "rayon",

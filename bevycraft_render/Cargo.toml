@@ -9,3 +9,5 @@ bevycraft_core.workspace = true
 bevycraft_world.workspace = true
 
 bevy.workspace = true
+
+frozen-collections.workspace = true

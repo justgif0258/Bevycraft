@@ -15,6 +15,7 @@ bitflags::bitflags! {
 }
 
 impl Default for BlockFlags {
+    #[inline(always)]
     fn default() -> Self {
         Self::AIR
     }

@@ -1,0 +1,16 @@
+(
+    elements: [
+        (
+            min: [0.0, 0.0, 0.0],
+            max: [1.0, 1.0, 1.0],
+        )
+    ],
+    textures: (
+        north   : "#NORTH",
+        east    : "#EAST",
+        west    : "#WEST",
+        south   : "#SOUTH",
+        up      : "#UP",
+        down    : "#DOWN",
+    ),
+)
