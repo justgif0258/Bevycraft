@@ -22,7 +22,7 @@ impl BlockRecord {
             shapes: self.get_shapes_by_key(key)?,
         })
     }
-    
+
     #[inline(always)]
     pub fn get_ref_by_idx(&self, idx: usize) -> Option<BlockRef<'_>> {
         Some(BlockRef {
@@ -30,7 +30,7 @@ impl BlockRecord {
             shapes: self.get_shapes_by_idx(idx)?,
         })
     }
-    
+
     #[inline(always)]
     pub fn get_definition_by_key(&self, key: &AssetLocation) -> Option<&BlockDefinition> {
         let idx = self.hash_key(key)?;
@@ -47,16 +47,14 @@ impl BlockRecord {
     pub fn get_shapes_by_key(&self, key: &AssetLocation) -> Option<&[Aabb3d]> {
         let idx = self.hash_key(key)?;
 
-        let descriptor = &self.shape_descriptors[idx];
-
-        Some(&self.shapes[descriptor.start as usize..descriptor.length as usize])
+        Some(self.shape_descriptors[idx].slice(&self.shapes))
     }
 
     #[inline(always)]
     pub fn get_shapes_by_idx(&self, idx: usize) -> Option<&[Aabb3d]> {
-        let descriptor = &self.shape_descriptors[idx];
-
-        Some(&self.shapes[descriptor.start as usize..descriptor.length as usize])
+        self.shape_descriptors
+            .get(idx)
+            .map(|descriptor| descriptor.slice(&self.shapes))
     }
 
     #[inline(always)]
@@ -93,10 +91,10 @@ impl Record for BlockRecord {
         commit.into_iter()
             .for_each(|(key, block)| {
                 let idx = hash_function.hash(&key) as usize;
-                
+
                 let shape_descriptor = ShapeDescriptor {
-                    start: shapes.len() as u32,
-                    length: block.shapes().len() as u32,
+                    offset: shapes.len() as u32,
+                    count: block.shapes().len() as u32,
                 };
 
                 locations[idx].write(key);
@@ -141,6 +139,24 @@ impl Record for BlockRecord {
 }
 
 struct ShapeDescriptor {
-    start   : u32,
-    length  : u32,
+    offset  : u32,
+    count   : u32,
+}
+
+impl ShapeDescriptor {
+    #[inline(always)]
+    #[must_use]
+    fn slice<'a>(&self, shapes: &'a [Aabb3d]) -> &'a [Aabb3d] {
+        &shapes[self.offset()..self.end()]
+    }
+
+    #[inline(always)]
+    const fn offset(&self) -> usize {
+        self.offset as usize
+    }
+
+    #[inline(always)]
+    const fn end(&self) -> usize {
+        (self.offset + self.count) as usize
+    }
 }
