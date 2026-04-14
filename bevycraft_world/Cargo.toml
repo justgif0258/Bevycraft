@@ -14,6 +14,7 @@ rayon.workspace = true
 
 frozen-collections.workspace = true
 boomphf.workspace = true
+rapidhash.workspace = true
 
 bitflags.workspace = true
 

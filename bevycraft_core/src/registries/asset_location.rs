@@ -157,12 +157,12 @@ impl AssetLocation {
     }
 
     #[inline(always)]
-    pub fn prefix(&mut self, prefix: &str) -> Self {
+    pub fn prefix(&self, prefix: &str) -> Self {
         self.try_prefixing(prefix).unwrap()
     }
 
     #[inline(always)]
-    pub fn suffix(&mut self, suffix: &str) -> Self {
+    pub fn suffix(&self, suffix: &str) -> Self {
         self.try_suffixing(suffix).unwrap()
     }
 

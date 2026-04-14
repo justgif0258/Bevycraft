@@ -8,6 +8,7 @@ pub mod records;
 pub enum AppState {
     #[default]
     RegisteringContent,
+    BuildingRModels,
     BuildingTextureArrays,
     SolvingBlockModels,
     BlockStateCaching,

@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use builder_pattern::Builder;
 use crate::prelude::{BlockFlags};
 
@@ -27,6 +28,13 @@ pub struct BlockDefinition {
     #[public]
     #[default(BlockFlags::empty())]
     flags: BlockFlags,
+}
+
+impl Default for BlockDefinition {
+    #[inline(always)]
+    fn default() -> Self {
+        Self::new().build()
+    }
 }
 
 impl BlockDefinition {

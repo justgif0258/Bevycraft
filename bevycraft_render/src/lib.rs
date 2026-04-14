@@ -1,6 +1,7 @@
 mod voxel;
 mod textures;
-pub mod mesh;
+mod mesh;
+mod model;
 
 pub mod prelude {
     pub use crate::{
@@ -13,6 +14,10 @@ pub mod prelude {
         },
         mesh::{
             vertex::Vertex,
-        }
+        },
+        model::{
+            r_model::*,
+            r_model_manager::RModelManager,
+        },
     };
 }

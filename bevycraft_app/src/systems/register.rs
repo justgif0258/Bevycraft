@@ -1,0 +1,167 @@
+use bevy::math::bounding::Aabb3d;
+use bevy::prelude::{Commands, CommandsStatesExt, Vec3A};
+use bevycraft_core::prelude::{AssetLocation, Commit, Record};
+use bevycraft_world::prelude::{Block, BlockCommit, BlockDefinition, BlockFlags, BlockRecord};
+use crate::AppState;
+use crate::records::core_records::BLOCKS;
+
+const FULL_SHAPE: Aabb3d = Aabb3d { min: Vec3A::new(0.0, 0.0, 0.0), max: Vec3A::new(1.0, 1.0, 1.0), };
+
+pub fn init_registries(
+    mut commands: Commands,
+) {
+    register_blocks();
+
+    commands.set_state(AppState::BuildingRModels);
+}
+
+fn register_blocks() {
+    let mut commit = BlockCommit::new();
+
+    commit.push(
+        AssetLocation::with_default_namespace("grass_block"),
+        Block::new()
+            .definition(
+                BlockDefinition::new()
+                    .hardness(0.65)
+                    .toughness(0.65)
+                    .flags(BlockFlags::COLLIDABLE
+                        | BlockFlags::OCCLUDABLE
+                        | BlockFlags::CAN_SUPPORT
+                        | BlockFlags::DOES_SPAWN
+                    )
+                    .build()
+            )
+            .shapes(vec![FULL_SHAPE])
+            .build()
+    );
+
+    commit.push(
+        AssetLocation::with_default_namespace("dirt"),
+        Block::new()
+            .definition(
+                BlockDefinition::new()
+                    .hardness(0.5)
+                    .toughness(0.5)
+                    .flags(BlockFlags::COLLIDABLE
+                        | BlockFlags::OCCLUDABLE
+                        | BlockFlags::CAN_SUPPORT
+                        | BlockFlags::DOES_SPAWN
+                    )
+                    .build()
+            )
+            .shapes(vec![FULL_SHAPE])
+            .build()
+    );
+
+    commit.push(
+        AssetLocation::with_default_namespace("stone"),
+        Block::new()
+            .definition(
+                BlockDefinition::new()
+                    .hardness(2.0)
+                    .toughness(6.0)
+                    .flags(BlockFlags::COLLIDABLE
+                        | BlockFlags::OCCLUDABLE
+                        | BlockFlags::CAN_SUPPORT
+                        | BlockFlags::DOES_SPAWN
+                    )
+                    .build()
+            )
+            .shapes(vec![FULL_SHAPE])
+            .build()
+    );
+
+    commit.push(
+        AssetLocation::with_default_namespace("bedrock"),
+        Block::new()
+            .definition(
+                BlockDefinition::new()
+                    .hardness(f32::INFINITY)
+                    .toughness(f32::INFINITY)
+                    .flags(BlockFlags::COLLIDABLE
+                        | BlockFlags::OCCLUDABLE
+                        | BlockFlags::CAN_SUPPORT
+                    )
+                    .build()
+            )
+            .shapes(vec![FULL_SHAPE])
+            .build()
+    );
+
+    commit.push(
+        AssetLocation::with_default_namespace("oak_log"),
+        Block::new()
+            .definition(
+                BlockDefinition::new()
+                    .hardness(2.0)
+                    .toughness(2.0)
+                    .flags(BlockFlags::COLLIDABLE
+                        | BlockFlags::OCCLUDABLE
+                        | BlockFlags::CAN_SUPPORT
+                        | BlockFlags::DOES_SPAWN
+                    )
+                    .build()
+            )
+            .shapes(vec![FULL_SHAPE])
+            .build()
+    );
+
+    commit.push(
+        AssetLocation::with_default_namespace("oak_planks"),
+        Block::new()
+            .definition(
+                BlockDefinition::new()
+                    .hardness(2.0)
+                    .toughness(3.0)
+                    .flags(BlockFlags::COLLIDABLE
+                        | BlockFlags::OCCLUDABLE
+                        | BlockFlags::CAN_SUPPORT
+                        | BlockFlags::DOES_SPAWN
+                    )
+                    .build()
+            )
+            .shapes(vec![FULL_SHAPE])
+            .build()
+    );
+
+    commit.push(
+        AssetLocation::with_default_namespace("oak_leaves"),
+        Block::new()
+            .definition(
+                BlockDefinition::new()
+                    .hardness(0.2)
+                    .toughness(0.2)
+                    .flags(BlockFlags::COLLIDABLE
+                        | BlockFlags::OCCLUDABLE
+                        | BlockFlags::CAN_SUPPORT
+                        | BlockFlags::DOES_SPAWN
+                    )
+                    .build()
+            )
+            .shapes(vec![FULL_SHAPE])
+            .build()
+    );
+
+    commit.push(
+        AssetLocation::with_default_namespace("snow_block"),
+        Block::new()
+            .definition(
+                BlockDefinition::new()
+                    .hardness(0.2)
+                    .toughness(0.2)
+                    .flags(BlockFlags::COLLIDABLE
+                        | BlockFlags::OCCLUDABLE
+                        | BlockFlags::CAN_SUPPORT
+                        | BlockFlags::DOES_SPAWN
+                    )
+                    .build()
+            )
+            .shapes(vec![FULL_SHAPE])
+            .build()
+    );
+
+    BLOCKS.get_or_init(|| {
+        BlockRecord::finish(commit)
+    });
+}

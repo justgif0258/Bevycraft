@@ -2,7 +2,6 @@ use bevy::math::bounding::Aabb3d;
 use bevy::prelude::Resource;
 use boomphf::Mphf;
 use bevycraft_core::prelude::{AssetLocation, Commit, Record};
-use crate::block::block::BlockRef;
 use crate::prelude::{Block, BlockDefinition};
 
 #[derive(Resource)]
@@ -135,6 +134,24 @@ impl Record for BlockRecord {
     #[inline(always)]
     fn len(&self) -> usize {
         self.locations.len()
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct BlockRef<'a> {
+    definition   : &'a BlockDefinition,
+    shapes       : &'a [Aabb3d],
+}
+
+impl<'a> BlockRef<'a> {
+    #[inline(always)]
+    pub const fn definition(&self) -> &BlockDefinition {
+        self.definition
+    }
+    
+    #[inline(always)]
+    pub const fn shapes(&self) -> &[Aabb3d] {
+        self.shapes
     }
 }
 

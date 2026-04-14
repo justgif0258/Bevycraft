@@ -26,11 +26,11 @@ bevycraft_world = { path = "bevycraft_world" }
 bevycraft_render = { path = "bevycraft_render" }
 
 # Bevy
-bevy = { version = "0.18.1", features = ["dynamic_linking"] }
+bevy = { version = "0.18.1", features = [] }
+bevy_dylib = { version = "0.18.1", features = [] }
 
 # Parallelism
 rayon = { version = "1.11.0", features = [] }
-lasso = { version = "0.7.3", features = ["multi-threaded", "inline-more"] }
 
 # Utilities
 builder-pattern = { version = "0.4.2", features = [] }

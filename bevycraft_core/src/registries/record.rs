@@ -31,7 +31,7 @@ pub trait Record: Resource {
 ///
 /// # Safety
 /// Implementors must ensure that the type is [`Send`] and [`Sync`], and that the [`TypeId`] is stable across compilations.
-pub unsafe trait Recordable: Send + Sync + 'static {
+pub unsafe trait Recordable: ToString + Send + Sync + 'static {
     fn as_recordable(&self) -> &dyn Recordable;
 
     fn type_id(&self) -> TypeId;
@@ -39,11 +39,11 @@ pub unsafe trait Recordable: Send + Sync + 'static {
 
 unsafe impl<T> Recordable for T
 where
-    T: Send + Sync + 'static,
+    T: ToString + Send + Sync + 'static,
 {
     #[inline(always)]
     fn as_recordable(&self) -> &dyn Recordable {
-        self as &dyn Recordable
+        self
     }
 
     #[inline(always)]
