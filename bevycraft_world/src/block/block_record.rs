@@ -1,3 +1,4 @@
+use std::slice::Iter;
 use bevy::math::bounding::Aabb3d;
 use bevy::prelude::Resource;
 use boomphf::Mphf;
@@ -14,6 +15,11 @@ pub struct BlockRecord {
 }
 
 impl BlockRecord {
+    #[inline(always)]
+    pub fn iter_definitions(&self) -> Iter<'_, BlockDefinition> {
+        self.definitions.iter()
+    }
+    
     #[inline(always)]
     pub fn get_ref_by_key(&self, key: &AssetLocation) -> Option<BlockRef<'_>> {
         Some(BlockRef {

@@ -10,7 +10,7 @@ pub mod prelude {
         },
         mesh::{
             vertex::Vertex,
-            block_mesh::BlockMesh,
+            block_mesh::*,
             quad::*,
         },
         model::{

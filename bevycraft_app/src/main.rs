@@ -1,9 +1,9 @@
 use bevy::prelude::*;
 use bevycraft_app::AppState;
 use bevycraft_app::systems::build_textures::{build_array_texture, load_textures_into_server, wait_for_server};
-use bevycraft_app::systems::models::load_block_models;
+use bevycraft_app::systems::models::{load_block_models, solve_models};
 use bevycraft_app::systems::register::{init_registries};
-use bevycraft_render::prelude::{ArrayTexture, RModelManager};
+use bevycraft_render::prelude::{RModelManager};
 
 fn main() -> AppExit {
     App::new()
@@ -19,5 +19,6 @@ fn main() -> AppExit {
             .run_if(in_state(AppState::LoadingTextures))
         )
         .add_systems(OnEnter(AppState::BuildingArrayTexture), build_array_texture)
+        .add_systems(OnEnter(AppState::SolvingBlockModels), solve_models)
         .run()
 }

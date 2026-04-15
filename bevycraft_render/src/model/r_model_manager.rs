@@ -13,6 +13,11 @@ pub struct RModelManager {
 
 impl RModelManager {
     #[inline]
+    pub fn get(&self, location: &AssetLocation) -> Option<&RModel> {
+        self.models.get(location)
+    }
+
+    #[inline]
     pub fn load(&mut self, location: AssetLocation) {
         if self.is_loaded(&location) {
             warn!("Tried loading model from {}, which was already loaded. Skipping...", location);
@@ -38,7 +43,29 @@ impl RModelManager {
 
         info!("Successfully loaded model from {}", location);
 
-        self.models.insert(location, result.unwrap());
+        let model = result.unwrap();
+
+        if let Some(depend) = &model.parent {
+            if !self.is_loaded(depend) {
+                info!("Found unloaded dependency '{}' for model {}. Solving dependency...", depend, location);
+
+                let p = get_ron(format!("bevycraft_app/assets/{}/models/{}.ron", depend.namespace(), depend.path()));
+
+                if p.is_none() {
+                    error!("Dependency {} not found", depend);
+
+                    return;
+                }
+
+                let parent = RModel::from_str(&p.unwrap());
+
+                self.models.insert(depend.clone(), parent.unwrap());
+
+                info!("Successfully loaded dependency '{}' for model {}", depend, location);
+            }
+        }
+
+        self.models.insert(location, model);
     }
 
     #[inline]

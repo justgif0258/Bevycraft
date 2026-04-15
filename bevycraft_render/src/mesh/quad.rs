@@ -14,6 +14,7 @@ impl Quad {
         from            : [f32; 3],
         to              : [f32; 3],
         uvs             : [f32; 4],
+        scaling         : f32,
         facing          : Facing,
         texture         : &AssetLocation,
         array_texture   : &ArrayTexture
@@ -22,23 +23,40 @@ impl Quad {
             .unwrap_or(TextureId(0));
 
         Self {
-            vertices: Self::generate_vertex_array(from, to, facing, uvs, texture),
+            vertices: Self::generate_vertex_array(from, to, uvs, scaling, facing, texture),
             facing,
         }
+    }
+
+    #[inline(always)]
+    pub fn min(&self) -> Vertex {
+        self.vertices[0].clone()
+    }
+
+    #[inline(always)]
+    pub fn max(&self) -> Vertex {
+        self.vertices[2].clone()
+    }
+
+    #[inline(always)]
+    pub const fn facing(&self) -> Facing {
+        self.facing
     }
 
     #[inline(always)]
     const fn generate_vertex_array(
         min: [f32; 3],
         max: [f32; 3],
-        facing: Facing,
         uvs: [f32; 4],
+        scaling: f32,
+        facing: Facing,
         texture: TextureId,
     ) -> [Vertex; 4] {
-        let [min_x, min_y, min_z] = min;
-        let [max_x, max_y, max_z] = max;
+        let [min_x, min_y, min_z] = [min[0] * scaling, min[1] * scaling, min[2] * scaling];
 
-        let [u0, v0, u1, v1] = uvs;
+        let [max_x, max_y, max_z] = [max[0] * scaling, max[1] * scaling, max[2] * scaling];
+
+        let [u0, v0, u1, v1] = [uvs[0] * scaling, uvs[1] * scaling, uvs[2] * scaling, uvs[3] * scaling];
 
         let normal = facing.get_normal();
 
