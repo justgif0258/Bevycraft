@@ -1,19 +1,17 @@
-mod voxel;
 mod textures;
 mod mesh;
 mod model;
 
 pub mod prelude {
     pub use crate::{
-        voxel::{
-            quad::*,
-        },
         textures::{
             texture_id::*,
             array_texture::ArrayTexture
         },
         mesh::{
             vertex::Vertex,
+            block_mesh::BlockMesh,
+            quad::*,
         },
         model::{
             r_model::*,

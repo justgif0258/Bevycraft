@@ -1,10 +1,14 @@
+use bevy::prelude::{info, Resource};
 use bevy::render::render_resource::{Extent3d, Origin3d, TexelCopyBufferLayout, TexelCopyTextureInfo, Texture, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension};
 use bevy::render::renderer::{RenderDevice, RenderQueue};
-use frozen_collections::FzStringMap;
+use frozen_collections::{FzHashMap};
+use frozen_collections::maps::Iter;
+use bevycraft_core::prelude::AssetLocation;
 use crate::prelude::TextureId;
 
+#[derive(Resource)]
 pub struct ArrayTexture {
-    texture_lut : FzStringMap<Box<str>, TextureId>,
+    texture_lut : FzHashMap<AssetLocation, TextureId>,
     texture     : Texture,
     view        : TextureView,
 }
@@ -23,25 +27,25 @@ impl ArrayTexture {
     }
 
     #[inline(always)]
-    pub fn get_texture_id(&self, name: &str) -> Option<TextureId> {
-        self.texture_lut.get(name).copied()
+    pub fn get_texture_id(&self, location: &AssetLocation) -> Option<TextureId> {
+        self.texture_lut.get(location).copied()
+    }
+
+    #[inline(always)]
+    pub fn iter(&self) -> Iter<'_, AssetLocation, TextureId> {
+        self.texture_lut.iter()
     }
 }
 
 pub struct ArrayTextureBuilder {
     textures    : Vec<Vec<u8>>,
-    names       : Vec<String>,
+    names       : Vec<AssetLocation>,
     resolution  : usize,
 }
 
 impl ArrayTextureBuilder {
     #[inline]
-    pub fn register(&mut self, name: impl Into<String>, pixels: Vec<u8>) -> TextureId {
-        let resolution = (pixels.len() / 4).ilog(2) as usize;
-        let name = name.into();
-
-        assert_eq!(self.resolution, resolution, "Resolution mismatch while trying to register '{}' texture", &name);
-
+    pub fn register(&mut self, name: AssetLocation, pixels: Vec<u8>) -> TextureId {
         let id = TextureId(self.textures.len() as u32);
 
         self.textures.push(pixels);
@@ -101,11 +105,15 @@ impl ArrayTextureBuilder {
             ..Default::default()
         });
 
-        let name_map = FzStringMap::from_iter(
+        let name_map = FzHashMap::from_iter(
             self.names
                 .into_iter()
                 .enumerate()
-                .map(|(i, name)| (name.into_boxed_str(), TextureId(i as u32))),
+                .map(|(i, name)| {
+                    info!("Pushing texture {}...", name);
+
+                    (name, TextureId(i as u32))
+                })
         );
 
         ArrayTexture { texture_lut: name_map, texture, view }

@@ -1,8 +1,8 @@
 (
     textures: {
-        "top": "block/grass_block_top",
-        "bottom": "block/dirt",
-        "side": "block/grass_block_side",
+        "top": "bevycraft:block/grass_block_top",
+        "bottom": "bevycraft:block/dirt",
+        "side": "bevycraft:block/grass_block_side",
     },
     elements: [
         (

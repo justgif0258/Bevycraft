@@ -5,8 +5,8 @@
     },
     elements: [
         (
-            from: (0.0, 0.0, 0.0),
-            to: (8.0, 8.0, 8.0),
+            from: [0.0, 0.0, 0.0],
+            to: [8.0, 8.0, 8.0],
             faces: {
                 "down": (uv: (0.0, 0.0, 8.0, 8.0), texture: "#top", cullface: "down"),
                 "up": (uv: (0.0, 0.0, 8.0, 8.0), texture: "#top", cullface: "up"),
@@ -16,5 +16,5 @@
                 "east": (uv: (0.0, 0.0, 8.0, 8.0), texture: "#sides", cullface: "east"),
             },
         )
-    ],
+   ],
 )

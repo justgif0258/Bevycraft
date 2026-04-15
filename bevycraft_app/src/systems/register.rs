@@ -12,7 +12,7 @@ pub fn init_registries(
 ) {
     register_blocks();
 
-    commands.set_state(AppState::BuildingRModels);
+    commands.set_state(AppState::LoadingRModels);
 }
 
 fn register_blocks() {

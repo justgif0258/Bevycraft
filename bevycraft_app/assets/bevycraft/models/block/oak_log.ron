@@ -1,7 +1,7 @@
 (
-    parent: "block/pillar",
+    parent: "bevycraft:block/pillar",
     textures: {
-        "top": "block/oak_log_top",
-        "sides": "block/oak_log",
+        "top": "bevycraft:block/oak_log_top",
+        "sides": "bevycraft:block/oak_log",
     },
 )

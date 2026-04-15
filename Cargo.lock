@@ -1637,6 +1637,7 @@ dependencies = [
  "bevy",
  "bevycraft_core",
  "bevycraft_world",
+ "bitflags 2.11.0",
  "frozen-collections",
  "ron",
  "serde",
@@ -1654,6 +1655,8 @@ dependencies = [
  "frozen-collections",
  "rapidhash",
  "rayon",
+ "ron",
+ "serde",
 ]
 
 [[package]]

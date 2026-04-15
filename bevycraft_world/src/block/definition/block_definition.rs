@@ -33,7 +33,10 @@ pub struct BlockDefinition {
 impl Default for BlockDefinition {
     #[inline(always)]
     fn default() -> Self {
-        Self::new().build()
+        Self::new()
+            .friction(0.0)
+            .flags(BlockFlags::AIR)
+            .build()
     }
 }
 
@@ -71,6 +74,11 @@ impl BlockDefinition {
     #[inline(always)]
     pub const fn occludable(&self) -> bool {
         self.flags.contains(BlockFlags::OCCLUDABLE)
+    }
+
+    #[inline(always)]
+    pub const fn greedy_meshable(&self) -> bool {
+        self.flags.contains(BlockFlags::GREEDY_MESH)
     }
 
     #[inline(always)]

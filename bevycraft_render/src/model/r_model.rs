@@ -2,11 +2,12 @@ use std::sync::LazyLock;
 use bevy::platform::collections::HashMap;
 use ron::extensions::Extensions;
 use serde::{Deserialize, Serialize};
+use bevycraft_core::prelude::AssetLocation;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct RModel {
-    pub parent  : Option<String>,
-    pub textures: Option<HashMap<String, String>>,
+    pub parent  : Option<AssetLocation>,
+    pub textures: Option<HashMap<String, AssetLocation>>,
     pub elements: Option<Vec<Element>>,
 }
 
@@ -23,10 +24,9 @@ impl RModel {
     }
     
     #[inline]
-    pub fn textures(&self) -> Vec<&str> {
+    pub fn textures(&self) -> Vec<&AssetLocation> {
         if let Some(textures) = &self.textures { 
             return textures.values()
-                .map(|t| t.as_str())
                 .collect();
         }
         
@@ -46,7 +46,7 @@ pub struct Element {
 pub struct Face {
     pub uv      : [f32; 4],
     pub texture : String,
-    pub cullface: String,
+    pub cullface: Option<String>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
