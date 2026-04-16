@@ -12,6 +12,7 @@ pub mod prelude {
             vertex::*,
             block_mesh::*,
             quad::*,
+            block_mesh_manager::*,
         },
         model::{
             r_model::*,

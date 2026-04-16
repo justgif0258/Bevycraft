@@ -1,10 +1,8 @@
 use std::path::Path;
-use bevy::log::{info, warn};
 use bevy::platform::collections::{HashMap, HashSet};
-use bevy::prelude::{error, Resource};
+use bevy::prelude::*;
 use bevycraft_core::prelude::AssetLocation;
-use crate::model::r_model::RModel;
-use crate::prelude::Element;
+use crate::prelude::*;
 
 #[derive(Resource, Debug, Default)]
 pub struct RModelManager {
@@ -13,59 +11,52 @@ pub struct RModelManager {
 
 impl RModelManager {
     #[inline]
-    pub fn get(&self, location: &AssetLocation) -> Option<&RModel> {
-        self.models.get(location)
-    }
-
-    #[inline]
-    pub fn load(&mut self, location: AssetLocation) {
+    pub fn load(&mut self, location: AssetLocation) -> Result<(), String> {
         if self.is_loaded(&location) {
-            warn!("Tried loading model from {}, which was already loaded. Skipping...", location);
-
-            return;
+            return Err(format!("Model {} already loaded", location));
         }
 
-        let ron = get_ron(format!("bevycraft_app/assets/{}/models/{}.ron", location.namespace(), location.path()));
+        let path = format!("bevycraft_app/assets/{}/models/{}.ron", location.namespace(), location.path());
+
+        let ron = get_ron(path);
 
         if ron.is_none() {
-            error!("Couldn't find model {}. Skipping...", location);
-
-            return;
+            return Err(format!("Couldn't find model {}. Skipping...", location));
         }
 
         let result = RModel::from_str(&ron.unwrap());
 
-        if result.is_err() {
-            error!("Failed to load model {} ({})", location, result.err().unwrap());
+        match result {
+            Err(e) => Err(format!("Failed to load model {}: {}", location, e)),
+            Ok(model) => {
+                if let Some(dependency) = &model.parent && !self.is_loaded(dependency) {
+                    let path = format!("bevycraft_app/assets/{}/models/{}.ron", dependency.namespace(), dependency.path());
 
-            return;
-        }
-
-        info!("Successfully loaded model from {}", location);
-
-        let model = result.unwrap();
-
-        if let Some(depend) = &model.parent {
-            if !self.is_loaded(depend) {
-                info!("Found unloaded dependency '{}' for model {}. Solving dependency...", depend, location);
-
-                let p = get_ron(format!("bevycraft_app/assets/{}/models/{}.ron", depend.namespace(), depend.path()));
-
-                if p.is_none() {
-                    error!("Dependency {} not found", depend);
-
-                    return;
+                    if let Some(parent) = get_ron(path) {
+                        match RModel::from_str(&parent) {
+                            Err(e) => return Err(format!("Failed to load dependency {}: {}", dependency, e)),
+                            Ok(parent) => {
+                                self.models.insert(dependency.clone(), parent);
+                            }
+                        }
+                    }
                 }
 
-                let parent = RModel::from_str(&p.unwrap());
+                self.models.insert(location, model);
 
-                self.models.insert(depend.clone(), parent.unwrap());
-
-                info!("Successfully loaded dependency '{}' for model {}", depend, location);
+                Ok(())
             }
         }
+    }
 
-        self.models.insert(location, model);
+    #[inline]
+    pub fn take(&mut self, location: &AssetLocation) -> Option<RModel> {
+        self.models.remove(location)
+    }
+
+    #[inline]
+    pub fn get(&self, location: &AssetLocation) -> Option<&RModel> {
+        self.models.get(location)
     }
 
     #[inline]
@@ -83,8 +74,8 @@ impl RModelManager {
         let mut result: HashSet<AssetLocation> = HashSet::new();
         
         self.models.iter()
-            .for_each(|(_, m)| {
-                m.textures()
+            .for_each(|(_, model)| {
+                model.textures()
                     .into_iter()
                     .for_each(|t| { 
                         result.insert(t.clone());

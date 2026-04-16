@@ -4,21 +4,23 @@ use bevy::prelude::*;
 #[derive(Resource)]
 pub struct SectionPool {
     garbage     : VecDeque<(Box<[u16]>, f64)>,
-    max_life_sec: f64,
+    delta_decay : f64,
 }
 
 impl SectionPool {
     #[inline]
-    pub const fn new(max_life_sec: f64) -> Self {
+    pub const fn new(delta: f64) -> Self {
+        assert!(delta > 0.0, "Delta must be greater than 0");
+        
         Self {
             garbage: VecDeque::new(),
-            max_life_sec,
+            delta_decay: delta,
         }
     }
 
     #[inline]
     pub fn recycle(&mut self, garbage: Box<[u16]>, current_time: f64) {
-        let expiration = current_time + self.max_life_sec;
+        let expiration = current_time + self.delta_decay;
 
         self.garbage.push_back((garbage, expiration));
     }

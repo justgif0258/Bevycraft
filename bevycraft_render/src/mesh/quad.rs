@@ -229,6 +229,7 @@ pub enum Facing {
 }
 
 impl Facing {
+
     #[inline(always)]
     pub const fn get_normal(self) -> [f32; 3] {
         match self {
@@ -238,6 +239,40 @@ impl Facing {
             Facing::NegY => [0.0, -1.0, 0.0],
             Facing::PosZ => [0.0, 0.0, 1.0],
             Facing::NegZ => [0.0, 0.0, -1.0],
+        }
+    }
+}
+
+impl TryFrom<usize> for Facing {
+    type Error = &'static str;
+
+    #[inline(always)]
+    fn try_from(value: usize) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Facing::PosX),
+            1 => Ok(Facing::NegX),
+            2 => Ok(Facing::PosY),
+            3 => Ok(Facing::NegY),
+            4 => Ok(Facing::PosZ),
+            5 => Ok(Facing::NegZ),
+            _ => Err("Invalid facing value")
+        }
+    }
+}
+
+impl TryFrom<u8> for Facing {
+    type Error = &'static str;
+
+    #[inline(always)]
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Facing::PosX),
+            1 => Ok(Facing::NegX),
+            2 => Ok(Facing::PosY),
+            3 => Ok(Facing::NegY),
+            4 => Ok(Facing::PosZ),
+            5 => Ok(Facing::NegZ),
+            _ => Err("Invalid facing value")
         }
     }
 }

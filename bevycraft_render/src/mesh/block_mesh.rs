@@ -20,7 +20,9 @@ impl BlockMesh {
         manager         : &RModelManager,
         array_texture   : &ArrayTexture,
         render_flags    : RenderFlags
-    ) -> Option<Self> {
+    ) -> Result<Self, Vec<String>> {
+        let mut errors: Vec<String> = Vec::new();
+
         let mut buckets: [Vec<Quad>; 6] = Default::default();
         let mut inner_faces : Vec<Quad> = Vec::new();
 
@@ -29,57 +31,55 @@ impl BlockMesh {
         } else if let Some (elements) = manager.try_load_parent(&model) {
             elements
         } else {
-            return None;
+            errors.push("Failed to bake block mesh elements".to_string());
+
+            return Err(errors);
         };
 
-        let texture_map = model.textures?;
+        if let Some(textures) = model.textures {
+            geometry.iter()
+                .for_each(|element| {
+                    element.faces
+                        .iter()
+                        .for_each(|(facing, face)| {
+                            match Facing::try_from(facing.as_str()) {
+                                Err(e) => errors.push(e.to_string()),
+                                Ok(facing) => {
+                                    let texture = match face.texture.strip_prefix('#') {
+                                        None => AssetLocation::try_parse(&face.texture).ok(),
+                                        Some(key) => textures.get(key).cloned(),
+                                    };
 
-        geometry.iter()
-            .for_each(|geo| {
-                geo.faces
-                    .iter()
-                    .for_each(|(facing, face)| {
-                        let facing = Facing::try_from(facing.as_str()).unwrap();
+                                    if let Some(texture) = &texture {
+                                        let quad = Quad::new(
+                                            element.from,
+                                            element.to,
+                                            face.uv,
+                                            VERTEX_SCALING,
+                                            facing,
+                                            texture,
+                                            array_texture,
+                                        );
 
-                        let texture = match face.texture.strip_prefix('#') {
-                            None => &AssetLocation::parse(&face.texture),
-                            Some(texture_key) => {
-                                texture_map.get(
-                                    texture_key
-                                ).unwrap()
+                                        if let Some(cullface) = &face.cullface
+                                            && let Ok(facing_cull) = Facing::try_from(cullface.as_str())
+                                        {
+                                            buckets[facing_cull as usize].push(quad);
+                                        } else {
+                                            inner_faces.push(quad);
+                                        }
+                                    } else {
+                                        errors.push(format!("Failed to load texture {} for {} face", &face.texture, facing))
+                                    }
+                                }
                             }
-                        };
+                        })
+                })
+        }
 
-                        if let Some(cullface) = &face.cullface {
-                            let bucket_idx = Facing::try_from(cullface.as_str())
-                                .unwrap() as usize;
-
-                            buckets[bucket_idx].push(
-                                Quad::new(
-                                    geo.from,
-                                    geo.to,
-                                    face.uv,
-                                    VERTEX_SCALING,
-                                    facing,
-                                    texture,
-                                    array_texture
-                                )
-                            );
-                        } else {
-                            inner_faces.push(
-                                Quad::new(
-                                    geo.from,
-                                    geo.to,
-                                    face.uv,
-                                    VERTEX_SCALING,
-                                    facing,
-                                    texture,
-                                    array_texture
-                                )
-                            );
-                        }
-                    });
-            });
+        if !errors.is_empty() {
+            return Err(errors);
+        }
 
         let mut masks = [OcclusionMask(0); 6];
 
@@ -89,42 +89,40 @@ impl BlockMesh {
             buckets[facing]
                 .iter()
                 .for_each(|quad| {
-                    let face = quad.facing();
+                    let face = Facing::try_from(facing).unwrap();
 
-                    if face as usize == facing {
-                        let [min_x, min_y, min_z] = quad.min().position;
-                        let [max_x, max_y, max_z] = quad.max().position;
+                    let [min_x, min_y, min_z] = quad.min().position;
+                    let [max_x, max_y, max_z] = quad.max().position;
 
-                        match face {
-                            Facing::PosX | Facing::NegX => {
-                                mask.fill_bits(
-                                    [min_z, min_y],
-                                    [max_z, max_y],
-                                    true
-                                );
-                            }
-                            Facing::PosY | Facing::NegY => {
-                                mask.fill_bits(
-                                    [min_x, min_z],
-                                    [max_x, max_z],
-                                    true
-                                );
-                            }
-                            Facing::PosZ | Facing::NegZ => {
-                                mask.fill_bits(
-                                    [min_x, min_y],
-                                    [max_x, max_y],
-                                    true
-                                );
-                            }
+                    match face {
+                        Facing::PosX | Facing::NegX => {
+                            mask.fill_bits(
+                                [min_z, min_y],
+                                [max_z, max_y],
+                                true
+                            );
                         }
-
-                        masks[facing] = mask;
+                        Facing::PosY | Facing::NegY => {
+                            mask.fill_bits(
+                                [min_x, min_z],
+                                [max_x, max_z],
+                                true
+                            );
+                        }
+                        Facing::PosZ | Facing::NegZ => {
+                            mask.fill_bits(
+                                [min_x, min_y],
+                                [max_x, max_y],
+                                true
+                            );
+                        }
                     }
+
+                    masks[facing] = mask;
                 })
         }
 
-        Some(Self {
+        Ok(Self {
             buckets,
             inner_faces,
             masks,

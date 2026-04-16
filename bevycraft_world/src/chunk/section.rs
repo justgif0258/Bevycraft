@@ -5,25 +5,25 @@ use bevy::platform::hash::NoOpHash;
 use bevy::prelude::*;
 use frozen_collections::Len;
 
+const SECTION_LEN: usize = 4096;
+
+pub(crate) const SECTION_SIZE: UVec3 = UVec3::new(16, 16, 16);
+
 pub struct Section {
     palette : RcPalette,
     blocks  : Box<[u16]>,
 }
 
 impl Section {
-    const SECTION_LEN: usize = 4096;
-
-    pub(crate) const SECTION_SIZE: UVec3 = UVec3::new(16, 16, 16);
-
     #[inline]
     pub fn allocate() -> Self {
         let blocks = unsafe {
-            let layout = Layout::array::<u16>(Self::SECTION_LEN)
+            let layout = Layout::array::<u16>(SECTION_LEN)
                 .unwrap();
 
             let ptr = alloc_zeroed(layout);
 
-            let fat_ptr = slice_from_raw_parts_mut(ptr as *mut u16, Self::SECTION_LEN);
+            let fat_ptr = slice_from_raw_parts_mut(ptr as *mut u16, SECTION_LEN);
 
             Box::from_raw(fat_ptr)
         };
@@ -36,7 +36,7 @@ impl Section {
 
     #[inline]
     pub fn from_allocated(alloc: Box<[u16]>) -> Option<Self> {
-        if alloc.len() != Self::SECTION_LEN {
+        if alloc.len() != SECTION_LEN {
             return None;
         }
 
@@ -71,9 +71,9 @@ impl Section {
 
     #[inline(always)]
     fn map_to_flat_index(pos: UVec3) -> usize {
-        debug_assert!(pos.cmplt(Self::SECTION_SIZE).all(), "Tried indexing out of the section boundaries");
+        debug_assert!(pos.cmplt(SECTION_SIZE).all(), "Tried indexing out of the section boundaries");
 
-        (pos.x + (pos.z * Self::SECTION_SIZE.x) + (pos.y * Self::SECTION_SIZE.x * Self::SECTION_SIZE.z)) as usize
+        (pos.x + (pos.z * SECTION_SIZE.x) + (pos.y * SECTION_SIZE.x * SECTION_SIZE.z)) as usize
     }
 }
 
@@ -95,17 +95,8 @@ impl RcPalette {
         }
     }
 
-    #[inline]
-    pub fn with_capacity(capacity: usize) -> Self {
-        Self {
-            entries: Vec::with_capacity(capacity),
-            lookup: HashMap::with_capacity_and_hasher(capacity, NoOpHash),
-            free_list: Vec::with_capacity(capacity),
-            needs_resize: false,
-        }
-    }
-
     #[inline(always)]
+    #[must_use]
     pub fn get_global_idx(&self, local_idx: u16) -> Option<u32> {
         self.entries.get(local_idx as usize)
             .map(|(idx, _)| *idx)
@@ -150,7 +141,24 @@ impl RcPalette {
             self.lookup.remove(&entry.0);
 
             self.free_list.push(local_idx);
+            
+            self.needs_resize = true;
         }
+    }
+    
+    #[inline(always)]
+    pub const fn len(&self) -> usize {
+        self.entries.len()
+    }
+    
+    #[inline(always)]
+    pub const fn needs_resize(&self) -> bool {
+        self.needs_resize
+    }
+    
+    #[inline(always)]
+    pub const fn is_empty(&self) -> bool {
+        self.entries.is_empty()
     }
 
     #[inline(always)]

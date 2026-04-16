@@ -1,20 +1,12 @@
 use bevy::math::bounding::Aabb3d;
-use bevy::prelude::{Commands, CommandsStatesExt, Vec3A};
-use bevycraft_core::prelude::{AssetLocation, Commit, Record};
-use bevycraft_world::prelude::{Block, BlockCommit, BlockDefinition, BlockFlags, BlockRecord};
-use crate::AppState;
+use bevy::prelude::*;
+use bevycraft_core::prelude::*;
+use bevycraft_world::prelude::*;
 
 const FULL_SHAPE: Aabb3d = Aabb3d { min: Vec3A::new(0.0, 0.0, 0.0), max: Vec3A::new(1.0, 1.0, 1.0), };
 
-pub fn init_registries(
-    mut commands: Commands,
-) {
-    commands.insert_resource(register_blocks());
 
-    commands.set_state(AppState::LoadingRModels);
-}
-
-fn register_blocks() -> BlockRecord {
+pub fn register_blocks() -> BlockRecord {
     let mut commit = BlockCommit::new();
     
     commit.push(

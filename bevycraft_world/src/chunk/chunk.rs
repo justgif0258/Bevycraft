@@ -1,6 +1,7 @@
 use bevy::platform::collections::HashMap;
 use bevy::platform::hash::NoOpHash;
 use bevy::prelude::*;
+use crate::chunk::section::SECTION_SIZE;
 use crate::prelude::{Section, SectionPool};
 
 pub struct Chunk {
@@ -24,26 +25,26 @@ impl Chunk {
     #[inline(always)]
     pub fn set_at(
         &mut self,
-        gc: &mut SectionPool,
-        pos: impl Into<IVec3>,
-        global_idx: u32
+        pool        : &mut SectionPool,
+        pos         : impl Into<IVec3>,
+        global_idx  : u32
     ) {
         let pos = pos.into();
 
-        let normalized = pos.rem_euclid(Section::SECTION_SIZE.as_ivec3());
+        let normalized = pos.rem_euclid(SECTION_SIZE.as_ivec3()).as_uvec3();
 
-        let y_idx = pos.y.div_euclid(Section::SECTION_SIZE.y as i32);
+        let y_idx = pos.y.div_euclid(SECTION_SIZE.y as i32);
 
         if let Some(section) = self.sections.get_mut(&y_idx) {
-            section.set_at(normalized.as_uvec3(), global_idx);
+            section.set_at(normalized, global_idx);
 
             return;
         }
 
-        let mut new_section = Section::from_allocated(gc.alloc_zeroed())
+        let mut new_section = Section::from_allocated(pool.alloc_zeroed())
             .unwrap();
 
-        new_section.set_at(normalized.as_uvec3(), global_idx);
+        new_section.set_at(normalized, global_idx);
 
         self.sections.insert(y_idx, new_section);
     }
@@ -55,9 +56,9 @@ impl Chunk {
     ) -> Option<u32> {
         let pos = pos.into();
 
-        let normalized = pos.rem_euclid(Section::SECTION_SIZE.as_ivec3());
+        let normalized = pos.rem_euclid(SECTION_SIZE.as_ivec3());
 
-        let y_idx = pos.y.div_euclid(Section::SECTION_SIZE.y as i32);
+        let y_idx = pos.y.div_euclid(SECTION_SIZE.y as i32);
 
         if let Some(section) = self.sections.get(&y_idx) {
             return Some(
