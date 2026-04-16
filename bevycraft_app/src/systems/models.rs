@@ -1,17 +1,19 @@
 use bevy::prelude::*;
 use bevycraft_core::prelude::Record;
 use bevycraft_render::prelude::{ArrayTexture, BlockMesh, RModelManager, RenderFlags};
+use bevycraft_world::prelude::BlockRecord;
 use crate::AppState;
-use crate::records::core_records::blocks;
 
 pub fn solve_models(
-    mut commands: Commands,
+    mut commands    : Commands,
+    mut next        : ResMut<NextState<AppState>>,
+    blocks_registry : Res<BlockRecord>,
     manager         : Res<RModelManager>,
     array_texture   : Res<ArrayTexture>,
 ) {
     let mut meshes: Vec<BlockMesh> = Vec::new();
 
-    blocks().iter_definitions()
+    blocks_registry.iter_definitions()
         .enumerate()
         .for_each(|(i, def)| {
             let mut flags = RenderFlags::empty();
@@ -30,7 +32,7 @@ pub fn solve_models(
                 flags |= RenderFlags::OCCLUDABLE;
             }
 
-            let key = blocks().idx_to_key(i)
+            let key = blocks_registry.idx_to_key(i)
                 .unwrap()
                 .prefix("block/");
 
@@ -55,13 +57,16 @@ pub fn solve_models(
         });
 
     commands.remove_resource::<RModelManager>();
+
+    next.set(AppState::InGame);
 }
 
 pub fn load_block_models(
-    mut manager: ResMut<RModelManager>,
-    mut next: ResMut<NextState<AppState>>,
+    mut manager     : ResMut<RModelManager>,
+    mut next        : ResMut<NextState<AppState>>,
+    blocks_registry : Res<BlockRecord>,
 ) {
-    blocks().keys()
+    blocks_registry.keys()
         .iter()
         .for_each(|&key| {
             let actual_location = key.prefix("block/");

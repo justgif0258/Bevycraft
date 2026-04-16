@@ -2,8 +2,8 @@ use std::slice::Iter;
 use bevy::math::bounding::Aabb3d;
 use bevy::prelude::Resource;
 use boomphf::Mphf;
-use bevycraft_core::prelude::{AssetLocation, Commit, Record};
-use crate::prelude::{Block, BlockDefinition};
+use bevycraft_core::prelude::*;
+use crate::prelude::*;
 
 #[derive(Resource)]
 pub struct BlockRecord {

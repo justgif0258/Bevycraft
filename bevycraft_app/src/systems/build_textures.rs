@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy::render::renderer::{RenderDevice, RenderQueue};
 use bevycraft_core::prelude::AssetLocation;
-use bevycraft_render::prelude::{ArrayTexture, RModelManager};
+use bevycraft_render::prelude::{ArrayTexture, RModelManager, VertexMaterial};
 use crate::AppState;
 
 pub fn load_textures_into_server(
@@ -42,12 +42,10 @@ pub fn wait_for_server(
 
 pub fn build_array_texture(
     mut commands: Commands,
-    mut device: ResMut<RenderDevice>,
-    mut queue: ResMut<RenderQueue>,
+    mut images: ResMut<Assets<Image>>,
+    mut next: ResMut<NextState<AppState>>,
     manager: Res<RModelManager>,
     asset_server: Res<AssetServer>,
-    images: Res<Assets<Image>>,
-    mut next: ResMut<NextState<AppState>>,
 ) {
     let mut holder: Vec<(AssetLocation, Handle<Image>)> = Vec::new();
 
@@ -71,7 +69,7 @@ pub fn build_array_texture(
             builder.register(location, data);
         });
 
-    commands.insert_resource(builder.build_and_send(&mut device, &mut queue));
+    commands.insert_resource(builder.build_and_send(&mut images));
     
     info!("Successfully built array texture");
     

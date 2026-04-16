@@ -3,20 +3,32 @@ use bevy::prelude::{Commands, CommandsStatesExt, Vec3A};
 use bevycraft_core::prelude::{AssetLocation, Commit, Record};
 use bevycraft_world::prelude::{Block, BlockCommit, BlockDefinition, BlockFlags, BlockRecord};
 use crate::AppState;
-use crate::records::core_records::BLOCKS;
 
 const FULL_SHAPE: Aabb3d = Aabb3d { min: Vec3A::new(0.0, 0.0, 0.0), max: Vec3A::new(1.0, 1.0, 1.0), };
 
 pub fn init_registries(
     mut commands: Commands,
 ) {
-    register_blocks();
+    commands.insert_resource(register_blocks());
 
     commands.set_state(AppState::LoadingRModels);
 }
 
-fn register_blocks() {
+fn register_blocks() -> BlockRecord {
     let mut commit = BlockCommit::new();
+    
+    commit.push(
+        AssetLocation::with_default_namespace("air"),
+        Block::new()
+            .definition(
+                BlockDefinition::new()
+                    .friction(0.0)
+                    .flags(BlockFlags::AIR)
+                    .build()
+            )
+            .shapes(vec![])
+            .build()
+    );
 
     commit.push(
         AssetLocation::with_default_namespace("grass_block"),
@@ -161,7 +173,5 @@ fn register_blocks() {
             .build()
     );
 
-    BLOCKS.get_or_init(|| {
-        BlockRecord::finish(commit)
-    });
+    BlockRecord::finish(commit)
 }

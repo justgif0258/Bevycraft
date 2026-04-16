@@ -9,7 +9,7 @@ pub mod prelude {
             array_texture::ArrayTexture
         },
         mesh::{
-            vertex::Vertex,
+            vertex::*,
             block_mesh::*,
             quad::*,
         },

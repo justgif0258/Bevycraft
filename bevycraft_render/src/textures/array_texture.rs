@@ -1,7 +1,8 @@
-use bevy::prelude::{info, Resource};
-use bevy::render::render_resource::{Extent3d, Origin3d, TexelCopyBufferLayout, TexelCopyTextureInfo, Texture, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension};
-use bevy::render::renderer::{RenderDevice, RenderQueue};
-use frozen_collections::{FzHashMap};
+use bevy::asset::RenderAssetUsages;
+use bevy::image::*;
+use bevy::prelude::*;
+use bevy::render::render_resource::*;
+use frozen_collections::FzHashMap;
 use frozen_collections::maps::Iter;
 use bevycraft_core::prelude::AssetLocation;
 use crate::prelude::TextureId;
@@ -9,14 +10,13 @@ use crate::prelude::TextureId;
 #[derive(Resource)]
 pub struct ArrayTexture {
     texture_lut : FzHashMap<AssetLocation, TextureId>,
-    texture     : Texture,
-    view        : TextureView,
+    image       : Handle<Image>
 }
 
 impl ArrayTexture {
     #[inline]
     #[must_use]
-    pub const fn builder(resolution: usize) -> ArrayTextureBuilder {
+    pub const fn builder(resolution: u32) -> ArrayTextureBuilder {
         assert!(resolution.is_power_of_two(), "The resolution of an array texture must be a power of 2");
 
         ArrayTextureBuilder {
@@ -40,7 +40,7 @@ impl ArrayTexture {
 pub struct ArrayTextureBuilder {
     textures    : Vec<Vec<u8>>,
     names       : Vec<AssetLocation>,
-    resolution  : usize,
+    resolution  : u32,
 }
 
 impl ArrayTextureBuilder {
@@ -56,66 +56,48 @@ impl ArrayTextureBuilder {
 
     pub fn build_and_send(
         self,
-        device: &mut RenderDevice,
-        queue: &mut RenderQueue,
+        images: &mut Assets<Image>,
     ) -> ArrayTexture {
         let layer_count = self.textures.len() as u32;
-        let texture_size = Extent3d {
-            width: 8,
-            height: 8,
-            depth_or_array_layers: layer_count,
-        };
 
-        let texture = device.create_texture(&TextureDescriptor {
-            label: Some("blocks_array"),
-            size: texture_size,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: TextureDimension::D2,
-            format: TextureFormat::Rgba8UnormSrgb,
-            usage: TextureUsages::TEXTURE_BINDING
-                | TextureUsages::COPY_DST,
-            view_formats: &[],
-        });
+        let mut all_pixels = Vec::with_capacity((8 * 8 * 4 * layer_count) as usize);
 
-        for (layer, pixels) in self.textures.iter().enumerate() {
-            queue.write_texture(
-                TexelCopyTextureInfo {
-                    texture: &texture,
-                    mip_level: 0,
-                    origin: Origin3d { x: 0, y: 0, z: layer as u32 },
-                    aspect: TextureAspect::All,
-                },
-                pixels,
-                TexelCopyBufferLayout {
-                    offset: 0,
-                    bytes_per_row: Some(8 * 4),
-                    rows_per_image: Some(8),
-                },
-                Extent3d {
-                    width: 8,
-                    height: 8,
-                    depth_or_array_layers: 1,
-                },
-            );
+        for texture in &self.textures {
+            all_pixels.extend_from_slice(texture);
         }
 
-        let view = texture.create_view(&TextureViewDescriptor {
-            dimension: Some(TextureViewDimension::D2Array),
-            ..Default::default()
-        });
-
-        let name_map = FzHashMap::from_iter(
-            self.names
-                .into_iter()
-                .enumerate()
-                .map(|(i, name)| {
-                    info!("Pushing texture {}...", name);
-
-                    (name, TextureId(i as u32))
-                })
+        let mut array_image = Image::new(
+            Extent3d {
+                width: self.resolution,
+                height: self.resolution,
+                depth_or_array_layers: layer_count,
+            },
+            TextureDimension::D2,
+            all_pixels,
+            TextureFormat::Rgba8UnormSrgb,
+            RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD
         );
 
-        ArrayTexture { texture_lut: name_map, texture, view }
+        array_image.texture_view_descriptor = Some(TextureViewDescriptor {
+            dimension: Some(TextureViewDimension::D2Array),
+            ..default()
+        });
+
+        array_image.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
+            mag_filter: ImageFilterMode::Nearest,
+            min_filter: ImageFilterMode::Nearest,
+            mipmap_filter: ImageFilterMode::Nearest,
+            ..default()
+        });
+
+        let image = images.add(array_image);
+
+        let texture_lut = FzHashMap::from_iter(
+            self.names.into_iter()
+                .enumerate()
+                .map(|(i, k)| (k, TextureId(i as u32)))
+        );
+
+        ArrayTexture { texture_lut, image }
     }
 }

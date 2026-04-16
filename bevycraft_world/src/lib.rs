@@ -2,6 +2,7 @@ mod block;
 mod chunk;
 mod morton;
 mod spatial;
+mod generator;
 
 pub mod prelude {
     #[allow(deprecated)]
@@ -17,6 +18,8 @@ pub mod prelude {
         },
         chunk::{
             section::Section,
+            chunk::Chunk,
+            pool::SectionPool,
         },
         morton::morton_3d::{
             Morton3D,
@@ -27,5 +30,6 @@ pub mod prelude {
             node_64::Node64, 
             tree_64::Tree64
         },
+        generator::*,
     };
 }
