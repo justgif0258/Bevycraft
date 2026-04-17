@@ -2,10 +2,13 @@ use std::fmt::{Display, Formatter};
 use bevycraft_core::prelude::AssetLocation;
 use crate::prelude::{ArrayTexture, TextureId, Vertex};
 
+pub const NEUTRAL_TINT: [f32; 4] = [1.0; 4];
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Quad {
     vertices: [Vertex; 4],
     facing  : Facing,
+    tintable: bool,
 }
 
 impl Quad {
@@ -16,6 +19,7 @@ impl Quad {
         uvs             : [f32; 4],
         scaling         : f32,
         facing          : Facing,
+        tintable        : bool,
         texture         : &AssetLocation,
         array_texture   : &ArrayTexture
     ) -> Self {
@@ -25,22 +29,91 @@ impl Quad {
         Self {
             vertices: Self::generate_vertex_array(from, to, uvs, scaling, facing, texture),
             facing,
+            tintable,
         }
     }
 
-    #[inline(always)]
-    pub fn min(&self) -> Vertex {
-        self.vertices[0].clone()
+    #[inline]
+    pub fn render_to_buffer(
+        &self,
+        positions   : &mut Vec<[f32; 3]>,
+        normals     : &mut Vec<[f32; 3]>,
+        uvs         : &mut Vec<[f32; 2]>,
+        colors      : &mut Vec<[f32; 4]>,
+        textures    : &mut Vec<u32>,
+        tint        : Option<[f32; 4]>
+    ) {
+        positions.extend_from_slice(&self.positions());
+        normals.extend_from_slice(&self.normals());
+        uvs.extend_from_slice(&self.uvs());
+
+        let tint = if let Some(tint) = tint && self.tintable {
+            [tint; 4]
+        } else { [NEUTRAL_TINT; 4] };
+
+        colors.extend_from_slice(&tint);
+
+        textures.extend_from_slice(&self.textures());
     }
 
     #[inline(always)]
-    pub fn max(&self) -> Vertex {
-        self.vertices[2].clone()
+    pub fn min(&self) -> [f32; 3] {
+        self.vertices[0].position
+    }
+
+    #[inline(always)]
+    pub fn max(&self) -> [f32; 3] {
+        self.vertices[2].position
+    }
+
+    #[inline(always)]
+    pub const fn positions(&self) -> [[f32; 3]; 4] {
+        [
+            self.vertices[0].position,
+            self.vertices[1].position,
+            self.vertices[2].position,
+            self.vertices[3].position,
+        ]
+    }
+
+    #[inline(always)]
+    pub const fn normals(&self) -> [[f32; 3]; 4] {
+        [
+            self.vertices[0].normal,
+            self.vertices[1].normal,
+            self.vertices[2].normal,
+            self.vertices[3].normal,
+        ]
+    }
+
+    #[inline(always)]
+    pub const fn uvs(&self) -> [[f32; 2]; 4] {
+        [
+            self.vertices[0].uv,
+            self.vertices[1].uv,
+            self.vertices[2].uv,
+            self.vertices[3].uv,
+        ]
+    }
+
+    #[inline(always)]
+    pub const fn textures(&self) -> [u32; 4] {
+        [
+            self.vertices[0].texture.0,
+            self.vertices[1].texture.0,
+            self.vertices[2].texture.0,
+            self.vertices[3].texture.0,
+        ]
     }
 
     #[inline(always)]
     pub const fn facing(&self) -> Facing {
         self.facing
+    }
+    
+    #[inline(always)]
+    pub const fn tintable(&self) -> bool {
+        self.tintable
     }
 
     #[inline(always)]
@@ -58,31 +131,38 @@ impl Quad {
 
         let [u0, v0, u1, v1] = [uvs[0] * scaling, uvs[1] * scaling, uvs[2] * scaling, uvs[3] * scaling];
 
+        let scaled_uvs = [
+            [u0, v1],
+            [u1, v1],
+            [u1, v0],
+            [u0, v0],
+        ];
+
         let normal = facing.get_normal();
 
         match facing {
             Facing::PosX => [
                 Vertex {
                     position: [max_x, min_y, max_z],
-                    uv: [u0, v0],
+                    uv: scaled_uvs[0],
                     normal,
                     texture,
                 },
                 Vertex {
                     position: [max_x, min_y, min_z],
-                    uv: [u1, v0],
+                    uv: scaled_uvs[1],
                     normal,
                     texture,
                 },
                 Vertex {
                     position: [max_x, max_y, min_z],
-                    uv: [u1, v1],
+                    uv: scaled_uvs[2],
                     normal,
                     texture,
                 },
                 Vertex {
                     position: [max_x, max_y, max_z],
-                    uv: [u0, v1],
+                    uv: scaled_uvs[3],
                     normal,
                     texture,
                 },
@@ -90,25 +170,25 @@ impl Quad {
             Facing::NegX => [
                 Vertex {
                     position: [min_x, min_y, min_z],
-                    uv: [u0, v0],
+                    uv: scaled_uvs[0],
                     normal,
                     texture,
                 },
                 Vertex {
                     position: [min_x, min_y, max_z],
-                    uv: [u1, v0],
+                    uv: scaled_uvs[1],
                     normal,
                     texture,
                 },
                 Vertex {
                     position: [min_x, max_y, max_z],
-                    uv: [u1, v1],
+                    uv: scaled_uvs[2],
                     normal,
                     texture,
                 },
                 Vertex {
                     position: [min_x, max_y, min_z],
-                    uv: [u0, v1],
+                    uv: scaled_uvs[3],
                     normal,
                     texture,
                 },
@@ -116,25 +196,25 @@ impl Quad {
             Facing::PosY => [
                 Vertex {
                     position: [min_x, max_y, max_z],
-                    uv: [u0, v0],
+                    uv: scaled_uvs[0],
                     normal,
                     texture,
                 },
                 Vertex {
                     position: [max_x, max_y, max_z],
-                    uv: [u1, v0],
+                    uv: scaled_uvs[1],
                     normal,
                     texture,
                 },
                 Vertex {
                     position: [max_x, max_y, min_z],
-                    uv: [u1, v1],
+                    uv: scaled_uvs[2],
                     normal,
                     texture,
                 },
                 Vertex {
                     position: [min_x, max_y, min_z],
-                    uv: [u0, v1],
+                    uv: scaled_uvs[3],
                     normal,
                     texture,
                 },
@@ -142,25 +222,25 @@ impl Quad {
             Facing::NegY => [
                 Vertex {
                     position: [min_x, min_y, min_z],
-                    uv: [u0, v0],
+                    uv: scaled_uvs[0],
                     normal,
                     texture,
                 },
                 Vertex {
                     position: [max_x, min_y, min_z],
-                    uv: [u1, v0],
+                    uv: scaled_uvs[1],
                     normal,
                     texture,
                 },
                 Vertex {
                     position: [max_x, min_y, max_z],
-                    uv: [u1, v1],
+                    uv: scaled_uvs[2],
                     normal,
                     texture,
                 },
                 Vertex {
                     position: [min_x, min_y, max_z],
-                    uv: [u0, v1],
+                    uv: scaled_uvs[3],
                     normal,
                     texture,
                 },
@@ -168,25 +248,25 @@ impl Quad {
             Facing::PosZ => [
                 Vertex {
                     position: [min_x, min_y, max_z],
-                    uv: [u0, v0],
+                    uv: scaled_uvs[0],
                     normal,
                     texture,
                 },
                 Vertex {
                     position: [max_x, min_y, max_z],
-                    uv: [u1, v0],
+                    uv: scaled_uvs[1],
                     normal,
                     texture,
                 },
                 Vertex {
                     position: [max_x, max_y, max_z],
-                    uv: [u1, v1],
+                    uv: scaled_uvs[2],
                     normal,
                     texture,
                 },
                 Vertex {
                     position: [min_x, max_y, max_z],
-                    uv: [u0, v1],
+                    uv: scaled_uvs[3],
                     normal,
                     texture,
                 },
@@ -194,25 +274,25 @@ impl Quad {
             Facing::NegZ => [
                 Vertex {
                     position: [max_x, min_y, min_z],
-                    uv: [u0, v0],
+                    uv: scaled_uvs[0],
                     normal,
                     texture,
                 },
                 Vertex {
                     position: [min_x, min_y, min_z],
-                    uv: [u1, v0],
+                    uv: scaled_uvs[1],
                     normal,
                     texture,
                 },
                 Vertex {
                     position: [min_x, max_y, min_z],
-                    uv: [u1, v1],
+                    uv: scaled_uvs[2],
                     normal,
                     texture,
                 },
                 Vertex {
                     position: [max_x, max_y, min_z],
-                    uv: [u0, v1],
+                    uv: scaled_uvs[3],
                     normal,
                     texture,
                 },

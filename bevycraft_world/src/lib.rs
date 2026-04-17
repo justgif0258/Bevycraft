@@ -17,7 +17,7 @@ pub mod prelude {
             block_commit::BlockCommit,
         },
         chunk::{
-            section::Section,
+            section::*,
             chunk::Chunk,
             pool::SectionPool,
         },
@@ -30,6 +30,8 @@ pub mod prelude {
             node_64::Node64, 
             tree_64::Tree64
         },
-        generator::*,
+        generator::{
+            world_generator::*,
+        },
     };
 }

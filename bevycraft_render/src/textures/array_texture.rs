@@ -5,15 +5,21 @@ use bevy::render::render_resource::*;
 use frozen_collections::FzHashMap;
 use frozen_collections::maps::Iter;
 use bevycraft_core::prelude::AssetLocation;
-use crate::prelude::TextureId;
+use crate::prelude::{TextureId, VertexMaterial};
 
 #[derive(Resource)]
 pub struct ArrayTexture {
     texture_lut : FzHashMap<AssetLocation, TextureId>,
-    image       : Handle<Image>
+    image       : Handle<Image>,
 }
 
 impl ArrayTexture {
+    #[inline]
+    #[must_use]
+    pub fn get_vertex_material(&self, materials: &mut Assets<VertexMaterial>) -> Handle<VertexMaterial> {
+        materials.add(VertexMaterial { array_texture: self.image.clone() })
+    }
+
     #[inline]
     #[must_use]
     pub const fn builder(resolution: u32) -> ArrayTextureBuilder {

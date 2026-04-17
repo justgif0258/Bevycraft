@@ -26,7 +26,7 @@ bevycraft_world = { path = "bevycraft_world" }
 bevycraft_render = { path = "bevycraft_render" }
 
 # Bevy
-bevy = { version = "0.18.1", features = [] }
+bevy = { version = "0.18.1", features = ["free_camera"] }
 bevy_dylib = { version = "0.18.1", features = [] }
 
 # Parallelism

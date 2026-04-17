@@ -1,8 +1,7 @@
 use bevy::platform::collections::HashMap;
 use bevy::platform::hash::NoOpHash;
 use bevy::prelude::*;
-use crate::chunk::section::SECTION_SIZE;
-use crate::prelude::{Section, SectionPool};
+use crate::prelude::*;
 
 pub struct Chunk {
     pub pos: IVec2,

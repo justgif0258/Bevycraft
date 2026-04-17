@@ -1,11 +1,12 @@
-use bevy::mesh::{MeshVertexAttribute, VertexFormat};
+use bevy::mesh::*;
+use bevy::pbr::*;
 use bevy::prelude::*;
-use bevy::render::render_resource::AsBindGroup;
-use bevy::shader::ShaderRef;
+use bevy::render::render_resource::*;
+use bevy::shader::{ShaderDefVal, ShaderRef};
 use crate::prelude::TextureId;
 
 pub const ATTRIBUTE_TEXTURE_LAYER: MeshVertexAttribute =
-    MeshVertexAttribute::new("Vertex_Layer", 1, VertexFormat::Uint32);
+    MeshVertexAttribute::new("Vertex_Layer", Mesh::FIRST_AVAILABLE_CUSTOM_ATTRIBUTE, VertexFormat::Uint32);
 
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 pub struct VertexMaterial {
@@ -26,8 +27,44 @@ impl Material for VertexMaterial {
     }
 
     #[inline]
-    fn alpha_mode(&self) -> AlphaMode {
-        AlphaMode::Mask(0.5)
+    fn specialize(
+        _pipeline: &MaterialPipeline,
+        descriptor: &mut RenderPipelineDescriptor,
+        layout: &MeshVertexBufferLayoutRef,
+        _key: MaterialPipelineKey<Self>
+    ) -> Result<(), SpecializedMeshPipelineError> {
+        let mut shader_defs: Vec<ShaderDefVal> = vec![];
+
+        let mut vertex_attributes = vec![
+            Mesh::ATTRIBUTE_POSITION.at_shader_location(0),
+            Mesh::ATTRIBUTE_NORMAL.at_shader_location(1),
+            Mesh::ATTRIBUTE_UV_0.at_shader_location(2),
+            ATTRIBUTE_TEXTURE_LAYER.at_shader_location(8)
+        ];
+
+        if layout.0.contains(Mesh::ATTRIBUTE_TANGENT) {
+            shader_defs.push("VERTEX_TANGENTS".into());
+
+            vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(4));
+        }
+
+        if layout.0.contains(Mesh::ATTRIBUTE_COLOR) {
+            shader_defs.push("VERTEX_COLORS".into());
+
+            vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(7));
+        }
+
+        let vertex_layout = layout.0.get_layout(&vertex_attributes)?;
+
+        descriptor.vertex.buffers = vec![vertex_layout];
+
+        descriptor.vertex.shader_defs.extend(shader_defs.clone());
+
+        if let Some(fragment) = &mut descriptor.fragment {
+            fragment.shader_defs.extend(shader_defs);
+        }
+
+        Ok(())
     }
 }
 

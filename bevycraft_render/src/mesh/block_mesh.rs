@@ -1,5 +1,7 @@
+use bevy::mesh::{Indices, PrimitiveTopology};
+use bevy::prelude::{info, Mesh};
 use bevycraft_core::prelude::AssetLocation;
-use crate::prelude::{ArrayTexture, Facing, Quad, RModel, RModelManager};
+use crate::prelude::*;
 
 const VERTEX_SCALING: f32 = 0.125f32;
 
@@ -57,6 +59,7 @@ impl BlockMesh {
                                             face.uv,
                                             VERTEX_SCALING,
                                             facing,
+                                            face.tintable,
                                             texture,
                                             array_texture,
                                         );
@@ -91,8 +94,8 @@ impl BlockMesh {
                 .for_each(|quad| {
                     let face = Facing::try_from(facing).unwrap();
 
-                    let [min_x, min_y, min_z] = quad.min().position;
-                    let [max_x, max_y, max_z] = quad.max().position;
+                    let [min_x, min_y, min_z] = quad.min();
+                    let [max_x, max_y, max_z] = quad.max();
 
                     match face {
                         Facing::PosX | Facing::NegX => {
@@ -129,12 +132,26 @@ impl BlockMesh {
             render_flags,
         })
     }
+
+    #[inline(always)]
+    pub fn iter_quads(&self) -> impl Iterator<Item = &Quad> {
+        self.inner_faces.iter()
+            .chain(
+                self.buckets.iter()
+                    .flat_map(|bucket| bucket.iter())
+            )
+    }
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct OcclusionMask(u64);
 
 impl OcclusionMask {
+    #[inline(always)]
+    pub const fn is_contained(&self, other: Self) -> bool {
+        self.0 & other.0 == self.0
+    }
+
     #[inline(always)]
     fn fill_bits(&mut self, from: [f32; 2], to: [f32; 2], value: bool) {
         let i_from_u = (from[0].min(to[0]) * OCCLUSION_GRID).ceil() as u32;
@@ -153,11 +170,6 @@ impl OcclusionMask {
                 self.0 |= (value as u64) << pos;
             }
         }
-    }
-
-    #[inline(always)]
-    const fn is_contained(&self, other: Self) -> bool {
-        self.0 & other.0 == self.0
     }
 
     #[inline(always)]

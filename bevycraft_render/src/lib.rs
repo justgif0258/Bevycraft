@@ -13,6 +13,7 @@ pub mod prelude {
             block_mesh::*,
             quad::*,
             block_mesh_manager::*,
+            mesh_buffer::MeshBuffer,
         },
         model::{
             r_model::*,

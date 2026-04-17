@@ -1,6 +1,19 @@
 (
-    parent: "bevycraft:block/cube_all",
     textures: {
         "all": "bevycraft:block/oak_leaves",
     },
+    elements: [
+        (
+            from: (0.0, 0.0, 0.0),
+            to: (8.0, 8.0, 8.0),
+            faces: {
+               "down": (uv: (0.0, 0.0, 8.0, 8.0), texture: "#all", cullface: "down", tintable: true),
+               "up": (uv: (0.0, 0.0, 8.0, 8.0), texture: "#all", cullface: "up", tintable: true),
+               "north": (uv: (0.0, 0.0, 8.0, 8.0), texture: "#all", cullface: "north", tintable: true),
+               "south": (uv: (0.0, 0.0, 8.0, 8.0), texture: "#all", cullface: "south", tintable: true),
+               "west": (uv: (0.0, 0.0, 8.0, 8.0), texture: "#all", cullface: "west", tintable: true),
+               "east": (uv: (0.0, 0.0, 8.0, 8.0), texture: "#all", cullface: "east", tintable: true),
+           },
+        )
+    ],
 )

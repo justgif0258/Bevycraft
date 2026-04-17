@@ -1,8 +1,10 @@
 use std::num::NonZeroUsize;
 use std::slice::from_raw_parts;
 use bevy::prelude::UVec3;
+#[allow(deprecated)]
 use crate::prelude::{Morton3D, Node64};
 
+#[allow(deprecated)]
 pub struct Tree64<T: Default + Send + Sync> {
     root        : Node64,
     node_pool   : Vec<Node64>,
@@ -10,6 +12,8 @@ pub struct Tree64<T: Default + Send + Sync> {
     depth       : NonZeroUsize,
 }
 
+#[allow(unused)]
+#[allow(deprecated)]
 impl<T: Default + Send + Sync> Tree64<T> {
     pub const MAX_DEPTH: usize = 16;
 
@@ -43,7 +47,7 @@ impl<T: Default + Send + Sync> Tree64<T> {
                 break;
             }
 
-            todo!()
+            unimplemented!()
         }
     }
 

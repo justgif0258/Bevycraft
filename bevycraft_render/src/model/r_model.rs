@@ -47,6 +47,9 @@ pub struct Face {
     pub uv      : [f32; 4],
     pub texture : String,
     pub cullface: Option<String>,
+
+    #[serde(default)]
+    pub tintable: bool,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]

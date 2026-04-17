@@ -1,0 +1,6 @@
+(
+    parent: "bevycraft:block/stair",
+    textures: {
+        "all": "bevycraft:block/oak_planks",
+    },
+)

@@ -1,32 +1,35 @@
+use bevy::platform::collections::HashMap;
+use bevy::platform::hash::NoOpHash;
 use bevy::prelude::Resource;
+use frozen_collections::{FzHashMap};
 use crate::prelude::{ArrayTexture, BlockMesh, RModel, RModelManager, RenderFlags};
 
 #[derive(Resource)]
 pub struct BlockMeshManager {
-    meshes: Box<[BlockMesh]>,
+    meshes: FzHashMap<u64, BlockMesh, NoOpHash>,
 }
 
 impl BlockMeshManager {
     #[inline]
     pub const fn builder() -> BlockMeshManagerBuilder {
-        BlockMeshManagerBuilder { meshes: Vec::new() }
+        BlockMeshManagerBuilder { entries: HashMap::with_hasher(NoOpHash) }
     }
 
     #[inline(always)]
-    pub fn get_mesh(&self, mesh_index: u32) -> Option<&BlockMesh> {
-        self.meshes.get(mesh_index as usize)
+    pub fn get_mesh(&self, block_index: u32) -> Option<&BlockMesh> {
+        self.meshes.get(&(block_index as u64))
     }
 }
 
 #[derive(Default)]
 pub struct BlockMeshManagerBuilder {
-    meshes: Vec<BlockMesh>,
+    entries: HashMap<u64, BlockMesh, NoOpHash>
 }
 
 impl BlockMeshManagerBuilder {
     #[inline]
-    pub fn add_mesh(&mut self, mesh: BlockMesh) {
-        self.meshes.push(mesh);
+    pub fn add_mesh(&mut self, mesh: BlockMesh, block_id: u32) {
+        self.entries.insert(block_id as u64, mesh);
     }
 
     #[inline]
@@ -35,7 +38,8 @@ impl BlockMeshManagerBuilder {
         manager         : &RModelManager,
         array_texture   : &ArrayTexture,
         model           : RModel,
-        render_flags    : RenderFlags
+        render_flags    : RenderFlags,
+        block_id        : u32
     ) -> Result<(), Vec<String>> {
         let mesh = BlockMesh::new(
             model,
@@ -46,7 +50,7 @@ impl BlockMeshManagerBuilder {
 
         match mesh {
             Ok(mesh) => {
-                self.meshes.push(mesh);
+                self.entries.insert(block_id as u64, mesh);
 
                 Ok(())
             },
@@ -56,6 +60,10 @@ impl BlockMeshManagerBuilder {
 
     #[inline]
     pub fn build(self) -> BlockMeshManager {
-        BlockMeshManager { meshes: self.meshes.into_boxed_slice() }
+        let meshes: FzHashMap<u64, BlockMesh, NoOpHash> = FzHashMap::from_iter(
+            self.entries.into_iter()
+        );
+
+        BlockMeshManager { meshes }
     }
 }

@@ -5,6 +5,8 @@ use bevycraft_world::prelude::*;
 
 const FULL_SHAPE: Aabb3d = Aabb3d { min: Vec3A::new(0.0, 0.0, 0.0), max: Vec3A::new(1.0, 1.0, 1.0), };
 
+const HALF_SHAPE: Aabb3d = Aabb3d { min: Vec3A::new(0.0, 0.0, 0.0), max: Vec3A::new(1.0, 0.5, 1.0), };
+
 
 pub fn register_blocks() -> BlockRecord {
     let mut commit = BlockCommit::new();
@@ -130,6 +132,42 @@ pub fn register_blocks() -> BlockRecord {
     );
 
     commit.push(
+        AssetLocation::with_default_namespace("oak_planks_slab"),
+        Block::new()
+            .definition(
+                BlockDefinition::new()
+                    .hardness(2.0)
+                    .toughness(3.0)
+                    .flags(BlockFlags::COLLIDABLE
+                        | BlockFlags::OCCLUDABLE
+                        | BlockFlags::CAN_SUPPORT
+                        | BlockFlags::DOES_SPAWN
+                    )
+                    .build()
+            )
+            .shapes(vec![HALF_SHAPE])
+            .build()
+    );
+
+    commit.push(
+        AssetLocation::with_default_namespace("oak_planks_stair"),
+        Block::new()
+            .definition(
+                BlockDefinition::new()
+                    .hardness(2.0)
+                    .toughness(3.0)
+                    .flags(BlockFlags::COLLIDABLE
+                        | BlockFlags::OCCLUDABLE
+                        | BlockFlags::CAN_SUPPORT
+                        | BlockFlags::DOES_SPAWN
+                    )
+                    .build()
+            )
+            .shapes(vec![HALF_SHAPE, Aabb3d::from_min_max([0.0, 4.0, 0.0], [8.0, 8.0, 4.0])])
+            .build()
+    );
+
+    commit.push(
         AssetLocation::with_default_namespace("oak_leaves"),
         Block::new()
             .definition(
@@ -154,6 +192,24 @@ pub fn register_blocks() -> BlockRecord {
                 BlockDefinition::new()
                     .hardness(0.2)
                     .toughness(0.2)
+                    .flags(BlockFlags::COLLIDABLE
+                        | BlockFlags::OCCLUDABLE
+                        | BlockFlags::CAN_SUPPORT
+                        | BlockFlags::DOES_SPAWN
+                    )
+                    .build()
+            )
+            .shapes(vec![FULL_SHAPE])
+            .build()
+    );
+
+    commit.push(
+        AssetLocation::with_default_namespace("sand"),
+        Block::new()
+            .definition(
+                BlockDefinition::new()
+                    .hardness(0.5)
+                    .toughness(0.5)
                     .flags(BlockFlags::COLLIDABLE
                         | BlockFlags::OCCLUDABLE
                         | BlockFlags::CAN_SUPPORT
