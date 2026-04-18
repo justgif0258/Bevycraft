@@ -134,12 +134,10 @@ impl BlockMesh {
     }
 
     #[inline(always)]
-    pub fn iter_quads(&self) -> impl Iterator<Item = &Quad> {
-        self.inner_faces.iter()
-            .chain(
-                self.buckets.iter()
-                    .flat_map(|bucket| bucket.iter())
-            )
+    pub fn iter(&self) -> impl Iterator<Item = &Quad> {
+        self.buckets.iter()
+            .flatten()
+            .chain(self.inner_faces.iter())
     }
 }
 
@@ -148,7 +146,7 @@ pub struct OcclusionMask(u64);
 
 impl OcclusionMask {
     #[inline(always)]
-    pub const fn is_contained(&self, other: Self) -> bool {
+    pub const fn is_occluded(&self, other: Self) -> bool {
         self.0 & other.0 == self.0
     }
 

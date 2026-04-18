@@ -1,0 +1,6 @@
+(
+    parent: "bevycraft:block/trapdoor",
+    textures: {
+        "all": "bevycraft:block/oak_trapdoor"
+    },
+)

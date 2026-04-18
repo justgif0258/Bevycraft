@@ -57,16 +57,6 @@ impl Quad {
     }
 
     #[inline(always)]
-    pub fn min(&self) -> [f32; 3] {
-        self.vertices[0].position
-    }
-
-    #[inline(always)]
-    pub fn max(&self) -> [f32; 3] {
-        self.vertices[2].position
-    }
-
-    #[inline(always)]
     pub const fn positions(&self) -> [[f32; 3]; 4] {
         [
             self.vertices[0].position,
@@ -117,6 +107,16 @@ impl Quad {
     }
 
     #[inline(always)]
+    pub fn min(&self) -> [f32; 3] {
+        self.vertices[0].position
+    }
+
+    #[inline(always)]
+    pub fn max(&self) -> [f32; 3] {
+        self.vertices[2].position
+    }
+
+    #[inline(always)]
     const fn generate_vertex_array(
         min: [f32; 3],
         max: [f32; 3],
@@ -129,13 +129,11 @@ impl Quad {
 
         let [max_x, max_y, max_z] = [max[0] * scaling, max[1] * scaling, max[2] * scaling];
 
-        let [u0, v0, u1, v1] = [uvs[0] * scaling, uvs[1] * scaling, uvs[2] * scaling, uvs[3] * scaling];
-
         let scaled_uvs = [
-            [u0, v1],
-            [u1, v1],
-            [u1, v0],
-            [u0, v0],
+            [uvs[0] * scaling, uvs[3] * scaling],
+            [uvs[2] * scaling, uvs[3] * scaling],
+            [uvs[2] * scaling, uvs[1] * scaling],
+            [uvs[0] * scaling, uvs[1] * scaling],
         ];
 
         let normal = facing.get_normal();

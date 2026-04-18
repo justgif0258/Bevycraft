@@ -1,175 +1,186 @@
-use std::alloc::{alloc_zeroed, Layout};
-use std::ptr::slice_from_raw_parts_mut;
 use bevy::platform::collections::HashMap;
 use bevy::platform::hash::NoOpHash;
 use bevy::prelude::*;
-use frozen_collections::Len;
 
-const SECTION_LEN: usize = 4096;
+pub(crate) const SECTION_SIZE: u32 = 16;
 
-pub(crate) const SECTION_SIZE: UVec3 = UVec3::new(16, 16, 16);
+pub(crate) const SECTION_LEN: usize = 4096;
 
-pub struct Section {
-    palette : RcPalette,
-    blocks  : Box<[u16]>,
-}
-
-impl Section {
-    #[inline]
-    pub fn allocate() -> Self {
-        let blocks = unsafe {
-            let layout = Layout::array::<u16>(SECTION_LEN)
-                .unwrap();
-
-            let ptr = alloc_zeroed(layout);
-
-            let fat_ptr = slice_from_raw_parts_mut(ptr as *mut u16, SECTION_LEN);
-
-            Box::from_raw(fat_ptr)
-        };
-
-        Self {
-            palette: RcPalette::new(),
-            blocks
-        }
-    }
-
-    #[inline]
-    pub fn from_allocated(alloc: Box<[u16]>) -> Option<Self> {
-        if alloc.len() != SECTION_LEN {
-            return None;
-        }
-
-        Some({
-            Self {
-                palette: RcPalette::new(),
-                blocks: alloc
-            }
-        })
-    }
-
-    #[inline(always)]
-    pub fn set_at(&mut self, pos: impl Into<UVec3>, global_idx: u32) {
-        let idx = Self::map_to_flat_index(pos.into());
-
-        let loc_id = self.palette.inc_ref_or_add(global_idx);
-
-        self.blocks[idx] = loc_id;
-    }
-
-    #[inline(always)]
-    pub fn get_at(&self, pos: impl Into<UVec3>) -> u32 {
-        let idx = Self::map_to_flat_index(pos.into());
-
-        self.palette.get_global_idx(self.blocks[idx]).unwrap()
-    }
-    
-    #[inline(always)]
-    pub fn recycle(self) -> Box<[u16]> {
-        self.blocks
-    }
-
-    #[inline(always)]
-    fn map_to_flat_index(pos: UVec3) -> usize {
-        debug_assert!(pos.cmplt(SECTION_SIZE).all(), "Tried indexing out of the section boundaries");
-
-        (pos.x + (pos.z * SECTION_SIZE.x) + (pos.y * SECTION_SIZE.x * SECTION_SIZE.z)) as usize
-    }
-}
-
-pub struct RcPalette {
-    entries     : Vec<(u32, u16)>,              // (Global Index | Ref counts)
-    lookup      : HashMap<u32, u16, NoOpHash>,  // (Global Index | Local Index)
-    free_list   : Vec<u16>,                     // (Local Indexes)
+pub struct PalettedSection {
+    blocks      : SectionArray<SECTION_LEN>,
+    palette     : HashMap<u64, u32, NoOpHash>,  // (Global Index -> Local Index)
+    refs        : Vec<(u32, u32)>,              // (Global Index | Ref counts)
+    free_list   : Vec<u16>,
     needs_resize: bool,
 }
 
-impl RcPalette {
+impl PalettedSection {
+    pub const EMPTY: u32 = 0u32;
+
     #[inline]
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
+        let mut refs = Vec::with_capacity(8);
+
+        refs.push((u32::MAX, u32::MAX));
+
         Self {
-            entries: Vec::new(),
-            lookup: HashMap::with_hasher(NoOpHash),
-            free_list: Vec::new(),
+            blocks: SectionArray::ArrayU8(Box::new([0u8; SECTION_LEN])),
+            palette: HashMap::with_hasher(NoOpHash),
+            refs,
+            free_list: Vec::with_capacity(8),
+            needs_resize: false,
+        }
+    }
+
+    #[inline]
+    pub fn empty() -> Self {
+        let mut refs = Vec::with_capacity(8);
+
+        refs.push((u32::MAX, u32::MAX));
+
+        Self {
+            blocks: SectionArray::Empty,
+            palette: HashMap::with_hasher(NoOpHash),
+            refs,
+            free_list: Vec::with_capacity(8),
             needs_resize: false,
         }
     }
 
     #[inline(always)]
-    #[must_use]
-    pub fn get_global_idx(&self, local_idx: u16) -> Option<u32> {
-        self.entries.get(local_idx as usize)
-            .map(|(idx, _)| *idx)
+    pub fn get(&self, position: impl Into<UVec3>) -> Option<u32> {
+        let local_index = self.blocks.get(map_to_flat_index(position));
+
+        if local_index == Self::EMPTY {
+            return None;
+        }
+
+        Some(self.refs[local_index as usize].0)
     }
 
     #[inline(always)]
-    #[must_use]
-    pub fn inc_ref_or_add(&mut self, global_idx: u32) -> u16 {
-        if let Some(&entry) = self.lookup.get(&global_idx) {
-            self.inc_ref(entry);
+    pub fn set(&mut self, position: impl Into<UVec3>, global_index: u32) {
+        let idx = map_to_flat_index(position);
 
-            return entry;
-        }
+        let local = self.global_to_local_index(global_index);
 
-        if let Some(free_idx) = self.free_list.pop() {
-            self.entries[free_idx as usize] = (global_idx, 1);
+        self.inc_ref(local);
 
-            self.lookup.insert(global_idx, free_idx);
-
-            if self.free_list.len() == 0 {
-                self.needs_resize = false;
-            }
-
-            return free_idx;
-        }
-
-        let new_index = self.entries.len() as u16;
-
-        self.entries.push((global_idx, 1));
-        self.lookup.insert(global_idx, new_index);
-
-        new_index
+        self.blocks.set(idx, local)
     }
 
     #[inline(always)]
-    pub fn dec_ref_or_remove(&mut self, local_idx: u16) {
-        self.dec_ref(local_idx);
+    pub fn remove(&mut self, position: impl Into<UVec3>) -> Option<u32> {
+        let idx = map_to_flat_index(position);
 
-        let entry = &mut self.entries[local_idx as usize];
+        let local = self.blocks.get(idx);
 
-        if entry.1 == 0 {
-            self.lookup.remove(&entry.0);
+        if local == 0 {
+            return None;
+        }
 
-            self.free_list.push(local_idx);
-            
+        let old_global = self.refs[local as usize].0;
+
+        self.blocks.set(idx, 0);
+
+        self.dec_ref(local);
+
+        if self.refs[local as usize].1 == 0 {
+            self.free_list.push(local as u16);
+
             self.needs_resize = true;
         }
+
+        Some(old_global)
     }
-    
+
     #[inline(always)]
-    pub const fn len(&self) -> usize {
-        self.entries.len()
+    pub fn palette_len(&self) -> usize {
+        self.palette.len()
     }
-    
+
+    #[inline(always)]
+    pub fn is_empty(&self) -> bool {
+        self.palette.is_empty()
+    }
+
     #[inline(always)]
     pub const fn needs_resize(&self) -> bool {
         self.needs_resize
     }
-    
+
     #[inline(always)]
-    pub const fn is_empty(&self) -> bool {
-        self.entries.is_empty()
+    fn global_to_local_index(&mut self, global_idx: u32) -> u32 {
+        if let Some(&loc) = self.palette.get(&(global_idx as u64)) {
+            return loc;
+        }
+
+        if let Some(loc) = self.free_list
+            .pop()
+            .map(|v| v as u32)
+        {
+            self.palette.insert(global_idx as u64, loc);
+
+            return loc;
+        }
+
+        let loc = self.refs.len() as u32;
+
+        self.refs.push((global_idx, 0));
+
+        self.palette.insert(global_idx as u64, loc);
+
+        loc
     }
 
     #[inline(always)]
-    fn inc_ref(&mut self, local_idx: u16) {
-        self.entries[local_idx as usize].1 += 1;
+    fn inc_ref(&mut self, local_idx: u32) {
+        self.refs[local_idx as usize].1 += 1;
     }
 
     #[inline(always)]
-    fn dec_ref(&mut self, local_idx: u16) {
-        let rc = &mut self.entries[local_idx as usize];
-
-        rc.1 = rc.1.saturating_sub(1);
+    fn dec_ref(&mut self, local_idx: u32) {
+        self.refs[local_idx as usize].1 -= 1;
     }
+}
+
+pub enum SectionArray<const N: usize> {
+    Empty,
+    SingleValue(u32),
+    ArrayU8(Box<[u8; N]>),
+    ArrayU16(Box<[u16; N]>),
+    ArrayU32(Box<[u32; N]>),
+}
+
+impl<const N: usize> SectionArray<N> {
+    #[inline(always)]
+    pub fn get(&self, index: usize) -> u32 {
+        match self {
+            SectionArray::Empty => 0,
+            SectionArray::SingleValue(v) => *v,
+            SectionArray::ArrayU8(b) => b[index] as u32,
+            SectionArray::ArrayU16(b) => b[index] as u32,
+            SectionArray::ArrayU32(b) => b[index],
+        }
+    }
+
+    #[inline(always)]
+    pub fn set(&mut self, index: usize, value: u32) {
+        match self {
+            SectionArray::Empty => (),
+            SectionArray::SingleValue(v) => *v = value,
+            SectionArray::ArrayU8(b) => b[index] = value as u8,
+            SectionArray::ArrayU16(b) => b[index] = value as u16,
+            SectionArray::ArrayU32(b) => b[index] = value,
+        }
+    }
+}
+
+#[inline(always)]
+fn map_to_flat_index(position: impl Into<UVec3>) -> usize {
+    let position = position.into();
+
+    debug_assert!(position.cmplt(UVec3::splat(SECTION_SIZE)).all(), "Tried indexing out of the section boundaries");
+
+    (position.x + (position.z * SECTION_SIZE) + (position.y * SECTION_SIZE * SECTION_SIZE)) as usize
 }

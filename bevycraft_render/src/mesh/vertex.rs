@@ -27,6 +27,11 @@ impl Material for VertexMaterial {
     }
 
     #[inline]
+    fn alpha_mode(&self) -> AlphaMode {
+        AlphaMode::Opaque
+    }
+
+    #[inline]
     fn specialize(
         _pipeline: &MaterialPipeline,
         descriptor: &mut RenderPipelineDescriptor,

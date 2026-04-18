@@ -1,17 +1,14 @@
 use std::f32::consts::FRAC_PI_8;
 use bevy::anti_alias::fxaa::Fxaa;
-use bevy::asset::RenderAssetUsages;
 use bevy::camera::Exposure;
 use bevy::camera_controller::free_camera::{FreeCamera, FreeCameraPlugin};
 use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::light::*;
 use bevy::light::light_consts::lux;
-use bevy::mesh::PrimitiveTopology;
 use bevy::pbr::*;
 use bevy::post_process::bloom::Bloom;
 use bevy::prelude::*;
 use bevycraft_app::AppState;
-use bevycraft_app::systems::collector::gc_task;
 use bevycraft_app::systems::register::register_blocks;
 use bevycraft_core::prelude::*;
 use bevycraft_render::prelude::*;
@@ -31,9 +28,6 @@ fn main() -> AppExit {
         .insert_resource(
             Time::<Fixed>::from_hz(64.0)
         )
-        .insert_resource(
-            SectionPool::new(MAX_GARBAGE_DELTA)
-        )
         .init_state::<AppState>()
         .add_systems(OnEnter(AppState::LoadingContent), init)
         .add_systems(
@@ -45,11 +39,6 @@ fn main() -> AppExit {
             setup_world,
             setup_player,
         ).chain())
-        .add_systems(FixedUpdate, (
-            gc_task,
-            )
-            .run_if(in_state(AppState::InGame))
-        )
         .run()
 }
 
@@ -237,6 +226,18 @@ fn setup_world(
         },
         Player
     ));
+
+    let generator = ActiveWorldGenerator::new(
+        BasicGenerator {
+            seed: rand::random(),
+            frequency: 0.06,
+            octaves: 4,
+            amplitude_min: 0.0,
+            amplitude_max: 24.0,
+        }
+    );
+
+    commands.insert_resource(generator);
 }
 
 fn setup_player(
@@ -246,32 +247,33 @@ fn setup_player(
     blocks      : Res<BlockRecord>,
     block_meshes: Res<BlockMeshManager>,
     array_texture: Res<ArrayTexture>,
+    generator   : Res<ActiveWorldGenerator>,
 ) {
-    let mut mesh = Mesh::new(
-        PrimitiveTopology::TriangleList,
-        RenderAssetUsages::MAIN_WORLD
-            | RenderAssetUsages::RENDER_WORLD
-    );
+    let mut chunks = Vec::new();
 
-    let mesh_id = blocks.key_to_idx(&AssetLocation::with_default_namespace("oak_planks_stair"))
-        .unwrap();
+    for x in 0..8 {
+        for z in 0..8 {
+            let chunk = Chunk::generate_using(
+                [x, z],
+                &blocks,
+                generator.generator.as_ref(),
+            );
 
-    let mesh = block_meshes.get_mesh(mesh_id as u32)
-        .unwrap();
-
-    let mut buffer = MeshBuffer::with_expected_capacity(24);
-
-    buffer.push_mesh(mesh, Some([0.2, 0.8, 0.2, 1.0]));
-
-    let handle = meshes.add(buffer.render());
+            chunks.push(chunk);
+        }
+    }
 
     let material = array_texture.get_vertex_material(&mut vertex);
 
-    commands.spawn((
-        Mesh3d(handle),
-        MeshMaterial3d(material),
-        Transform::from_xyz(0.0, 0.0, 0.0),
-    ));
+    for chunk in chunks {
+        let mesh = meshes.add(chunk.build_chunk_mesh(&block_meshes));
+
+        commands.spawn((
+            Mesh3d(mesh),
+            MeshMaterial3d(material.clone()),
+            Transform::from_xyz(0.0, 0.0, 0.0),
+        ));
+    }
 }
 
 #[derive(Component)]

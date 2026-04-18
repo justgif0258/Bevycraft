@@ -1,6 +1,6 @@
 use bevy::asset::RenderAssetUsages;
 use bevy::mesh::{Indices, PrimitiveTopology};
-use bevy::prelude::{info, Mesh};
+use bevy::prelude::Mesh;
 use crate::prelude::*;
 
 const NEUTRAL_QUAD_COLOR: [[f32; 4]; 4] = [NEUTRAL_TINT; 4];
@@ -30,8 +30,22 @@ impl MeshBuffer {
     }
 
     #[inline]
-    pub fn push_quad(&mut self, quad: &Quad, tint: Option<[f32; 4]>) {
-        self.positions.extend_from_slice(&quad.positions());
+    pub fn push_quad(
+        &mut self,
+        quad: &Quad,
+        tint: Option<[f32; 4]>,
+        offset: [f32; 3],
+    ) {
+        let pos = quad.positions();
+
+        let actual_pos = [
+            [pos[0][0] + offset[0], pos[0][1] + offset[1], pos[0][2] + offset[2]],
+            [pos[1][0] + offset[0], pos[1][1] + offset[1], pos[1][2] + offset[2]],
+            [pos[2][0] + offset[0], pos[2][1] + offset[1], pos[2][2] + offset[2]],
+            [pos[3][0] + offset[0], pos[3][1] + offset[1], pos[3][2] + offset[2]],
+        ];
+
+        self.positions.extend_from_slice(&actual_pos);
         self.normals.extend_from_slice(&quad.normals());
         self.uvs.extend_from_slice(&quad.uvs());
         self.textures.extend_from_slice(&quad.textures());
@@ -42,36 +56,36 @@ impl MeshBuffer {
 
         self.colors.extend_from_slice(&tint);
 
+        let i = self.next;
+
+        self.indices.extend([
+            i, i + 1, i + 2,
+            i + 2, i + 3, i
+        ]);
+
         self.next += 4;
     }
 
     #[inline]
     pub fn render(self) -> Mesh {
-        let mut mesh = Mesh::new(
+        Mesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::MAIN_WORLD
                 | RenderAssetUsages::RENDER_WORLD
-        );
-
-        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, self.positions);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, self.normals);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, self.uvs);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, self.colors);
-        mesh.insert_attribute(ATTRIBUTE_TEXTURE_LAYER, self.textures);
-
-        mesh.insert_indices(Indices::U32(self.indices));
-
-        mesh
+        )
+            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, self.positions)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, self.normals)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, self.uvs)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_COLOR, self.colors)
+            .with_inserted_attribute(ATTRIBUTE_TEXTURE_LAYER, self.textures)
+            .with_inserted_indices(Indices::U32(self.indices))
     }
 
-    #[cfg(debug_assertions)]
     #[inline]
-    pub fn push_mesh(&mut self, block_mesh: &BlockMesh, tint: Option<[f32; 4]>) {
-        block_mesh.iter_quads()
+    pub fn push_mesh(&mut self, block_mesh: &BlockMesh, tint: Option<[f32; 4]>, position: [f32; 3]) {
+        block_mesh.iter()
             .for_each(|quad| {
-                info!("{} quad: {:?}", quad.facing(), quad);
-
-                self.push_quad(quad, tint);
+                self.push_quad(quad, tint, position);
             });
     }
 }

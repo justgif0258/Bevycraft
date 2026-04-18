@@ -18,8 +18,8 @@ pub mod prelude {
         },
         chunk::{
             section::*,
-            chunk::Chunk,
-            pool::SectionPool,
+            chunk::*,
+            pool::*,
         },
         morton::morton_3d::{
             Morton3D,
@@ -32,6 +32,7 @@ pub mod prelude {
         },
         generator::{
             world_generator::*,
+            basic_generator::BasicGenerator,
         },
     };
 }

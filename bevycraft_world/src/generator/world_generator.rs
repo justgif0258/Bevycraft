@@ -3,7 +3,7 @@ use bevy::prelude::Resource;
 use bevycraft_core::prelude::{AssetLocation, Record};
 use crate::prelude::{BlockRecord, Chunk, SectionPool};
 
-pub struct SuperflatGenerator(u32);
+pub struct SuperflatGenerator(pub u32);
 
 impl WorldGenerator for SuperflatGenerator {
     #[inline(always)]
@@ -14,10 +14,12 @@ impl WorldGenerator for SuperflatGenerator {
     #[inline(always)]
     fn generate_base_terrain(
         &self,
-        pool    : &mut SectionPool,
-        chunk   : &mut Chunk,
-        blocks  : &BlockRecord,
+        chunk: &mut Chunk,
+        blocks: &BlockRecord,
     ) {
+        let air = blocks.key_to_idx(&AssetLocation::with_default_namespace("air"))
+            .unwrap() as u32;
+
         let bedrock_id = blocks.key_to_idx(&AssetLocation::with_default_namespace("bedrock"))
             .unwrap() as u32;
 
@@ -29,13 +31,17 @@ impl WorldGenerator for SuperflatGenerator {
 
         for x in 0..16 {
             for z in 0..16 {
-                chunk.set_at(pool, [x, 0, z], bedrock_id);
+                chunk.set_at([x, 0, z], bedrock_id);
 
                 for y in 1..=3 {
-                    chunk.set_at(pool, [x, y, z], dirt_id);
+                    chunk.set_at([x, y, z], dirt_id);
                 }
 
-                chunk.set_at(pool, [x, 4, z], grass_block_id);
+                chunk.set_at([x, 4, z], grass_block_id);
+
+                for y in 5..16 {
+                    chunk.set_at([x, y, z], air);
+                }
             }
         }
     }
@@ -58,17 +64,15 @@ pub trait WorldGenerator: Send + Sync + 'static {
 
     fn generate_base_terrain(
         &self,
-        pool    : &mut SectionPool,
-        chunk   : &mut Chunk,
-        blocks  : &BlockRecord,
+        chunk: &mut Chunk,
+        blocks: &BlockRecord,
     );
 
     #[inline]
     #[allow(unused_variables)]
     fn generate_features(
         &self,
-        pool    : &mut SectionPool,
-        chunk   : &mut Chunk,
-        blocks  : &BlockRecord,
+        chunk: &mut Chunk,
+        blocks: &BlockRecord,
     ) { return; }
 }
