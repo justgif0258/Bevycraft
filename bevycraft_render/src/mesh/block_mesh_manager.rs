@@ -2,7 +2,7 @@ use bevy::platform::collections::HashMap;
 use bevy::platform::hash::NoOpHash;
 use bevy::prelude::Resource;
 use frozen_collections::{FzHashMap};
-use crate::prelude::{ArrayTexture, BlockMesh, RModel, RModelManager, RenderFlags};
+use crate::prelude::{ArrayTexture, BlockMesh, Facing, OcclusionMask, RModel, RModelManager, RenderFlags};
 
 #[derive(Resource)]
 pub struct BlockMeshManager {
@@ -18,6 +18,13 @@ impl BlockMeshManager {
     #[inline(always)]
     pub fn get_mesh(&self, block_index: u32) -> Option<&BlockMesh> {
         self.meshes.get(&(block_index as u64))
+    }
+    
+    #[inline(always)]
+    pub fn get_occlusion_mask(&self, block_index: u32, facing: Facing) -> Option<OcclusionMask> {
+        let mesh = self.get_mesh(block_index)?;
+        
+        Some(mesh.occlusion_mask(facing))
     }
 }
 

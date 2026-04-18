@@ -1,7 +1,8 @@
+use std::ops::Add;
 use bevy::platform::collections::HashMap;
 use bevy::platform::hash::NoOpHash;
 use bevy::prelude::*;
-use bevycraft_render::prelude::{BlockMeshManager, MeshBuffer};
+use bevycraft_render::prelude::{BlockMeshManager, Facing, MeshBuffer};
 use crate::prelude::*;
 
 pub struct Chunk {
@@ -35,6 +36,11 @@ impl Chunk {
             blocks,
         );
 
+        generator.carve_terrain(
+            &mut chunk,
+            blocks,
+        );
+
         generator.generate_features(
             &mut chunk,
             blocks,
@@ -51,13 +57,9 @@ impl Chunk {
     ) {
         let position = position.into();
 
-        let normalized = UVec3::new(
-            position.x.rem_euclid(SECTION_SIZE as i32) as u32,
-            position.y.rem_euclid(SECTION_SIZE as i32) as u32,
-            position.z.rem_euclid(SECTION_SIZE as i32) as u32,
-        );
+        let normalized = position.rem_euclid(IVec3::splat(SECTION_SIZE));
 
-        let y_idx = position.y.div_euclid(SECTION_SIZE as i32) as u64;
+        let y_idx = position.y.div_euclid(SECTION_SIZE) as u64;
 
         if let Some(section) = self.sections.get_mut(&y_idx) {
             section.set(normalized, global_index);
@@ -73,21 +75,42 @@ impl Chunk {
     }
 
     #[inline(always)]
+    pub fn remove_at(&mut self, position: impl Into<IVec3>) {
+        let position = position.into();
+
+        let y_idx = position.y.div_euclid(SECTION_SIZE) as u64;
+
+        if let Some(section) = self.sections.get_mut(&y_idx) {
+            let normalized = position.rem_euclid(IVec3::splat(SECTION_SIZE));
+
+            section.remove(normalized);
+        }
+    }
+
+    #[inline(always)]
     pub fn get_at(
         &self,
         position: impl Into<IVec3>,
     ) -> Option<u32> {
         let position = position.into();
 
-        let normalized = UVec3::new(
-            position.x.rem_euclid(SECTION_SIZE as i32) as u32,
-            position.y.rem_euclid(SECTION_SIZE as i32) as u32,
-            position.z.rem_euclid(SECTION_SIZE as i32) as u32,
-        );
+        if position.cmplt(IVec3::ZERO).any() {
+            return None;
+        }
 
-        let y_idx = position.y.div_euclid(SECTION_SIZE as i32) as u64;
+        if position.x >= SECTION_SIZE || position.z >= SECTION_SIZE {
+            return None;
+        }
+
+        let y_idx = position.y.div_euclid(SECTION_SIZE) as u64;
 
         if let Some(section) = self.sections.get(&y_idx) {
+            let normalized = IVec3::new(
+                position.x,
+                position.y.rem_euclid(SECTION_SIZE),
+                position.z,
+            );
+
             return section.get(normalized);
         }
 
@@ -104,20 +127,62 @@ impl Chunk {
         self.sections.iter()
             .for_each(|(y_idx, section)| {
                 let world_pos = IVec3::new(
-                    self.pos.x * SECTION_SIZE as i32,
-                    *y_idx as i32 * SECTION_SIZE as i32,
-                    self.pos.y * SECTION_SIZE as i32,
+                    self.pos.x * SECTION_SIZE,
+                    *y_idx as i32 * SECTION_SIZE,
+                    self.pos.y * SECTION_SIZE,
                 );
 
                 for x in 0..SECTION_SIZE {
                     for y in 0..SECTION_SIZE {
                         for z in 0..SECTION_SIZE {
-                            if let Some(idx) = section.get([x, y, z])
+                            let local = IVec3::new(x, y, z);
+
+                            let actual_y = world_pos.y + local.y;
+
+                            if let Some(idx) = section.get(local)
                                 && let Some(mesh) = manager.get_mesh(idx)
                             {
-                                let current = world_pos + UVec3::new(x, y, z).as_ivec3();
+                                let current = world_pos + local;
 
-                                buffer.push_mesh(mesh, Some([0.2, 0.8, 0.2, 1.0]), current.as_vec3().into())
+                                for facing in 0..6usize {
+                                    let facing = Facing::try_from(facing).unwrap();
+
+                                    let neighbor = match facing {
+                                        Facing::PosX => IVec3::new(local.x + 1, actual_y, local.z),
+                                        Facing::NegX => IVec3::new(local.x - 1, actual_y, local.z),
+                                        Facing::PosY => IVec3::new(local.x, actual_y + 1, local.z),
+                                        Facing::NegY => IVec3::new(local.x, actual_y - 1, local.z),
+                                        Facing::PosZ => IVec3::new(local.x, actual_y, local.z + 1),
+                                        Facing::NegZ => IVec3::new(local.x, actual_y, local.z - 1),
+                                    };
+
+                                    if let Some(block_at) = self.get_at(neighbor) {
+                                        let mask = manager.get_occlusion_mask(block_at, !facing)
+                                            .unwrap();
+
+                                        if mesh.is_occluded_at(facing, mask) {
+                                            continue;
+                                        }
+
+                                        buffer.push_quads(
+                                            mesh.get_quads_at(facing),
+                                            Some([0.2, 0.8, 0.2, 1.0]),
+                                            current.as_vec3().into()
+                                        )
+                                    } else {
+                                        buffer.push_quads(
+                                            mesh.get_quads_at(facing),
+                                            Some([0.2, 0.8, 0.2, 1.0]),
+                                            current.as_vec3().into()
+                                        )
+                                    }
+                                }
+
+                                buffer.push_quads(
+                                    mesh.get_inner_quads(),
+                                    Some([0.2, 0.8, 0.2, 1.0]),
+                                    current.as_vec3().into()
+                                )
                             }
                         }
                     }

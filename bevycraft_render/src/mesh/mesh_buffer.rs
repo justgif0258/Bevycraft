@@ -28,6 +28,19 @@ impl MeshBuffer {
             next: 0,
         }
     }
+    
+    #[inline]
+    pub fn push_quads(
+        &mut self,
+        quads: &[Quad],
+        tint: Option<[f32; 4]>,
+        offset: [f32; 3],
+    ) {
+        quads.iter()
+            .for_each(|quad| {
+                self.push_quad(quad, tint, offset);
+            })
+    }
 
     #[inline]
     pub fn push_quad(

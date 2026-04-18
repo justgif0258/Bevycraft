@@ -230,10 +230,12 @@ fn setup_world(
     let generator = ActiveWorldGenerator::new(
         BasicGenerator {
             seed: rand::random(),
-            frequency: 0.06,
+            frequency: 0.03,
             octaves: 4,
             amplitude_min: 0.0,
-            amplitude_max: 24.0,
+            amplitude_max: 128.0,
+            min_height: 0,
+            max_height: 256,
         }
     );
 

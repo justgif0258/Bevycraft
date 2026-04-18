@@ -2,7 +2,11 @@ use bevy::platform::collections::HashMap;
 use bevy::platform::hash::NoOpHash;
 use bevy::prelude::*;
 
-pub(crate) const SECTION_SIZE: u32 = 16;
+pub(crate) const SECTION_UPPER_BOUND: IVec3 = IVec3::splat(SECTION_SIZE);
+
+pub(crate) const SECTION_LOWER_BOUND: IVec3 = IVec3::ZERO;
+
+pub(crate) const SECTION_SIZE: i32 = 16;
 
 pub(crate) const SECTION_LEN: usize = 4096;
 
@@ -48,7 +52,7 @@ impl PalettedSection {
     }
 
     #[inline(always)]
-    pub fn get(&self, position: impl Into<UVec3>) -> Option<u32> {
+    pub fn get(&self, position: impl Into<IVec3>) -> Option<u32> {
         let local_index = self.blocks.get(map_to_flat_index(position));
 
         if local_index == Self::EMPTY {
@@ -59,7 +63,7 @@ impl PalettedSection {
     }
 
     #[inline(always)]
-    pub fn set(&mut self, position: impl Into<UVec3>, global_index: u32) {
+    pub fn set(&mut self, position: impl Into<IVec3>, global_index: u32) {
         let idx = map_to_flat_index(position);
 
         let local = self.global_to_local_index(global_index);
@@ -70,7 +74,7 @@ impl PalettedSection {
     }
 
     #[inline(always)]
-    pub fn remove(&mut self, position: impl Into<UVec3>) -> Option<u32> {
+    pub fn remove(&mut self, position: impl Into<IVec3>) -> Option<u32> {
         let idx = map_to_flat_index(position);
 
         let local = self.blocks.get(idx);
@@ -177,10 +181,14 @@ impl<const N: usize> SectionArray<N> {
 }
 
 #[inline(always)]
-fn map_to_flat_index(position: impl Into<UVec3>) -> usize {
+fn map_to_flat_index(position: impl Into<IVec3>) -> usize {
     let position = position.into();
 
-    debug_assert!(position.cmplt(UVec3::splat(SECTION_SIZE)).all(), "Tried indexing out of the section boundaries");
+    debug_assert!(
+        position.cmplt(SECTION_UPPER_BOUND).all()
+            && position.cmpge(SECTION_LOWER_BOUND).all(),
+        "Tried indexing out of the section boundaries"
+    );
 
     (position.x + (position.z * SECTION_SIZE) + (position.y * SECTION_SIZE * SECTION_SIZE)) as usize
 }

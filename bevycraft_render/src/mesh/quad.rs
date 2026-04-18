@@ -1,4 +1,5 @@
 use std::fmt::{Display, Formatter};
+use std::ops::Not;
 use bevycraft_core::prelude::AssetLocation;
 use crate::prelude::{ArrayTexture, TextureId, Vertex};
 
@@ -317,6 +318,22 @@ impl Facing {
             Facing::NegY => [0.0, -1.0, 0.0],
             Facing::PosZ => [0.0, 0.0, 1.0],
             Facing::NegZ => [0.0, 0.0, -1.0],
+        }
+    }
+}
+
+impl Not for Facing {
+    type Output = Self;
+
+    #[inline(always)]
+    fn not(self) -> Self::Output {
+        match self {
+            Facing::PosX => Facing::NegX,
+            Facing::NegX => Facing::PosX,
+            Facing::PosY => Facing::NegY,
+            Facing::NegY => Facing::PosY,
+            Facing::PosZ => Facing::NegZ,
+            Facing::NegZ => Facing::PosZ,
         }
     }
 }

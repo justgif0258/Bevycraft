@@ -70,6 +70,14 @@ pub trait WorldGenerator: Send + Sync + 'static {
 
     #[inline]
     #[allow(unused_variables)]
+    fn carve_terrain(
+        &self,
+        chunk: &mut Chunk,
+        blocks: &BlockRecord,
+    ) { return; }
+
+    #[inline]
+    #[allow(unused_variables)]
     fn generate_features(
         &self,
         chunk: &mut Chunk,

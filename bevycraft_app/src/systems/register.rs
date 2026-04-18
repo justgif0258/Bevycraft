@@ -18,19 +18,6 @@ const BASIC_SOLID: LazyLock<BlockFlags> =  LazyLock::new(||
 
 pub fn register_blocks() -> BlockRecord {
     let mut commit = BlockCommit::new();
-    
-    commit.push(
-        AssetLocation::with_default_namespace("air"),
-        Block::new()
-            .definition(
-                BlockDefinition::new()
-                    .friction(0.0)
-                    .flags(BlockFlags::AIR)
-                    .build()
-            )
-            .shapes(vec![])
-            .build()
-    );
 
     commit.push(
         AssetLocation::with_default_namespace("grass_block"),

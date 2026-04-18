@@ -1,3 +1,4 @@
+use std::fmt::{Binary, Formatter};
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::{info, Mesh};
 use bevycraft_core::prelude::AssetLocation;
@@ -134,6 +135,27 @@ impl BlockMesh {
     }
 
     #[inline(always)]
+    pub fn get_quads_at(&self, facing: Facing) -> &[Quad] {
+        self.buckets[facing as usize]
+            .as_slice()
+    }
+
+    #[inline(always)]
+    pub fn get_inner_quads(&self) -> &[Quad] {
+        &self.inner_faces
+    }
+
+    #[inline(always)]
+    pub fn occlusion_mask(&self, facing: Facing) -> OcclusionMask {
+        self.masks[facing as usize]
+    }
+
+    #[inline(always)]
+    pub fn is_occluded_at(&self, facing: Facing, mask: OcclusionMask) -> bool {
+        self.masks[facing as usize].is_occluded(mask)
+    }
+
+    #[inline(always)]
     pub fn iter(&self) -> impl Iterator<Item = &Quad> {
         self.buckets.iter()
             .flatten()
@@ -147,7 +169,7 @@ pub struct OcclusionMask(u64);
 impl OcclusionMask {
     #[inline(always)]
     pub const fn is_occluded(&self, other: Self) -> bool {
-        self.0 & other.0 == self.0
+        (other.0 & self.0) == self.0
     }
 
     #[inline(always)]
@@ -173,6 +195,12 @@ impl OcclusionMask {
     #[inline(always)]
     const fn map_to_bit_index(u: u32, v: u32) -> u32 {
         (v * 8) + u
+    }
+}
+
+impl Binary for OcclusionMask {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:064b}", self.0)
     }
 }
 
