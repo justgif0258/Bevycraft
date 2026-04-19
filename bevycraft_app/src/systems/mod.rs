@@ -1,2 +1,3 @@
 pub mod register;
-pub mod collector;
+pub mod chunking;
+pub mod meshing;

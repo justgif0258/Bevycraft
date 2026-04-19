@@ -20,6 +20,7 @@ pub mod prelude {
             section::*,
             chunk::*,
             pool::*,
+            manager::*,
         },
         morton::morton_3d::{
             Morton3D,

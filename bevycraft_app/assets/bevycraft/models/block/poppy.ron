@@ -1,0 +1,6 @@
+(
+    parent: "bevycraft:block/flower",
+    textures: {
+        "all": "bevycraft:block/poppy",
+    },
+)

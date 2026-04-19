@@ -1,60 +1,69 @@
 use std::fmt::{Display, Formatter};
 use std::ops::Not;
+use bevy::math::EulerRot;
+use bevy::prelude::{Quat, Vec3};
 use bevycraft_core::prelude::AssetLocation;
 use crate::prelude::{ArrayTexture, TextureId, Vertex};
 
 pub const NEUTRAL_TINT: [f32; 4] = [1.0; 4];
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Quad {
-    vertices: [Vertex; 4],
-    facing  : Facing,
-    tintable: bool,
+    vertices    : [Vertex; 4],
+    facing      : Facing,
+    render_mode : RenderMode,
+    tintable    : bool,
 }
 
 impl Quad {
     #[inline]
     pub fn new(
-        from            : [f32; 3],
-        to              : [f32; 3],
-        uvs             : [f32; 4],
-        scaling         : f32,
-        facing          : Facing,
-        tintable        : bool,
-        texture         : &AssetLocation,
-        array_texture   : &ArrayTexture
+        from:           [f32; 3],
+        to:             [f32; 3],
+        uvs:            [f32; 4],
+        facing:         Facing,
+        render_mode:    RenderMode,
+        tintable:       bool,
+        scale:          f32,
+        texture:        &AssetLocation,
+        array_texture:  &ArrayTexture
     ) -> Self {
         let texture = array_texture.get_texture_id(texture)
             .unwrap_or(TextureId(0));
 
         Self {
-            vertices: Self::generate_vertex_array(from, to, uvs, scaling, facing, texture),
+            vertices: Self::generate_vertex_array(from, to, uvs, facing, texture, scale),
             facing,
             tintable,
+            render_mode,
         }
     }
 
     #[inline]
-    pub fn render_to_buffer(
-        &self,
-        positions   : &mut Vec<[f32; 3]>,
-        normals     : &mut Vec<[f32; 3]>,
-        uvs         : &mut Vec<[f32; 2]>,
-        colors      : &mut Vec<[f32; 4]>,
-        textures    : &mut Vec<u32>,
-        tint        : Option<[f32; 4]>
+    pub fn rotate(
+        &mut self,
+        origin  : Vec3,
+        x       : f32,
+        y       : f32,
+        z       : f32
     ) {
-        positions.extend_from_slice(&self.positions());
-        normals.extend_from_slice(&self.normals());
-        uvs.extend_from_slice(&self.uvs());
+        let rotation = Quat::from_euler(
+            EulerRot::XYZ,
+            x.to_radians(),
+            y.to_radians(),
+            z.to_radians()
+        );
 
-        let tint = if let Some(tint) = tint && self.tintable {
-            [tint; 4]
-        } else { [NEUTRAL_TINT; 4] };
+        for vertex in self.vertices.iter_mut() {
+            let pos = Vec3::from(vertex.position);
+            let rotated = rotation * (pos - origin) + origin;
 
-        colors.extend_from_slice(&tint);
+            vertex.position = rotated.into();
 
-        textures.extend_from_slice(&self.textures());
+            let n = Vec3::from(vertex.normal);
+
+            vertex.normal = (rotation * n).into();
+        }
     }
 
     #[inline(always)]
@@ -101,7 +110,12 @@ impl Quad {
     pub const fn facing(&self) -> Facing {
         self.facing
     }
-    
+
+    #[inline(always)]
+    pub const fn render_mode(&self) -> RenderMode {
+        self.render_mode
+    }
+
     #[inline(always)]
     pub const fn tintable(&self) -> bool {
         self.tintable
@@ -122,19 +136,19 @@ impl Quad {
         min: [f32; 3],
         max: [f32; 3],
         uvs: [f32; 4],
-        scaling: f32,
         facing: Facing,
         texture: TextureId,
+        scale: f32,
     ) -> [Vertex; 4] {
-        let [min_x, min_y, min_z] = [min[0] * scaling, min[1] * scaling, min[2] * scaling];
+        let [min_x, min_y, min_z] = [min[0] * scale, min[1] * scale, min[2] * scale];
 
-        let [max_x, max_y, max_z] = [max[0] * scaling, max[1] * scaling, max[2] * scaling];
+        let [max_x, max_y, max_z] = [max[0] * scale, max[1] * scale, max[2] * scale];
 
         let scaled_uvs = [
-            [uvs[0] * scaling, uvs[3] * scaling],
-            [uvs[2] * scaling, uvs[3] * scaling],
-            [uvs[2] * scaling, uvs[1] * scaling],
-            [uvs[0] * scaling, uvs[1] * scaling],
+            [uvs[0] * scale, uvs[3] * scale],
+            [uvs[2] * scale, uvs[3] * scale],
+            [uvs[2] * scale, uvs[1] * scale],
+            [uvs[0] * scale, uvs[1] * scale],
         ];
 
         let normal = facing.get_normal();
@@ -320,6 +334,46 @@ impl Facing {
             Facing::NegZ => [0.0, 0.0, -1.0],
         }
     }
+
+    #[inline(always)]
+    fn from_str(str: impl AsRef<str>) -> Result<Self, String> {
+        match str.as_ref() {
+            "east" => Ok(Facing::PosX),
+            "west" => Ok(Facing::NegX),
+            "up" => Ok(Facing::PosY),
+            "down" => Ok(Facing::NegY),
+            "south" => Ok(Facing::PosZ),
+            "north" => Ok(Facing::NegZ),
+            _ => Err(format!("Unknown face direction: {}", str.as_ref())),
+        }
+    }
+
+    #[inline(always)]
+    const fn from_value(value: u8) -> Result<Self, &'static str> {
+        match value {
+            0 => Ok(Facing::PosX),
+            1 => Ok(Facing::NegX),
+            2 => Ok(Facing::PosY),
+            3 => Ok(Facing::NegY),
+            4 => Ok(Facing::PosZ),
+            5 => Ok(Facing::NegZ),
+            _ => Err("Invalid facing value")
+        }
+    }
+}
+
+impl Display for Facing {
+    #[inline(always)]
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Facing::PosX => f.write_str("east"),
+            Facing::NegX => f.write_str("west"),
+            Facing::PosY => f.write_str("up"),
+            Facing::NegY => f.write_str("down"),
+            Facing::PosZ => f.write_str("south"),
+            Facing::NegZ => f.write_str("north"),
+        }
+    }
 }
 
 impl Not for Facing {
@@ -343,15 +397,7 @@ impl TryFrom<usize> for Facing {
 
     #[inline(always)]
     fn try_from(value: usize) -> Result<Self, Self::Error> {
-        match value {
-            0 => Ok(Facing::PosX),
-            1 => Ok(Facing::NegX),
-            2 => Ok(Facing::PosY),
-            3 => Ok(Facing::NegY),
-            4 => Ok(Facing::PosZ),
-            5 => Ok(Facing::NegZ),
-            _ => Err("Invalid facing value")
-        }
+        Self::from_value(value as u8)
     }
 }
 
@@ -360,62 +406,61 @@ impl TryFrom<u8> for Facing {
 
     #[inline(always)]
     fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
-            0 => Ok(Facing::PosX),
-            1 => Ok(Facing::NegX),
-            2 => Ok(Facing::PosY),
-            3 => Ok(Facing::NegY),
-            4 => Ok(Facing::PosZ),
-            5 => Ok(Facing::NegZ),
-            _ => Err("Invalid facing value")
-        }
+        Self::from_value(value)
     }
 }
 
 impl<'a> TryFrom<&'a str> for Facing {
-    type Error = &'static str;
+    type Error = String;
 
     #[inline(always)]
     fn try_from(value: &'a str) -> Result<Self, Self::Error> {
-        match value {
-            "east" => Ok(Facing::PosX),
-            "west" => Ok(Facing::NegX),
-            "up" => Ok(Facing::PosY),
-            "down" => Ok(Facing::NegY),
-            "south" => Ok(Facing::PosZ),
-            "north" => Ok(Facing::NegZ),
-            _ => Err("Invalid facing direction")
-        }
+        Self::from_str(value)
     }
 }
 
 impl TryFrom<String> for Facing {
-    type Error = &'static str;
+    type Error = String;
 
     #[inline(always)]
     fn try_from(value: String) -> Result<Self, Self::Error> {
-        match value.as_str() {
-            "east" => Ok(Facing::PosX),
-            "west" => Ok(Facing::NegX),
-            "up" => Ok(Facing::PosY),
-            "down" => Ok(Facing::NegY),
-            "south" => Ok(Facing::PosZ),
-            "north" => Ok(Facing::NegZ),
-            _ => Err("Invalid facing direction")
+        Self::from_str(value)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum RenderMode {
+    Opaque = 0,
+    Cutout = 1,
+    Translucent = 2,
+}
+
+impl RenderMode {
+    #[inline(always)]
+    pub fn from_str(str: impl AsRef<str>) -> Result<Self, String> {
+        match str.as_ref() {
+            "opaque" => Ok(RenderMode::Opaque),
+            "cutout" => Ok(RenderMode::Cutout),
+            "translucent" => Ok(RenderMode::Translucent),
+            _ => Err(format!("Unknown render mode: {}", str.as_ref())),
         }
     }
 }
 
-impl Display for Facing {
+impl Display for RenderMode {
     #[inline(always)]
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Facing::PosX => f.write_str("east"),
-            Facing::NegX => f.write_str("west"),
-            Facing::PosY => f.write_str("up"),
-            Facing::NegY => f.write_str("down"),
-            Facing::PosZ => f.write_str("south"),
-            Facing::NegZ => f.write_str("north"),
+            RenderMode::Opaque => f.write_str("opaque"),
+            RenderMode::Cutout => f.write_str("cutout"),
+            RenderMode::Translucent => f.write_str("translucent"),
         }
+    }
+}
+
+impl Default for RenderMode {
+    #[inline(always)]
+    fn default() -> Self {
+        RenderMode::Opaque
     }
 }

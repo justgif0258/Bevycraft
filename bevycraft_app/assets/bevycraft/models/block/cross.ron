@@ -1,0 +1,32 @@
+(
+    elements: [
+        (
+            from: (4.0, 0.0, 0.0),
+            to: (4.0, 8.0, 8.0),
+            rotation: (
+                origin: (4.0, 0.0, 4.0),
+                x: 0.0,
+                y: 45.0,
+                z: 0.0
+            ),
+            faces: {
+               "west": (uv: (0.0, 0.0, 8.0, 8.0), texture: "#all", tintable: true, render_mode: "cutout"),
+               "east": (uv: (0.0, 0.0, 8.0, 8.0), texture: "#all", tintable: true, render_mode: "cutout"),
+           },
+        ),
+        (
+            from: (0.0, 0.0, 4.0),
+            to: (8.0, 8.0, 4.0),
+            rotation: (
+                origin: (4.0, 0.0, 4.0),
+                x: 0.0,
+                y: 45.0,
+                z: 0.0
+            ),
+            faces: {
+                "north": (uv: (0.0, 0.0, 8.0, 8.0), texture: "#all", tintable: true, render_mode: "cutout"),
+                "south": (uv: (0.0, 0.0, 8.0, 8.0), texture: "#all", tintable: true, render_mode: "cutout"),
+           },
+        )
+    ],
+)

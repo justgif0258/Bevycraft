@@ -1,6 +1,6 @@
 use bevy::asset::RenderAssetUsages;
 use bevy::mesh::{Indices, PrimitiveTopology};
-use bevy::prelude::Mesh;
+use bevy::prelude::*;
 use crate::prelude::*;
 
 const NEUTRAL_QUAD_COLOR: [[f32; 4]; 4] = [NEUTRAL_TINT; 4];
@@ -17,39 +17,42 @@ pub struct MeshBuffer {
 
 impl MeshBuffer {
     #[inline]
-    pub fn with_expected_capacity(capacity: usize) -> Self {
+    pub fn new() -> Self {
         Self {
-            positions: Vec::with_capacity(capacity),
-            normals: Vec::with_capacity(capacity),
-            uvs: Vec::with_capacity(capacity),
-            colors: Vec::with_capacity(capacity),
-            textures: Vec::with_capacity(capacity),
-            indices: Vec::with_capacity(capacity),
+            positions: Vec::new(),
+            normals: Vec::new(),
+            uvs: Vec::new(),
+            colors: Vec::new(),
+            textures: Vec::new(),
+            indices: Vec::new(),
             next: 0,
         }
     }
     
     #[inline]
-    pub fn push_quads(
+    pub fn push_quads_with_offset(
         &mut self,
-        quads: &[Quad],
-        tint: Option<[f32; 4]>,
-        offset: [f32; 3],
+        quads:  &[Quad],
+        tint:   Option<[f32; 4]>,
+        offset: impl Into<[f32; 3]>,
     ) {
+        let offset = offset.into();
+
         quads.iter()
             .for_each(|quad| {
-                self.push_quad(quad, tint, offset);
+                self.push_quad_with_offset(*quad, tint, offset);
             })
     }
 
     #[inline]
-    pub fn push_quad(
+    pub fn push_quad_with_offset(
         &mut self,
-        quad: &Quad,
-        tint: Option<[f32; 4]>,
-        offset: [f32; 3],
+        quad:   Quad,
+        tint:   Option<[f32; 4]>,
+        offset: impl Into<[f32; 3]>,
     ) {
         let pos = quad.positions();
+        let offset = offset.into();
 
         let actual_pos = [
             [pos[0][0] + offset[0], pos[0][1] + offset[1], pos[0][2] + offset[2]],
@@ -80,7 +83,7 @@ impl MeshBuffer {
     }
 
     #[inline]
-    pub fn render(self) -> Mesh {
+    pub fn mesh(self) -> Mesh {
         Mesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::MAIN_WORLD
@@ -93,12 +96,9 @@ impl MeshBuffer {
             .with_inserted_attribute(ATTRIBUTE_TEXTURE_LAYER, self.textures)
             .with_inserted_indices(Indices::U32(self.indices))
     }
-
-    #[inline]
-    pub fn push_mesh(&mut self, block_mesh: &BlockMesh, tint: Option<[f32; 4]>, position: [f32; 3]) {
-        block_mesh.iter()
-            .for_each(|quad| {
-                self.push_quad(quad, tint, position);
-            });
+    
+    #[inline(always)]
+    pub const fn len(&self) -> usize {
+        self.indices.len()
     }
 }

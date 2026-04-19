@@ -1,7 +1,7 @@
 use std::sync::Arc;
-use bevy::prelude::Resource;
+use bevy::prelude::{IVec2, Resource};
 use bevycraft_core::prelude::{AssetLocation, Record};
-use crate::prelude::{BlockRecord, Chunk, SectionPool};
+use crate::prelude::{BlockRecord, Chunk};
 
 pub struct SuperflatGenerator(pub u32);
 
@@ -14,8 +14,9 @@ impl WorldGenerator for SuperflatGenerator {
     #[inline(always)]
     fn generate_base_terrain(
         &self,
-        chunk: &mut Chunk,
-        blocks: &BlockRecord,
+        _position: IVec2,
+        chunk   : &mut Chunk,
+        blocks  : Arc<BlockRecord>,
     ) {
         let air = blocks.key_to_idx(&AssetLocation::with_default_namespace("air"))
             .unwrap() as u32;
@@ -52,11 +53,58 @@ pub struct ActiveWorldGenerator {
     pub generator: Arc<dyn WorldGenerator>,
 }
 
+impl Clone for ActiveWorldGenerator {
+    #[inline(always)]
+    fn clone(&self) -> Self {
+        Self { generator: self.generator.clone() }
+    }
+}
+
 impl ActiveWorldGenerator {
     #[inline(always)]
     pub fn new(generator: impl WorldGenerator) -> Self {
         Self { generator: Arc::new(generator) }
     }
+    
+    #[inline(always)]
+    pub fn generate_chunk(
+        &self,
+        position: IVec2,
+        chunk   : &mut Chunk,
+        blocks  : Arc<BlockRecord>,
+    ) {
+        self.generator.generate_base_terrain(position, chunk, blocks.clone());
+        self.generator.carve_terrain(position, chunk);
+        self.generator.generate_features(position, chunk, blocks);
+    }
+}
+
+impl WorldGenerator for ActiveWorldGenerator {
+    #[inline(always)]
+    fn seed(&self) -> u32 { self.generator.seed() }
+
+    #[inline(always)]
+    fn generate_base_terrain(
+        &self,
+        position: IVec2,
+        chunk   : &mut Chunk,
+        blocks  : Arc<BlockRecord>,
+    ) { self.generator.generate_base_terrain(position, chunk, blocks); }
+
+    #[inline(always)]
+    fn carve_terrain(
+        &self, 
+        position: IVec2, 
+        chunk   : &mut Chunk
+    ) { self.generator.carve_terrain(position, chunk); }
+
+    #[inline(always)]
+    fn generate_features(
+        &self, 
+        position: IVec2,
+        chunk   : &mut Chunk, 
+        blocks  : Arc<BlockRecord>
+    ) { self.generator.generate_features(position, chunk, blocks); }
 }
 
 pub trait WorldGenerator: Send + Sync + 'static {
@@ -64,23 +112,25 @@ pub trait WorldGenerator: Send + Sync + 'static {
 
     fn generate_base_terrain(
         &self,
-        chunk: &mut Chunk,
-        blocks: &BlockRecord,
+        position: IVec2,
+        chunk   : &mut Chunk,
+        blocks  : Arc<BlockRecord>,
     );
 
     #[inline]
     #[allow(unused_variables)]
     fn carve_terrain(
         &self,
-        chunk: &mut Chunk,
-        blocks: &BlockRecord,
+        position: IVec2,
+        chunk   : &mut Chunk,
     ) { return; }
 
     #[inline]
     #[allow(unused_variables)]
     fn generate_features(
         &self,
-        chunk: &mut Chunk,
-        blocks: &BlockRecord,
+        position: IVec2,
+        chunk   : &mut Chunk,
+        blocks  : Arc<BlockRecord>,
     ) { return; }
 }

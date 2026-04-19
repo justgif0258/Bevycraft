@@ -35,6 +35,8 @@ struct LayeredVertexOutput {
         @location(4) world_tangent: vec4<f32>,
     #endif
 
+    @location(6) @interpolate(flat) instance_index: u32,
+
     #ifdef VERTEX_COLORS
         @location(7) color: vec4<f32>,
     #endif
@@ -53,6 +55,8 @@ fn vs_main(in: LayeredVertexInput) -> LayeredVertexOutput {
         out.position = mesh_functions::mesh_position_local_to_clip(model, vec4<f32>(in.position, 1.0));
 
         out.world_normal = mesh_functions::mesh_normal_local_to_world(in.normal, in.instance_index);
+
+        out.instance_index = in.instance_index;
 
         #ifdef VERTEX_TANGENTS
             out.world_tangent = mesh_functions::mesh_tangent_local_to_world(model, in.tangent, in.instance_index);
@@ -82,9 +86,22 @@ fn fs_main(
 
     pbr_input.material.base_color = textureSample(block_texture, block_sampler, mesh.uv, layer);
 
+    let luminance = dot(pbr_input.material.base_color.rgb, vec3(0.299, 0.587, 0.114));
+
+    // Specular map automático — derivado directamente da luminância
+    let specular_strength = pow(luminance, 0.5); // expoente controla o contraste
+
+    pbr_input.material.perceptual_roughness = mix(0.95, 0.55, specular_strength);
+    pbr_input.material.metallic             = 0.0;
+    pbr_input.material.reflectance          = vec3(specular_strength * 0.4);
+
     #ifdef VERTEX_COLORS
         pbr_input.material.base_color = pbr_input.material.base_color * mesh.color;
     #endif
+
+    if pbr_input.material.base_color.a < 0.5 {
+        discard;
+    }
 
     let double_sided = (pbr_input.material.flags & STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u;
 
@@ -101,7 +118,7 @@ fn fs_main(
     pbr_input.N = normalize(pbr_input.world_normal);
 
     #ifdef VERTEX_TANGENTS
-        let Nt = textureSampleBias(pbr_bindings::normal_map_texture, pbr_bindings::normal_map_sampler, mesh.uv, view.mip_bias).rgb;
+        let Nt = textureSampleBias(pbr_bindings::normal_map_texture, pbr_bindings::normal_map_sampler, quantized_uv, view.mip_bias).rgb;
         let TBN = fns::calculate_tbn_mikktspace(mesh.world_normal, mesh.world_tangent);
         pbr_input.N = fns::apply_normal_mapping(
             pbr_input.material.flags,

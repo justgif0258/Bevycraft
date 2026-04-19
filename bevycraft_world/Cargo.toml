@@ -7,7 +7,6 @@ edition.workspace = true
 
 [dependencies]
 bevycraft_core.workspace = true
-bevycraft_render.workspace = true
 
 bevy.workspace = true
 
@@ -21,6 +20,8 @@ bitflags.workspace = true
 
 serde.workspace = true
 ron.workspace = true
+
+voxelis.workspace = true
 
 builder-pattern.workspace = true
 simdnoise.workspace = true

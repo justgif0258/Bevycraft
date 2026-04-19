@@ -15,6 +15,10 @@ const BASIC_SOLID: LazyLock<BlockFlags> =  LazyLock::new(||
         | BlockFlags::CAN_SUPPORT
 );
 
+const FOLIAGE: LazyLock<BlockFlags> = LazyLock::new(||
+    BlockFlags::TRANSLUCENT
+);
+
 
 pub fn register_blocks() -> BlockRecord {
     let mut commit = BlockCommit::new();
@@ -30,6 +34,32 @@ pub fn register_blocks() -> BlockRecord {
                     .build()
             )
             .shapes(vec![FULL_SHAPE])
+            .build()
+    );
+
+    commit.push(
+        AssetLocation::with_default_namespace("grass"),
+        Block::new()
+            .definition(
+                BlockDefinition::new()
+                    .hardness(0.0)
+                    .toughness(0.0)
+                    .flags(*FOLIAGE)
+                    .build()
+            )
+            .build()
+    );
+
+    commit.push(
+        AssetLocation::with_default_namespace("poppy"),
+        Block::new()
+            .definition(
+                BlockDefinition::new()
+                    .hardness(0.0)
+                    .toughness(0.0)
+                    .flags(*FOLIAGE)
+                    .build()
+            )
             .build()
     );
 

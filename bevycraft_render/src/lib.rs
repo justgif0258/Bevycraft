@@ -12,8 +12,8 @@ pub mod prelude {
             vertex::*,
             block_mesh::*,
             quad::*,
-            block_mesh_manager::*,
             mesh_buffer::MeshBuffer,
+            chunk_mesh::*,
         },
         model::{
             r_model::*,

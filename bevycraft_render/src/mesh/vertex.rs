@@ -3,7 +3,7 @@ use bevy::pbr::*;
 use bevy::prelude::*;
 use bevy::render::render_resource::*;
 use bevy::shader::{ShaderDefVal, ShaderRef};
-use crate::prelude::TextureId;
+use crate::prelude::{RenderMode, TextureId};
 
 pub const ATTRIBUTE_TEXTURE_LAYER: MeshVertexAttribute =
     MeshVertexAttribute::new("Vertex_Layer", Mesh::FIRST_AVAILABLE_CUSTOM_ATTRIBUTE, VertexFormat::Uint32);
@@ -12,7 +12,9 @@ pub const ATTRIBUTE_TEXTURE_LAYER: MeshVertexAttribute =
 pub struct VertexMaterial {
     #[texture(0, dimension = "2d_array")]
     #[sampler(1)]
-    pub array_texture: Handle<Image>
+    pub array_texture: Handle<Image>,
+    
+    pub render_mode: RenderMode,
 }
 
 impl Material for VertexMaterial {
@@ -28,7 +30,21 @@ impl Material for VertexMaterial {
 
     #[inline]
     fn alpha_mode(&self) -> AlphaMode {
-        AlphaMode::Opaque
+        match self.render_mode {
+            RenderMode::Opaque => AlphaMode::Opaque,
+            RenderMode::Cutout => AlphaMode::Mask(0.5),
+            RenderMode::Translucent => AlphaMode::Blend,
+        }
+    }
+
+    #[inline]
+    fn enable_prepass() -> bool {
+        true
+    }
+
+    #[inline]
+    fn enable_shadows() -> bool {
+        true
     }
 
     #[inline]
@@ -73,7 +89,7 @@ impl Material for VertexMaterial {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Vertex {
     pub position: [f32; 3],
     pub uv      : [f32; 2],

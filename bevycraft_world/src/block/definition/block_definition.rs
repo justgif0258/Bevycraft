@@ -1,3 +1,4 @@
+use bitflags::Flags;
 use builder_pattern::Builder;
 use crate::prelude::{BlockFlags};
 
@@ -78,6 +79,17 @@ impl BlockDefinition {
     #[inline(always)]
     pub const fn greedy_meshable(&self) -> bool {
         self.flags.contains(BlockFlags::GREEDY_MESH)
+    }
+    
+    #[inline(always)]
+    pub const fn opaque(&self) -> bool {
+        !self.flags.contains(BlockFlags::CUTOUT)
+            && !self.flags.contains(BlockFlags::TRANSLUCENT)
+    }
+    
+    #[inline(always)]
+    pub const fn cutout(&self) -> bool {
+        self.flags.contains(BlockFlags::CUTOUT)
     }
 
     #[inline(always)]

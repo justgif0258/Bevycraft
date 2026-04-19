@@ -1,6 +1,8 @@
 use std::fmt::{Binary, Formatter};
-use bevy::mesh::{Indices, PrimitiveTopology};
-use bevy::prelude::{info, Mesh};
+use bevy::platform::collections::HashMap;
+use bevy::platform::hash::NoOpHash;
+use bevy::prelude::*;
+use frozen_collections::FzHashMap;
 use bevycraft_core::prelude::AssetLocation;
 use crate::prelude::*;
 
@@ -8,12 +10,80 @@ const VERTEX_SCALING: f32 = 0.125f32;
 
 const OCCLUSION_GRID: f32 = 8.0f32;
 
+#[derive(Resource)]
+pub struct BlockMeshCache {
+    meshes: FzHashMap<u64, BlockMesh, NoOpHash>,
+}
+
+impl BlockMeshCache {
+    #[inline]
+    pub const fn builder() -> BlockMeshManagerBuilder {
+        BlockMeshManagerBuilder { entries: HashMap::with_hasher(NoOpHash) }
+    }
+
+    #[inline(always)]
+    pub fn get_mesh(&self, block_index: u32) -> Option<&BlockMesh> {
+        self.meshes.get(&(block_index as u64))
+    }
+
+    #[inline(always)]
+    pub fn get_occlusion_mask(&self, block_index: u32, facing: Facing) -> Option<OcclusionMask> {
+        let mesh = self.get_mesh(block_index)?;
+
+        Some(mesh.occlusion_mask(facing))
+    }
+}
+
+#[derive(Default)]
+pub struct BlockMeshManagerBuilder {
+    entries: HashMap<u64, BlockMesh, NoOpHash>
+}
+
+impl BlockMeshManagerBuilder {
+    #[inline]
+    pub fn add_mesh(&mut self, mesh: BlockMesh, block_id: u32) {
+        self.entries.insert(block_id as u64, mesh);
+    }
+
+    #[inline]
+    pub fn bake_and_add_mesh(
+        &mut self,
+        manager         : &RModelManager,
+        array_texture   : &ArrayTexture,
+        model           : RModel,
+        block_id        : u32
+    ) -> Result<(), Vec<String>> {
+        let mesh = BlockMesh::new(
+            model,
+            &manager,
+            &array_texture,
+        );
+
+        match mesh {
+            Ok(mesh) => {
+                self.entries.insert(block_id as u64, mesh);
+
+                Ok(())
+            },
+            Err(errors) => Err(errors),
+        }
+    }
+
+    #[inline]
+    pub fn build(self) -> BlockMeshCache {
+        let meshes: FzHashMap<u64, BlockMesh, NoOpHash> = FzHashMap::from_iter(
+            self.entries.into_iter()
+        );
+
+        BlockMeshCache { meshes }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct BlockMesh {
     buckets     : [Vec<Quad>; 6],
     masks       : [OcclusionMask; 6],
     inner_faces : Vec<Quad>,
-    render_flags: RenderFlags,
 }
 
 impl BlockMesh {
@@ -22,7 +92,6 @@ impl BlockMesh {
         model           : RModel,
         manager         : &RModelManager,
         array_texture   : &ArrayTexture,
-        render_flags    : RenderFlags
     ) -> Result<Self, Vec<String>> {
         let mut errors: Vec<String> = Vec::new();
 
@@ -54,16 +123,31 @@ impl BlockMesh {
                                     };
 
                                     if let Some(texture) = &texture {
-                                        let quad = Quad::new(
+                                        let render_mode = RenderMode::from_str(&face.render_mode)
+                                            .unwrap_or(RenderMode::default());
+                                        
+                                        let mut quad = Quad::new(
                                             element.from,
                                             element.to,
                                             face.uv,
-                                            VERTEX_SCALING,
                                             facing,
+                                            render_mode,
                                             face.tintable,
+                                            VERTEX_SCALING,
                                             texture,
                                             array_texture,
                                         );
+
+                                        if let Some(rot) = &element.rotation {
+                                            let origin = Vec3::from(rot.origin) * VERTEX_SCALING;
+
+                                            quad.rotate(
+                                                origin,
+                                                rot.x,
+                                                rot.y,
+                                                rot.z,
+                                            );
+                                        }
 
                                         if let Some(cullface) = &face.cullface
                                             && let Ok(facing_cull) = Facing::try_from(cullface.as_str())
@@ -130,12 +214,11 @@ impl BlockMesh {
             buckets,
             inner_faces,
             masks,
-            render_flags,
         })
     }
 
     #[inline(always)]
-    pub fn get_quads_at(&self, facing: Facing) -> &[Quad] {
+    pub fn get_occlusion_quads_at(&self, facing: Facing) -> &[Quad] {
         self.buckets[facing as usize]
             .as_slice()
     }
@@ -207,10 +290,28 @@ impl Binary for OcclusionMask {
 bitflags::bitflags! {
     #[derive(Debug, Copy, Clone, Eq, PartialEq)]
     pub struct RenderFlags: u8 {
-        const OPAQUE            = 0x1;
-        const TRANSLUCENT       = 0x2;
+        const CUTOUT            = 1 << 0;
+        const TRANSLUCENT       = 1 << 1;
         const EMISSIVE          = 1 << 2;
         const OCCLUDABLE        = 1 << 3;
         const GREEDY_MESHABLE   = 1 << 4;
+    }
+}
+
+impl RenderFlags {
+    #[inline(always)]
+    pub const fn is_opaque(&self) -> bool {
+        !self.contains(RenderFlags::CUTOUT)
+            && !self.contains(RenderFlags::TRANSLUCENT)
+    }
+
+    #[inline(always)]
+    pub const fn is_cutout(&self) -> bool {
+        self.contains(RenderFlags::CUTOUT)
+    }
+
+    #[inline(always)]
+    pub const fn is_translucent(&self) -> bool {
+        self.contains(RenderFlags::TRANSLUCENT)
     }
 }

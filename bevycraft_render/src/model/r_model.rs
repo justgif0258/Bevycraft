@@ -47,6 +47,9 @@ pub struct Face {
     pub uv      : [f32; 4],
     pub texture : String,
     pub cullface: Option<String>,
+    
+    #[serde(default = "default_render_mode")]
+    pub render_mode: String,
 
     #[serde(default)]
     pub tintable: bool,
@@ -58,4 +61,9 @@ pub struct Rotation {
     pub x       : f32,
     pub y       : f32,
     pub z       : f32,
+}
+
+#[inline(always)]
+fn default_render_mode() -> String {
+    String::from("opaque")
 }

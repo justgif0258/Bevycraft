@@ -5,19 +5,20 @@ use bevy::render::render_resource::*;
 use frozen_collections::FzHashMap;
 use frozen_collections::maps::Iter;
 use bevycraft_core::prelude::AssetLocation;
-use crate::prelude::{TextureId, VertexMaterial};
+use crate::prelude::{RenderMode, TextureId, VertexMaterial};
 
 #[derive(Resource)]
 pub struct ArrayTexture {
     texture_lut : FzHashMap<AssetLocation, TextureId>,
+    materials   : [Handle<VertexMaterial>; 3],
     image       : Handle<Image>,
 }
 
 impl ArrayTexture {
     #[inline]
     #[must_use]
-    pub fn get_vertex_material(&self, materials: &mut Assets<VertexMaterial>) -> Handle<VertexMaterial> {
-        materials.add(VertexMaterial { array_texture: self.image.clone() })
+    pub fn get_vertex_material(&self, mode: RenderMode) -> Handle<VertexMaterial> {
+        self.materials[mode as usize].clone()
     }
 
     #[inline]
@@ -62,6 +63,7 @@ impl ArrayTextureBuilder {
 
     pub fn build_and_send(
         self,
+        mats:   &mut Assets<VertexMaterial>,
         images: &mut Assets<Image>,
     ) -> ArrayTexture {
         let layer_count = self.textures.len() as u32;
@@ -104,6 +106,14 @@ impl ArrayTextureBuilder {
                 .map(|(i, k)| (k, TextureId(i as u32)))
         );
 
-        ArrayTexture { texture_lut, image }
+        ArrayTexture {
+            texture_lut,
+            materials: [
+                mats.add(VertexMaterial { array_texture: image.clone(), render_mode: RenderMode::Opaque }),
+                mats.add(VertexMaterial { array_texture: image.clone(), render_mode: RenderMode::Cutout }),
+                mats.add(VertexMaterial { array_texture: image.clone(), render_mode: RenderMode::Translucent }),
+            ],
+            image,
+        }
     }
 }

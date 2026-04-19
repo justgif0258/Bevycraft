@@ -1,4 +1,5 @@
 use std::f32::consts::FRAC_PI_8;
+use std::sync::Arc;
 use bevy::anti_alias::fxaa::Fxaa;
 use bevy::camera::Exposure;
 use bevy::camera_controller::free_camera::{FreeCamera, FreeCameraPlugin};
@@ -8,7 +9,8 @@ use bevy::light::light_consts::lux;
 use bevy::pbr::*;
 use bevy::post_process::bloom::Bloom;
 use bevy::prelude::*;
-use bevycraft_app::AppState;
+use bevycraft_app::{AppState, GlobalRecords, Player, WorldRender};
+use bevycraft_app::systems::chunking::{handle_chunk_tasks, manage_chunks};
 use bevycraft_app::systems::register::register_blocks;
 use bevycraft_core::prelude::*;
 use bevycraft_render::prelude::*;
@@ -37,14 +39,17 @@ fn main() -> AppExit {
         .add_systems(OnEnter(AppState::BakingRenderers), bake_renderers)
         .add_systems(OnEnter(AppState::InGame), (
             setup_world,
-            setup_player,
         ).chain())
+        .add_systems(FixedUpdate, (
+            manage_chunks,
+            handle_chunk_tasks
+        ).run_if(in_state(AppState::InGame)))
         .run()
 }
 
 fn init(
     mut commands: Commands,
-    mut state   : ResMut<NextState<AppState>>,
+    mut state: ResMut<NextState<AppState>>,
     asset_server: Res<AssetServer>,
 ) {
     info!("Initializing app...");
@@ -54,31 +59,35 @@ fn init(
 
     info!("Loading block models...");
 
-    let mut manager = RModelManager::default();
+    let mut model_manager = RModelManager::default();
 
     blocks.keys()
         .iter()
         .for_each(|&block_key|
-            manager.load(block_key.prefix("block/"))
+            model_manager.load(block_key.prefix("block/"))
                 .unwrap_or_else(|e| warn!("{}", e))
         );
 
-    let mut holder = TexturesHolder::default();
+    let mut textures_holder = TexturesHolder::default();
 
-    manager.get_textures_locations()
+    model_manager.get_textures_locations()
         .iter()
         .for_each(|location| {
             let path = format!("{}/textures/{}.png", location.namespace(), location.path());
 
-            holder.storage.push((
+            textures_holder.storage.push((
                 location.clone(),
                 asset_server.load::<Image>(&path)
             ));
         });
 
-    commands.insert_resource(blocks);
-    commands.insert_resource(holder);
-    commands.insert_resource(manager);
+    commands.insert_resource(
+        GlobalRecords {
+            blocks: Arc::new(blocks),
+        }
+    );
+    commands.insert_resource(textures_holder);
+    commands.insert_resource(model_manager);
 
     state.set(AppState::WaitingForServer);
 }
@@ -98,12 +107,13 @@ fn finish_loading_textures(
 fn bake_renderers(
     mut commands: Commands,
     mut state   : ResMut<NextState<AppState>>,
+    mut mats    : ResMut<Assets<VertexMaterial>>,
     mut images  : ResMut<Assets<Image>>,
     mut manager : ResMut<RModelManager>,
     holder      : Res<TexturesHolder>,
-    blocks      : Res<BlockRecord>,
+    global      : Res<GlobalRecords>,
 ) {
-    let mut builder = ArrayTexture::builder(BLOCK_RESOLUTION);
+    let mut array_texture_builder = ArrayTexture::builder(BLOCK_RESOLUTION);
 
     holder.storage
         .iter()
@@ -111,46 +121,28 @@ fn bake_renderers(
             let image = images.remove(handle).unwrap();
             let data = image.data.unwrap();
 
-            builder.register(location.clone(), data);
+            array_texture_builder.register(location.clone(), data);
         });
 
     commands.remove_resource::<TexturesHolder>();
 
-    let array_texture = builder.build_and_send(&mut images);
+    let array_texture = array_texture_builder.build_and_send(&mut mats, &mut images);
 
     info!("Successfully built array texture");
 
-    let mut mesh_manager = BlockMeshManager::builder();
+    let mut cache = BlockMeshCache::builder();
 
-    blocks.iter_definitions()
+    global.blocks.keys()
+        .iter()
         .enumerate()
-        .for_each(|(i, def)| {
-            let mut flags = RenderFlags::empty();
-
-            if def.translucent() {
-                flags |= RenderFlags::TRANSLUCENT;
-            } else {
-                flags |= RenderFlags::OPAQUE;
-            }
-
-            if def.greedy_meshable() {
-                flags |= RenderFlags::GREEDY_MESHABLE;
-            }
-
-            if def.occludable() {
-                flags |= RenderFlags::OCCLUDABLE;
-            }
-
-            let model_key = blocks.idx_to_key(i)
-                .unwrap()
-                .prefix("block/");
+        .for_each(|(i, &key)| {
+            let model_key = key.prefix("block/");
 
             if let Some(model) = manager.take(&model_key) {
-                match mesh_manager.bake_and_add_mesh(
+                match cache.bake_and_add_mesh(
                     &manager,
                     &array_texture,
                     model,
-                    flags,
                     i as u32
                 ) {
                     Ok(_) => {},
@@ -167,11 +159,11 @@ fn bake_renderers(
         });
 
     commands.remove_resource::<RModelManager>();
-
-    commands.insert_resource(mesh_manager.build());
-
-    commands.insert_resource(array_texture);
-
+    
+    commands.insert_resource(WorldRender {
+        meshes: Arc::new(cache.build()),
+        materials: Arc::new(array_texture),
+    });
 
     info!("Successfully baked block meshes");
 
@@ -197,8 +189,8 @@ fn setup_world(
         Transform::from_rotation(Quat::from_rotation_x(-FRAC_PI_8 / 2.0)),
         VolumetricLight,
         CascadeShadowConfigBuilder {
-            first_cascade_far_bound: 0.3,
-            maximum_distance: 15.0,
+            num_cascades: 4,
+            maximum_distance: 384.0,
             ..default()
         }.build(),
     ));
@@ -227,59 +219,22 @@ fn setup_world(
         Player
     ));
 
-    let generator = ActiveWorldGenerator::new(
+    let manager = ChunkManager::new(
+        8,
         BasicGenerator {
-            seed: rand::random(),
+            seed: 5,
             frequency: 0.03,
-            octaves: 4,
+            octaves: 7,
             amplitude_min: 0.0,
             amplitude_max: 128.0,
             min_height: 0,
             max_height: 256,
+            snow_height: 112
         }
     );
 
-    commands.insert_resource(generator);
+    commands.insert_resource(manager);
 }
-
-fn setup_player(
-    mut commands: Commands,
-    mut meshes  : ResMut<Assets<Mesh>>,
-    mut vertex  : ResMut<Assets<VertexMaterial>>,
-    blocks      : Res<BlockRecord>,
-    block_meshes: Res<BlockMeshManager>,
-    array_texture: Res<ArrayTexture>,
-    generator   : Res<ActiveWorldGenerator>,
-) {
-    let mut chunks = Vec::new();
-
-    for x in 0..8 {
-        for z in 0..8 {
-            let chunk = Chunk::generate_using(
-                [x, z],
-                &blocks,
-                generator.generator.as_ref(),
-            );
-
-            chunks.push(chunk);
-        }
-    }
-
-    let material = array_texture.get_vertex_material(&mut vertex);
-
-    for chunk in chunks {
-        let mesh = meshes.add(chunk.build_chunk_mesh(&block_meshes));
-
-        commands.spawn((
-            Mesh3d(mesh),
-            MeshMaterial3d(material.clone()),
-            Transform::from_xyz(0.0, 0.0, 0.0),
-        ));
-    }
-}
-
-#[derive(Component)]
-pub struct Player;
 
 #[derive(Resource, Default)]
 pub struct TexturesHolder {

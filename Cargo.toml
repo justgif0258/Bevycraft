@@ -36,7 +36,6 @@ rayon = { version = "1.11.0", features = [] }
 builder-pattern = { version = "0.4.2", features = [] }
 bitflags = { version = "2.11.0", features = [] }
 voxelis = { version = "25.4.0", features = [] }
-rand = { version = "0.10.0", features = [] }
 simdnoise = { version = "3.1.6", features = [] }
 fastrand = { version = "2.4.1", features = [] }
 

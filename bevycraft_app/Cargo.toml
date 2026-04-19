@@ -12,8 +12,6 @@ bevycraft_render.workspace = true
 bevy.workspace = true
 bevy_dylib.workspace = true
 
-rand.workspace = true
-
 rayon.workspace = true
 
 rapidhash.workspace = true

@@ -1,0 +1,6 @@
+(
+    parent: "bevycraft:block/cross",
+    textures: {
+        "all": "bevycraft:block/grass",
+    },
+)
