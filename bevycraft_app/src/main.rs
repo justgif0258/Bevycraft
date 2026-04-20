@@ -11,12 +11,10 @@ use bevy::post_process::bloom::Bloom;
 use bevy::prelude::*;
 use bevycraft_app::{AppState, GlobalRecords, Player, WorldRender};
 use bevycraft_app::systems::chunking::{handle_chunk_tasks, manage_chunks};
-use bevycraft_app::systems::register::register_blocks;
+use bevycraft_app::systems::register::bootstrap_blocks;
 use bevycraft_core::prelude::*;
 use bevycraft_render::prelude::*;
 use bevycraft_world::prelude::*;
-
-const MAX_GARBAGE_DELTA : f64 = 60.0f64;
 
 const BLOCK_RESOLUTION  : u32 = 8;
 
@@ -55,15 +53,14 @@ fn init(
     info!("Initializing app...");
     info!("Compiling blocks to record...");
 
-    let blocks = register_blocks();
+    let blocks = bootstrap_blocks();
 
     info!("Loading block models...");
 
     let mut model_manager = RModelManager::default();
 
-    blocks.keys()
-        .iter()
-        .for_each(|&block_key|
+    blocks.iter_keys()
+        .for_each(|block_key|
             model_manager.load(block_key.prefix("block/"))
                 .unwrap_or_else(|e| warn!("{}", e))
         );
@@ -132,10 +129,10 @@ fn bake_renderers(
 
     let mut cache = BlockMeshCache::builder();
 
-    global.blocks.keys()
-        .iter()
+    global.blocks
+        .iter_keys()
         .enumerate()
-        .for_each(|(i, &key)| {
+        .for_each(|(i, key)| {
             let model_key = key.prefix("block/");
 
             if let Some(model) = manager.take(&model_key) {

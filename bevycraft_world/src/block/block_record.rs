@@ -1,5 +1,3 @@
-use std::slice::Iter;
-use bevy::math::bounding::Aabb3d;
 use bevy::prelude::Resource;
 use boomphf::Mphf;
 use bevycraft_core::prelude::*;
@@ -7,67 +5,17 @@ use crate::prelude::*;
 
 #[derive(Resource)]
 pub struct BlockRecord {
-    hash_function       : Mphf<AssetLocation>,
-    locations           : Box<[AssetLocation]>,
-    definitions         : Box<[BlockDefinition]>,
-    shape_descriptors   : Box<[ShapeDescriptor]>,
-    shapes              : Box<[Aabb3d]>,
+    hash_function:  Mphf<AssetLocation>,
+    blocks:         Box<[(AssetLocation, Block)]>,
 }
 
 impl BlockRecord {
     #[inline(always)]
-    pub fn iter_definitions(&self) -> Iter<'_, BlockDefinition> {
-        self.definitions.iter()
-    }
-    
-    #[inline(always)]
-    pub fn get_ref_by_key(&self, key: &AssetLocation) -> Option<BlockRef<'_>> {
-        Some(BlockRef {
-            definition: self.get_definition_by_key(key)?,
-            shapes: self.get_shapes_by_key(key)?,
-        })
-    }
-
-    #[inline(always)]
-    pub fn get_ref_by_idx(&self, idx: usize) -> Option<BlockRef<'_>> {
-        Some(BlockRef {
-            definition: self.get_definition_by_idx(idx)?,
-            shapes: self.get_shapes_by_idx(idx)?,
-        })
-    }
-
-    #[inline(always)]
-    pub fn get_definition_by_key(&self, key: &AssetLocation) -> Option<&BlockDefinition> {
-        let idx = self.hash_key(key)?;
-
-        self.definitions.get(idx)
-    }
-
-    #[inline(always)]
-    pub fn get_definition_by_idx(&self, idx: usize) -> Option<&BlockDefinition> {
-        self.definitions.get(idx)
-    }
-
-    #[inline(always)]
-    pub fn get_shapes_by_key(&self, key: &AssetLocation) -> Option<&[Aabb3d]> {
-        let idx = self.hash_key(key)?;
-
-        Some(self.shape_descriptors[idx].slice(&self.shapes))
-    }
-
-    #[inline(always)]
-    pub fn get_shapes_by_idx(&self, idx: usize) -> Option<&[Aabb3d]> {
-        self.shape_descriptors
-            .get(idx)
-            .map(|descriptor| descriptor.slice(&self.shapes))
-    }
-
-    #[inline(always)]
     fn hash_key(&self, key: &AssetLocation) -> Option<usize> {
         let idx = self.hash_function.try_hash(key)? as usize;
 
-        self.locations.get(idx)
-            .and_then(|k| {
+        self.blocks.get(idx)
+            .and_then(|(k, _)| {
                 if k != key {
                     return None;
                 }
@@ -86,37 +34,48 @@ impl Record for BlockRecord {
         C: Commit<Value=Self::Value>
     {
         let size = commit.len();
-        let hash_function = Mphf::new(3.3f64, commit.cloned_keys().as_slice());
+        let hash_function = Mphf::new(
+            3.3f64, 
+            commit.iter_keys()
+                .cloned()
+                .collect::<Vec<_>>()
+                .as_slice()
+        );
 
-        let mut locations           = Box::<[AssetLocation]>::new_uninit_slice(size);
-        let mut definitions         = Box::<[BlockDefinition]>::new_uninit_slice(size);
-        let mut shape_descriptors   = Box::<[ShapeDescriptor]>::new_uninit_slice(size);
-        let mut shapes: Vec<Aabb3d>                     = Vec::with_capacity(size);
+        let mut blocks = Box::<[(AssetLocation, Block)]>::new_uninit_slice(size);
 
         commit.into_iter()
-            .for_each(|(key, block)| {
-                let idx = hash_function.hash(&key) as usize;
+            .for_each(|entry| {
+                let idx = hash_function.hash(&entry.0) as usize;
 
-                let shape_descriptor = ShapeDescriptor {
-                    offset: shapes.len() as u32,
-                    count: block.shapes().len() as u32,
-                };
-
-                locations[idx].write(key);
-                definitions[idx].write(block.definition().clone());
-                shape_descriptors[idx].write(shape_descriptor);
-                shapes.extend_from_slice(block.shapes());
+                blocks[idx].write(entry);
             });
 
         unsafe {
             Self {
                 hash_function,
-                locations: locations.assume_init(),
-                definitions: definitions.assume_init(),
-                shape_descriptors: shape_descriptors.assume_init(),
-                shapes: shapes.into_boxed_slice()
+                blocks: blocks.assume_init(),
             }
         }
+    }
+
+    #[inline(always)]
+    fn get_by_key(&self, key: &AssetLocation) -> Option<&Self::Value> {
+        let idx = self.hash_key(key)?;
+        
+        self.blocks.get(idx)
+            .and_then(|(k, b)| {
+                if k != key {
+                    return None;
+                }
+                
+                Some(b)
+            })
+    }
+
+    #[inline(always)]
+    fn get_by_idx(&self, idx: usize) -> Option<&Self::Value> {
+        self.blocks.get(idx).map(|(_, b)| b)
     }
 
     #[inline(always)]
@@ -126,60 +85,18 @@ impl Record for BlockRecord {
 
     #[inline(always)]
     fn idx_to_key(&self, id: usize) -> Option<&AssetLocation> {
-        self.locations.get(id).map(|key| key)
+        self.blocks.get(id).map(|(key, _)| key)
     }
 
     #[inline(always)]
-    fn keys(&self) -> Vec<&AssetLocation> {
-        self.locations
+    fn iter_keys(&self) -> impl Iterator<Item = &AssetLocation> {
+        self.blocks
             .iter()
-            .map(|key| key)
-            .collect()
+            .map(|(key, _)| key)
     }
 
     #[inline(always)]
     fn len(&self) -> usize {
-        self.locations.len()
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub struct BlockRef<'a> {
-    definition   : &'a BlockDefinition,
-    shapes       : &'a [Aabb3d],
-}
-
-impl<'a> BlockRef<'a> {
-    #[inline(always)]
-    pub const fn definition(&self) -> &BlockDefinition {
-        self.definition
-    }
-    
-    #[inline(always)]
-    pub const fn shapes(&self) -> &[Aabb3d] {
-        self.shapes
-    }
-}
-
-struct ShapeDescriptor {
-    offset  : u32,
-    count   : u32,
-}
-
-impl ShapeDescriptor {
-    #[inline(always)]
-    #[must_use]
-    fn slice<'a>(&self, shapes: &'a [Aabb3d]) -> &'a [Aabb3d] {
-        &shapes[self.offset()..self.end()]
-    }
-
-    #[inline(always)]
-    const fn offset(&self) -> usize {
-        self.offset as usize
-    }
-
-    #[inline(always)]
-    const fn end(&self) -> usize {
-        (self.offset + self.count) as usize
+        self.blocks.len()
     }
 }

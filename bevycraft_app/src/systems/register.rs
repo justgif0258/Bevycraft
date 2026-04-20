@@ -8,8 +8,9 @@ const FULL_SHAPE: Aabb3d = Aabb3d { min: Vec3A::new(0.0, 0.0, 0.0), max: Vec3A::
 
 const HALF_SHAPE: Aabb3d = Aabb3d { min: Vec3A::new(0.0, 0.0, 0.0), max: Vec3A::new(1.0, 0.5, 1.0), };
 
-const BASIC_SOLID: LazyLock<BlockFlags> =  LazyLock::new(||
+const FULL_BLOCK: LazyLock<BlockFlags> =  LazyLock::new(||
     BlockFlags::OCCLUDABLE
+        | BlockFlags::GREEDY_MESHABLE
         | BlockFlags::COLLIDABLE
         | BlockFlags::DOES_SPAWN
         | BlockFlags::CAN_SUPPORT
@@ -19,220 +20,214 @@ const FOLIAGE: LazyLock<BlockFlags> = LazyLock::new(||
     BlockFlags::TRANSLUCENT
 );
 
-
-pub fn register_blocks() -> BlockRecord {
+pub fn bootstrap_blocks() -> BlockRecord {
     let mut commit = BlockCommit::new();
 
-    commit.push(
-        AssetLocation::with_default_namespace("grass_block"),
-        Block::new()
-            .definition(
-                BlockDefinition::new()
-                    .hardness(0.65)
-                    .toughness(0.65)
-                    .flags(*BASIC_SOLID)
-                    .build()
-            )
-            .shapes(vec![FULL_SHAPE])
-            .build()
+
+    register_block(
+        &mut commit,
+        "grass",
+        BlockBehaviour::new()
+            .hardness(0.0)
+            .toughness(0.0)
+            .flags(*FOLIAGE)
+            .build(),
+        Vec::new()
     );
 
-    commit.push(
-        AssetLocation::with_default_namespace("grass"),
-        Block::new()
-            .definition(
-                BlockDefinition::new()
-                    .hardness(0.0)
-                    .toughness(0.0)
-                    .flags(*FOLIAGE)
-                    .build()
-            )
-            .build()
+    register_block(
+        &mut commit,
+        "poppy",
+        BlockBehaviour::new()
+            .hardness(0.0)
+            .toughness(0.0)
+            .flags(*FOLIAGE)
+            .build(),
+        Vec::new()
     );
 
-    commit.push(
-        AssetLocation::with_default_namespace("poppy"),
-        Block::new()
-            .definition(
-                BlockDefinition::new()
-                    .hardness(0.0)
-                    .toughness(0.0)
-                    .flags(*FOLIAGE)
-                    .build()
-            )
-            .build()
+    register_block(
+        &mut commit,
+        "grass_block",
+        BlockBehaviour::new()
+            .hardness(0.65)
+            .toughness(0.65)
+            .flags(*FULL_BLOCK)
+            .build(),
+        vec![FULL_SHAPE]
     );
 
-    commit.push(
-        AssetLocation::with_default_namespace("dirt"),
-        Block::new()
-            .definition(
-                BlockDefinition::new()
-                    .hardness(0.5)
-                    .toughness(0.5)
-                    .flags(*BASIC_SOLID)
-                    .build()
-            )
-            .shapes(vec![FULL_SHAPE])
-            .build()
+    register_block(
+        &mut commit,
+        "dirt",
+        BlockBehaviour::new()
+            .hardness(0.5)
+            .toughness(0.5)
+            .flags(*FULL_BLOCK)
+            .build(),
+        vec![FULL_SHAPE]
     );
 
-    commit.push(
-        AssetLocation::with_default_namespace("stone"),
-        Block::new()
-            .definition(
-                BlockDefinition::new()
-                    .hardness(2.0)
-                    .toughness(6.0)
-                    .flags(*BASIC_SOLID)
-                    .build()
-            )
-            .shapes(vec![FULL_SHAPE])
-            .build()
+    register_block(
+        &mut commit,
+        "sand",
+        BlockBehaviour::new()
+            .hardness(0.5)
+            .toughness(0.5)
+            .flags(*FULL_BLOCK)
+            .build(),
+        vec![FULL_SHAPE]
     );
 
-    commit.push(
-        AssetLocation::with_default_namespace("bedrock"),
-        Block::new()
-            .definition(
-                BlockDefinition::new()
-                    .hardness(f32::INFINITY)
-                    .toughness(f32::INFINITY)
-                    .flags(BlockFlags::COLLIDABLE
-                        | BlockFlags::OCCLUDABLE
-                        | BlockFlags::CAN_SUPPORT
-                    )
-                    .build()
-            )
-            .shapes(vec![FULL_SHAPE])
-            .build()
+    register_block(
+        &mut commit,
+        "stone",
+        BlockBehaviour::new()
+            .hardness(2.0)
+            .toughness(6.0)
+            .flags(*FULL_BLOCK)
+            .build(),
+        vec![FULL_SHAPE]
     );
 
-    commit.push(
-        AssetLocation::with_default_namespace("oak_log"),
-        Block::new()
-            .definition(
-                BlockDefinition::new()
-                    .hardness(2.0)
-                    .toughness(2.0)
-                    .flags(*BASIC_SOLID)
-                    .build()
+    register_block(
+        &mut commit,
+        "bedrock",
+        BlockBehaviour::new()
+            .hardness(f32::INFINITY)
+            .toughness(f32::INFINITY)
+            .flags(BlockFlags::COLLIDABLE
+                | BlockFlags::GREEDY_MESHABLE
+                | BlockFlags::OCCLUDABLE
+                | BlockFlags::CAN_SUPPORT
             )
-            .shapes(vec![FULL_SHAPE])
-            .build()
+            .build(),
+        vec![FULL_SHAPE]
     );
 
-    commit.push(
-        AssetLocation::with_default_namespace("oak_planks"),
-        Block::new()
-            .definition(
-                BlockDefinition::new()
-                    .hardness(2.0)
-                    .toughness(3.0)
-                    .flags(*BASIC_SOLID)
-                    .build()
-            )
-            .shapes(vec![FULL_SHAPE])
-            .build()
+    register_block(
+        &mut commit,
+        "oak_log",
+        BlockBehaviour::new()
+            .hardness(2.0)
+            .toughness(2.0)
+            .flags(*FULL_BLOCK)
+            .build(),
+        vec![FULL_SHAPE]
     );
 
-    commit.push(
-        AssetLocation::with_default_namespace("oak_planks_slab"),
-        Block::new()
-            .definition(
-                BlockDefinition::new()
-                    .hardness(2.0)
-                    .toughness(3.0)
-                    .flags(BlockFlags::COLLIDABLE
-                        | BlockFlags::OCCLUDABLE
-                        | BlockFlags::CAN_SUPPORT
-                    )
-                    .build()
-            )
-            .shapes(vec![HALF_SHAPE])
-            .build()
+    register_block(
+        &mut commit,
+        "oak_planks",
+        BlockBehaviour::new()
+            .hardness(2.0)
+            .toughness(3.0)
+            .flags(*FULL_BLOCK)
+            .build(),
+        vec![FULL_SHAPE]
     );
 
-    commit.push(
-        AssetLocation::with_default_namespace("oak_planks_stair"),
-        Block::new()
-            .definition(
-                BlockDefinition::new()
-                    .hardness(2.0)
-                    .toughness(3.0)
-                    .flags(BlockFlags::COLLIDABLE
-                        | BlockFlags::OCCLUDABLE
-                        | BlockFlags::CAN_SUPPORT
-                    )
-                    .build()
+    register_block(
+        &mut commit,
+        "oak_planks_slab",
+        BlockBehaviour::new()
+            .hardness(2.0)
+            .toughness(3.0)
+            .flags(BlockFlags::COLLIDABLE
+                | BlockFlags::OCCLUDABLE
+                | BlockFlags::CAN_SUPPORT
             )
-            .shapes(vec![
-                HALF_SHAPE,
-                Aabb3d::from_min_max([0.0, 4.0, 0.0], [8.0, 8.0, 4.0])
-            ])
-            .build()
+            .build(),
+        vec![HALF_SHAPE]
     );
 
-    commit.push(
-        AssetLocation::with_default_namespace("oak_trapdoor"),
-        Block::new()
-            .definition(
-                BlockDefinition::new()
-                    .hardness(2.0)
-                    .toughness(3.0)
-                    .flags(BlockFlags::COLLIDABLE
-                        | BlockFlags::OCCLUDABLE
-                        | BlockFlags::CAN_SUPPORT
-                    )
-                    .build()
+    register_block(
+        &mut commit,
+        "oak_planks_stair",
+        BlockBehaviour::new()
+            .hardness(2.0)
+            .toughness(3.0)
+            .flags(BlockFlags::COLLIDABLE
+                | BlockFlags::OCCLUDABLE
+                | BlockFlags::CAN_SUPPORT
             )
-            .shapes(vec![Aabb3d::from_min_max([0.0, 0.0, 0.0], [8.0, 1.0, 8.0])])
-            .build()
+            .build(),
+        vec![
+            HALF_SHAPE,
+            Aabb3d::from_min_max([0.0, 4.0, 0.0], [8.0, 8.0, 4.0])
+        ]
     );
 
-    commit.push(
-        AssetLocation::with_default_namespace("oak_leaves"),
-        Block::new()
-            .definition(
-                BlockDefinition::new()
-                    .hardness(0.2)
-                    .toughness(0.2)
-                    .flags(BlockFlags::COLLIDABLE
-                        | BlockFlags::CAN_SUPPORT
-                    )
-                    .build()
+    register_block(
+        &mut commit,
+        "oak_planks_trapdoor",
+        BlockBehaviour::new()
+            .hardness(2.0)
+            .toughness(3.0)
+            .flags(BlockFlags::COLLIDABLE
+                | BlockFlags::OCCLUDABLE
+                | BlockFlags::CAN_SUPPORT
             )
-            .shapes(vec![FULL_SHAPE])
-            .build()
+            .build(),
+        vec![Aabb3d::from_min_max([0.0, 0.0, 0.0], [8.0, 1.0, 8.0])]
     );
 
-    commit.push(
-        AssetLocation::with_default_namespace("snow_block"),
-        Block::new()
-            .definition(
-                BlockDefinition::new()
-                    .hardness(0.2)
-                    .toughness(0.2)
-                    .flags(*BASIC_SOLID)
-                    .build()
+    register_block(
+        &mut commit,
+        "oak_leaves",
+        BlockBehaviour::new()
+            .hardness(0.2)
+            .toughness(0.2)
+            .flags(BlockFlags::COLLIDABLE
+                | BlockFlags::CAN_SUPPORT
+                | BlockFlags::GREEDY_MESHABLE
             )
-            .shapes(vec![FULL_SHAPE])
-            .build()
+            .build(),
+        vec![FULL_SHAPE]
     );
 
-    commit.push(
-        AssetLocation::with_default_namespace("sand"),
-        Block::new()
-            .definition(
-                BlockDefinition::new()
-                    .hardness(0.5)
-                    .toughness(0.5)
-                    .flags(*BASIC_SOLID)
-                    .build()
-            )
-            .shapes(vec![FULL_SHAPE])
-            .build()
+    register_block(
+        &mut commit,
+        "snow_block",
+        BlockBehaviour::new()
+            .hardness(0.2)
+            .toughness(0.2)
+            .flags(*FULL_BLOCK)
+            .build(),
+        vec![FULL_SHAPE]
     );
 
     BlockRecord::finish(commit)
+}
+
+fn register_block(
+    commit: &mut BlockCommit,
+    name: &str,
+    behaviour: BlockBehaviour,
+    shapes: Vec<Aabb3d>,
+) {
+    commit.push(
+        AssetLocation::with_default_namespace(name),
+        Block::new()
+            .behaviour(behaviour)
+            .shapes(shapes)
+            .build()
+    )
+}
+
+fn register_block_with_attached(
+    commit: &mut BlockCommit,
+    name: &str,
+    behaviour: BlockBehaviour,
+    shapes: Vec<Aabb3d>,
+    attached: Attachments
+) {
+    commit.push(
+        AssetLocation::with_default_namespace(name),
+        Block::new()
+            .behaviour(behaviour)
+            .shapes(shapes)
+            .attachments(attached)
+            .build()
+    )
 }

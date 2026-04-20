@@ -1,17 +1,16 @@
-use bitflags::Flags;
 use builder_pattern::Builder;
 use crate::prelude::{BlockFlags};
 
 #[derive(Builder, Debug, Clone, PartialEq)]
-pub struct BlockDefinition {
+pub struct BlockBehaviour {
     #[into]
     #[public]
-    #[default(0.0)]
+    #[default(1.0)]
     hardness: f32,
 
     #[into]
     #[public]
-    #[default(0.0)]
+    #[default(1.0)]
     toughness: f32,
 
     #[into]
@@ -30,17 +29,24 @@ pub struct BlockDefinition {
     flags: BlockFlags,
 }
 
-impl Default for BlockDefinition {
+impl Default for BlockBehaviour {
     #[inline(always)]
     fn default() -> Self {
         Self::new()
+            .hardness(0.0)
+            .toughness(0.0)
             .friction(0.0)
             .flags(BlockFlags::AIR)
             .build()
     }
 }
 
-impl BlockDefinition {
+impl BlockBehaviour {
+    #[inline(always)]
+    pub const fn air(&self) -> bool {
+        self.flags.contains(BlockFlags::AIR)
+    }
+
     #[inline(always)]
     pub const fn hardness(&self) -> f32 {
         self.hardness
@@ -62,11 +68,6 @@ impl BlockDefinition {
     }
 
     #[inline(always)]
-    pub const fn air(&self) -> bool {
-        self.flags.contains(BlockFlags::AIR)
-    }
-
-    #[inline(always)]
     pub const fn collidable(&self) -> bool {
         self.flags.contains(BlockFlags::COLLIDABLE)
     }
@@ -78,7 +79,7 @@ impl BlockDefinition {
 
     #[inline(always)]
     pub const fn greedy_meshable(&self) -> bool {
-        self.flags.contains(BlockFlags::GREEDY_MESH)
+        self.flags.contains(BlockFlags::GREEDY_MESHABLE)
     }
     
     #[inline(always)]

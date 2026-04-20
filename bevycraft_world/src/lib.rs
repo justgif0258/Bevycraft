@@ -8,13 +8,11 @@ pub mod prelude {
     #[allow(deprecated)]
     pub use crate::{
         block::{
-            definition::{
-                block_definition::*,
-                block_flags::BlockFlags,
-            },
-            block::Block,
+            block::{Block, AttachmentAttribute, Attachments},
             block_record::BlockRecord,
             block_commit::BlockCommit,
+            block_flags::BlockFlags,
+            block_behaviour::BlockBehaviour,
         },
         chunk::{
             section::*,

@@ -62,16 +62,8 @@ impl Commit for BlockCommit {
     }
 
     #[inline]
-    fn keys(&self) -> Vec<&AssetLocation> {
+    fn iter_keys(&self) -> impl Iterator<Item = &AssetLocation> {
         self.entries.keys()
-            .collect()
-    }
-
-    #[inline]
-    fn cloned_keys(&self) -> Vec<AssetLocation> {
-        self.entries.keys()
-            .cloned()
-            .collect()
     }
 
     #[inline]

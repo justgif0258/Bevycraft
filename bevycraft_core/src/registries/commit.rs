@@ -13,9 +13,7 @@ pub trait Commit: Resource + IntoIterator<Item = (AssetLocation, Self::Value)> {
     where
         C: Commit<Value = Self::Value>;
 
-    fn keys(&self) -> Vec<&AssetLocation>;
-
-    fn cloned_keys(&self) -> Vec<AssetLocation>;
+    fn iter_keys(&self) -> impl Iterator<Item = &AssetLocation>;
 
     fn len(&self) -> usize;
 }

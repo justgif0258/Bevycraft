@@ -12,24 +12,6 @@ pub struct MappedRecord<T: Recordable> {
 impl<T: Recordable> MappedRecord<T> {
     const BASE: f64 = 3.3f64;
 
-    #[inline]
-    pub fn get_by_key(&self, key: &AssetLocation) -> Option<&T> {
-        let idx = self.m_hasher.try_hash(key)?;
-
-        self.entries.get(idx as usize).and_then(|(k, v)| {
-            if k != key {
-                return None;
-            }
-
-            Some(v)
-        })
-    }
-
-    #[inline]
-    pub fn get_by_id(&self, index: usize) -> Option<&T> {
-        self.entries.get(index).map(|(_, v)| v)
-    }
-
     fn gen_boxed_entries<C>(phf: &Mphf<AssetLocation>, commit: C) -> Box<[(AssetLocation, T)]>
     where
         C: Commit<Value = T>,
@@ -57,13 +39,31 @@ impl<T: Recordable> Record for MappedRecord<T> {
     where
         C: Commit<Value = Self::Value>,
     {
-        let keys = commit.cloned_keys();
+        let keys = commit.iter_keys().cloned().collect();
 
         let m_hasher = Self::gen_phf(keys);
 
         let entries = Self::gen_boxed_entries(&m_hasher, commit);
 
         Self { m_hasher, entries }
+    }
+
+    #[inline]
+    fn get_by_key(&self, key: &AssetLocation) -> Option<&Self::Value> {
+        let idx = self.m_hasher.try_hash(key)?;
+
+        self.entries.get(idx as usize).and_then(|(k, v)| {
+            if k != key {
+                return None;
+            }
+
+            Some(v)
+        })
+    }
+
+    #[inline]
+    fn get_by_idx(&self, idx: usize) -> Option<&Self::Value> {
+        self.entries.get(idx).map(|(_, v)| v)
     }
 
     #[inline]
@@ -83,8 +83,8 @@ impl<T: Recordable> Record for MappedRecord<T> {
     }
 
     #[inline]
-    fn keys(&self) -> Vec<&AssetLocation> {
-        self.entries.iter().map(|(k, _)| k).collect::<Vec<_>>()
+    fn iter_keys(&self) -> impl Iterator<Item = &AssetLocation> {
+        self.entries.iter().map(|(k, _)| k)
     }
 
     #[inline]

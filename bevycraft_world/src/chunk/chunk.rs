@@ -54,7 +54,7 @@ impl Chunk {
     pub fn set_at(
         &mut self,
         position: impl Into<IVec3>,
-        global_index: u32
+        global_index: usize
     ) {
         let position = position.into();
 
@@ -84,15 +84,15 @@ impl Chunk {
     }
 
     #[inline(always)]
-    pub fn remove_at(&mut self, position: impl Into<IVec3>) {
+    pub fn remove_at(&mut self, position: impl Into<IVec3>) -> Option<usize> {
         let position = position.into();
 
         if position.cmplt(IVec3::ZERO).any() {
-            return;
+            return None;
         }
 
         if position.x >= SECTION_SIZE || position.z >= SECTION_SIZE {
-            return;
+            return None;
         }
 
         let y_idx = position.y.div_euclid(SECTION_SIZE) as u64;
@@ -100,15 +100,17 @@ impl Chunk {
         if let Some(section) = self.sections.get_mut(&y_idx) {
             let normalized = position.rem_euclid(IVec3::splat(SECTION_SIZE));
 
-            section.remove(normalized);
+            return section.remove(normalized);
         }
+        
+        None
     }
 
     #[inline(always)]
     pub fn get_at(
         &self,
         position: impl Into<IVec3>,
-    ) -> Option<u32> {
+    ) -> Option<usize> {
         let position = position.into();
 
         if position.cmplt(IVec3::ZERO).any() {

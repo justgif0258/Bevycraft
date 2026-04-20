@@ -16,12 +16,16 @@ pub trait Record: Resource {
     fn finish<C>(commit: C) -> Self
     where
         C: Commit<Value = Self::Value>;
+    
+    fn get_by_key(&self, key: &AssetLocation) -> Option<&Self::Value>;
+    
+    fn get_by_idx(&self, idx: usize) -> Option<&Self::Value>;
 
     fn key_to_idx(&self, key: &AssetLocation) -> Option<usize>;
 
     fn idx_to_key(&self, id: usize) -> Option<&AssetLocation>;
 
-    fn keys(&self) -> Vec<&AssetLocation>;
+    fn iter_keys(&self) -> impl Iterator<Item = &AssetLocation>;
 
     fn len(&self) -> usize;
 }
@@ -31,7 +35,7 @@ pub trait Record: Resource {
 ///
 /// # Safety
 /// Implementors must ensure that the type is [`Send`] and [`Sync`], and that the [`TypeId`] is stable across compilations.
-pub unsafe trait Recordable: ToString + Send + Sync + 'static {
+pub unsafe trait Recordable: Send + Sync + 'static {
     fn as_recordable(&self) -> &dyn Recordable;
 
     fn type_id(&self) -> TypeId;
@@ -39,7 +43,7 @@ pub unsafe trait Recordable: ToString + Send + Sync + 'static {
 
 unsafe impl<T> Recordable for T
 where
-    T: ToString + Send + Sync + 'static,
+    T: Send + Sync + 'static,
 {
     #[inline(always)]
     fn as_recordable(&self) -> &dyn Recordable {
