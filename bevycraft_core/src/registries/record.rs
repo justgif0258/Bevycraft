@@ -24,6 +24,8 @@ pub trait Record: Resource {
     fn key_to_idx(&self, key: &AssetLocation) -> Option<usize>;
 
     fn idx_to_key(&self, id: usize) -> Option<&AssetLocation>;
+    
+    fn iter(&self) -> impl Iterator<Item = &(AssetLocation, Self::Value)>;
 
     fn iter_keys(&self) -> impl Iterator<Item = &AssetLocation>;
 

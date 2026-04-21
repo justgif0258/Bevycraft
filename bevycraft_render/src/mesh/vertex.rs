@@ -89,7 +89,7 @@ impl Material for VertexMaterial {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub struct Vertex {
     pub position: [f32; 3],
     pub uv      : [f32; 2],

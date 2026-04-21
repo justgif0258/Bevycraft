@@ -6,27 +6,27 @@ pub struct BlockBehaviour {
     #[into]
     #[public]
     #[default(1.0)]
-    hardness: f32,
+    pub(super) hardness: f32,
 
     #[into]
     #[public]
     #[default(1.0)]
-    toughness: f32,
+    pub(super) toughness: f32,
 
     #[into]
     #[public]
     #[default(0.6)]
-    friction: f32,
+    pub(super) friction: f32,
 
     #[into]
     #[public]
     #[default(0.0)]
-    viscosity: f32,
+    pub(super) viscosity: f32,
 
     #[into]
     #[public]
     #[default(BlockFlags::empty())]
-    flags: BlockFlags,
+    pub(super) flags: BlockFlags,
 }
 
 impl Default for BlockBehaviour {

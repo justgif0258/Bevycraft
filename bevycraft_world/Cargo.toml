@@ -18,11 +18,6 @@ rapidhash.workspace = true
 
 bitflags.workspace = true
 
-serde.workspace = true
-ron.workspace = true
-
-voxelis.workspace = true
-
 builder-pattern.workspace = true
 simdnoise.workspace = true
 fastrand.workspace = true

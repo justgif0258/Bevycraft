@@ -11,7 +11,7 @@ use bevy::post_process::bloom::Bloom;
 use bevy::prelude::*;
 use bevycraft_app::{AppState, GlobalRecords, Player, WorldRender};
 use bevycraft_app::systems::chunking::{handle_chunk_tasks, manage_chunks};
-use bevycraft_app::systems::register::bootstrap_blocks;
+use bevycraft_app::systems::register::bootstrap_registries;
 use bevycraft_core::prelude::*;
 use bevycraft_render::prelude::*;
 use bevycraft_world::prelude::*;
@@ -29,7 +29,10 @@ fn main() -> AppExit {
             Time::<Fixed>::from_hz(64.0)
         )
         .init_state::<AppState>()
-        .add_systems(OnEnter(AppState::LoadingContent), init)
+        .add_systems(OnEnter(AppState::LoadingContent), (
+            bootstrap_registries,
+            init
+        ).chain())
         .add_systems(
             FixedUpdate,
             finish_loading_textures.run_if(in_state(AppState::WaitingForServer)),
@@ -48,22 +51,23 @@ fn main() -> AppExit {
 fn init(
     mut commands: Commands,
     mut state: ResMut<NextState<AppState>>,
+    global: Res<GlobalRecords>,
     asset_server: Res<AssetServer>,
 ) {
     info!("Initializing app...");
     info!("Compiling blocks to record...");
 
-    let blocks = bootstrap_blocks();
-
     info!("Loading block models...");
 
     let mut model_manager = RModelManager::default();
 
-    blocks.iter_keys()
-        .for_each(|block_key|
-            model_manager.load(block_key.prefix("block/"))
+    global.blocks.iter_keys()
+        .for_each(|block_key| {
+            let path = block_key.prefix("block/");
+
+            model_manager.load(path)
                 .unwrap_or_else(|e| warn!("{}", e))
-        );
+        });
 
     let mut textures_holder = TexturesHolder::default();
 
@@ -78,11 +82,6 @@ fn init(
             ));
         });
 
-    commands.insert_resource(
-        GlobalRecords {
-            blocks: Arc::new(blocks),
-        }
-    );
     commands.insert_resource(textures_holder);
     commands.insert_resource(model_manager);
 
@@ -118,7 +117,7 @@ fn bake_renderers(
             let image = images.remove(handle).unwrap();
             let data = image.data.unwrap();
 
-            array_texture_builder.register(location.clone(), data);
+            array_texture_builder.push(location.clone(), data);
         });
 
     commands.remove_resource::<TexturesHolder>();
@@ -135,12 +134,12 @@ fn bake_renderers(
         .for_each(|(i, key)| {
             let model_key = key.prefix("block/");
 
-            if let Some(model) = manager.take(&model_key) {
+            if let Some(model) = manager.get(&model_key) {
                 match cache.bake_and_add_mesh(
                     &manager,
                     &array_texture,
                     model,
-                    i as u32
+                    i
                 ) {
                     Ok(_) => {},
                     Err(errors) => {

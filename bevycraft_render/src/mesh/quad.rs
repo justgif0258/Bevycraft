@@ -1,7 +1,7 @@
 use std::fmt::{Display, Formatter};
 use std::ops::Not;
 use bevy::math::EulerRot;
-use bevy::prelude::{Quat, Vec3};
+use bevy::prelude::{Quat, Vec3, Vec3A};
 use bevycraft_core::prelude::AssetLocation;
 use crate::prelude::{ArrayTexture, TextureId, Vertex};
 
@@ -21,15 +21,12 @@ impl Quad {
         from:           [f32; 3],
         to:             [f32; 3],
         uvs:            [f32; 4],
+        texture:        TextureId,
         facing:         Facing,
         render_mode:    RenderMode,
         tintable:       bool,
         scale:          f32,
-        texture:        &AssetLocation,
-        array_texture:  &ArrayTexture
     ) -> Self {
-        let texture = array_texture.get_texture_id(texture)
-            .unwrap_or(TextureId(0));
 
         Self {
             vertices: Self::generate_vertex_array(from, to, uvs, facing, texture, scale),

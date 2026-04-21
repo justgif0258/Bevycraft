@@ -19,16 +19,16 @@ impl WorldGenerator for SuperflatGenerator {
         blocks  : Arc<BlockRecord>,
     ) {
         let air = blocks.key_to_idx(&AssetLocation::with_default_namespace("air"))
-            .unwrap() as u32;
+            .unwrap();
 
         let bedrock_id = blocks.key_to_idx(&AssetLocation::with_default_namespace("bedrock"))
-            .unwrap() as u32;
+            .unwrap();
 
         let dirt_id = blocks.key_to_idx(&AssetLocation::with_default_namespace("dirt"))
-            .unwrap() as u32;
+            .unwrap();
 
         let grass_block_id = blocks.key_to_idx(&AssetLocation::with_default_namespace("grass_block"))
-            .unwrap() as u32;
+            .unwrap();
 
         for x in 0..16 {
             for z in 0..16 {

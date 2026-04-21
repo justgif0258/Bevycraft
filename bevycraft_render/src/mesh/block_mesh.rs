@@ -17,17 +17,17 @@ pub struct BlockMeshCache {
 
 impl BlockMeshCache {
     #[inline]
-    pub const fn builder() -> BlockMeshManagerBuilder {
-        BlockMeshManagerBuilder { entries: HashMap::with_hasher(NoOpHash) }
+    pub const fn builder() -> MeshCacheBuilder {
+        MeshCacheBuilder { entries: HashMap::with_hasher(NoOpHash) }
     }
 
     #[inline(always)]
-    pub fn get_mesh(&self, block_index: u32) -> Option<&BlockMesh> {
+    pub fn get_mesh(&self, block_index: usize) -> Option<&BlockMesh> {
         self.meshes.get(&(block_index as u64))
     }
 
     #[inline(always)]
-    pub fn get_occlusion_mask(&self, block_index: u32, facing: Facing) -> Option<OcclusionMask> {
+    pub fn get_occlusion_mask(&self, block_index: usize, facing: Facing) -> Option<OcclusionMask> {
         let mesh = self.get_mesh(block_index)?;
 
         Some(mesh.occlusion_mask(facing))
@@ -35,23 +35,23 @@ impl BlockMeshCache {
 }
 
 #[derive(Default)]
-pub struct BlockMeshManagerBuilder {
+pub struct MeshCacheBuilder {
     entries: HashMap<u64, BlockMesh, NoOpHash>
 }
 
-impl BlockMeshManagerBuilder {
+impl MeshCacheBuilder {
     #[inline]
-    pub fn add_mesh(&mut self, mesh: BlockMesh, block_id: u32) {
+    pub fn add_mesh(&mut self, mesh: BlockMesh, block_id: usize) {
         self.entries.insert(block_id as u64, mesh);
     }
 
     #[inline]
     pub fn bake_and_add_mesh(
         &mut self,
-        manager         : &RModelManager,
-        array_texture   : &ArrayTexture,
-        model           : RModel,
-        block_id        : u32
+        manager:        &RModelManager,
+        array_texture:  &ArrayTexture,
+        model:          &RModel,
+        block_id:       usize
     ) -> Result<(), Vec<String>> {
         let mesh = BlockMesh::new(
             model,
@@ -79,19 +79,24 @@ impl BlockMeshManagerBuilder {
     }
 }
 
+/// # Block Mesh
+/// Efficiently baked and solved mesh for a given block, ready to be rendered with binary occlusion masking.
+/// ##### Why Box<\[Quad\]> and not Vec<Quad>?
+/// A mesh for a given block is not meant to be mutated at any point at all. Given each mesh will leave for
+/// the entire duration of the program, we want to leave the smallest memory footprint as possible.
 #[derive(Debug, Clone)]
 pub struct BlockMesh {
-    buckets     : [Vec<Quad>; 6],
+    buckets     : [Box<[Quad]>; 6],
     masks       : [OcclusionMask; 6],
-    inner_faces : Vec<Quad>,
+    inner_faces : Box<[Quad]>,
 }
 
 impl BlockMesh {
     #[inline]
     pub fn new(
-        model           : RModel,
-        manager         : &RModelManager,
-        array_texture   : &ArrayTexture,
+        model:      &RModel,
+        manager:    &RModelManager,
+        textures:   &ArrayTexture,
     ) -> Result<Self, Vec<String>> {
         let mut errors: Vec<String> = Vec::new();
 
@@ -108,7 +113,7 @@ impl BlockMesh {
             return Err(errors);
         };
 
-        if let Some(textures) = model.textures {
+        if let Some(textures_names) = &model.textures {
             geometry.iter()
                 .for_each(|element| {
                     element.faces
@@ -119,10 +124,12 @@ impl BlockMesh {
                                 Ok(facing) => {
                                     let texture = match face.texture.strip_prefix('#') {
                                         None => AssetLocation::try_parse(&face.texture).ok(),
-                                        Some(key) => textures.get(key).cloned(),
+                                        Some(key) => textures_names.get(key).cloned(),
                                     };
 
-                                    if let Some(texture) = &texture {
+                                    if let Some(texture_location) = &texture
+                                        && let Some(texture) = textures.get_texture_id(texture_location)    
+                                    {
                                         let render_mode = RenderMode::from_str(&face.render_mode)
                                             .unwrap_or(RenderMode::default());
                                         
@@ -130,12 +137,11 @@ impl BlockMesh {
                                             element.from,
                                             element.to,
                                             face.uv,
+                                            texture,
                                             facing,
                                             render_mode,
                                             face.tintable,
                                             VERTEX_SCALING,
-                                            texture,
-                                            array_texture,
                                         );
 
                                         if let Some(rot) = &element.rotation {
@@ -209,6 +215,10 @@ impl BlockMesh {
                     masks[facing] = mask;
                 })
         }
+        
+        let buckets: [Box<[Quad]>; 6] = buckets.map(Vec::into_boxed_slice);
+        
+        let inner_faces: Box<[Quad]> = inner_faces.into_boxed_slice();
 
         Ok(Self {
             buckets,
@@ -218,23 +228,22 @@ impl BlockMesh {
     }
 
     #[inline(always)]
-    pub fn get_occlusion_quads_at(&self, facing: Facing) -> &[Quad] {
-        self.buckets[facing as usize]
-            .as_slice()
+    pub const fn get_occlusion_quads_at(&self, facing: Facing) -> &[Quad] {
+        &self.buckets[facing as usize]
     }
 
     #[inline(always)]
-    pub fn get_inner_quads(&self) -> &[Quad] {
+    pub const fn get_inner_quads(&self) -> &[Quad] {
         &self.inner_faces
     }
 
     #[inline(always)]
-    pub fn occlusion_mask(&self, facing: Facing) -> OcclusionMask {
+    pub const fn occlusion_mask(&self, facing: Facing) -> OcclusionMask {
         self.masks[facing as usize]
     }
 
     #[inline(always)]
-    pub fn is_occluded_at(&self, facing: Facing, mask: OcclusionMask) -> bool {
+    pub const fn is_occluded_at(&self, facing: Facing, mask: OcclusionMask) -> bool {
         self.masks[facing as usize].is_occluded(mask)
     }
 

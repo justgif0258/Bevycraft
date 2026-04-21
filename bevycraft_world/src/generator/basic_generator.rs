@@ -30,16 +30,16 @@ impl WorldGenerator for BasicGenerator {
         blocks  : Arc<BlockRecord>
     ) {
         let stone_id = blocks.key_to_idx(&AssetLocation::with_default_namespace("stone"))
-            .unwrap() as u32;
+            .unwrap();
 
         let dirt_id = blocks.key_to_idx(&AssetLocation::with_default_namespace("dirt"))
-            .unwrap() as u32;
+            .unwrap();
 
         let grass_block_id = blocks.key_to_idx(&AssetLocation::with_default_namespace("grass_block"))
-            .unwrap() as u32;
+            .unwrap();
 
         let snow_block_id = blocks.key_to_idx(&AssetLocation::with_default_namespace("snow_block"))
-            .unwrap() as u32;
+            .unwrap();
 
         let world_pos = IVec2::new(
             position.x * SECTION_SIZE,
@@ -105,13 +105,13 @@ impl WorldGenerator for BasicGenerator {
         blocks  : Arc<BlockRecord>
     ) {
         let grass_block_id = blocks.key_to_idx(&AssetLocation::with_default_namespace("grass_block"))
-            .unwrap() as u32;
+            .unwrap();
 
         let grass_id = blocks.key_to_idx(&AssetLocation::with_default_namespace("grass"))
-            .unwrap() as u32;
+            .unwrap();
 
         let poppy_id = blocks.key_to_idx(&AssetLocation::with_default_namespace("poppy"))
-            .unwrap() as u32;
+            .unwrap();
 
         let mut rng = Rng::with_seed(self.seed as u64);
 

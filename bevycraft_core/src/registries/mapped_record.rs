@@ -83,6 +83,11 @@ impl<T: Recordable> Record for MappedRecord<T> {
     }
 
     #[inline]
+    fn iter(&self) -> impl Iterator<Item = &(AssetLocation, Self::Value)> {
+        self.entries.iter()
+    }
+
+    #[inline]
     fn iter_keys(&self) -> impl Iterator<Item = &AssetLocation> {
         self.entries.iter().map(|(k, _)| k)
     }

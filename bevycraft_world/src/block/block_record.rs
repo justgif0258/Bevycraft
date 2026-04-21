@@ -89,6 +89,11 @@ impl Record for BlockRecord {
     }
 
     #[inline(always)]
+    fn iter(&self) -> impl Iterator<Item = &(AssetLocation, Self::Value)> {
+        self.blocks.iter()
+    }
+
+    #[inline(always)]
     fn iter_keys(&self) -> impl Iterator<Item = &AssetLocation> {
         self.blocks
             .iter()

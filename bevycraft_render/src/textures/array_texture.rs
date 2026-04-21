@@ -52,7 +52,7 @@ pub struct ArrayTextureBuilder {
 
 impl ArrayTextureBuilder {
     #[inline]
-    pub fn register(&mut self, name: AssetLocation, pixels: Vec<u8>) -> TextureId {
+    pub fn push(&mut self, name: AssetLocation, pixels: Vec<u8>) -> TextureId {
         let id = TextureId(self.textures.len() as u32);
 
         self.textures.push(pixels);
