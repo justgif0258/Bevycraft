@@ -81,14 +81,11 @@ impl MeshCacheBuilder {
 
 /// # Block Mesh
 /// Efficiently baked and solved mesh for a given block, ready to be rendered with binary occlusion masking.
-/// ##### Why Box<\[Quad\]> and not Vec<Quad>?
-/// A mesh for a given block is not meant to be mutated at any point at all. Given each mesh will leave for
-/// the entire duration of the program, we want to leave the smallest memory footprint as possible.
 #[derive(Debug, Clone)]
 pub struct BlockMesh {
-    buckets     : [Box<[Quad]>; 6],
-    masks       : [OcclusionMask; 6],
-    inner_faces : Box<[Quad]>,
+    buckets: [Box<[Quad]>; 6],
+    masks: [OcclusionMask; 6],
+    inner_faces: Box<[Quad]>,
 }
 
 impl BlockMesh {
@@ -130,18 +127,29 @@ impl BlockMesh {
                                     if let Some(texture_location) = &texture
                                         && let Some(texture) = textures.get_texture_id(texture_location)    
                                     {
+                                        let scaled_min = [
+                                            element.from[0] * VERTEX_SCALING, 
+                                            element.from[1] * VERTEX_SCALING, 
+                                            element.from[2] * VERTEX_SCALING
+                                        ];
+
+                                        let scaled_max = [
+                                            element.to[0] * VERTEX_SCALING, 
+                                            element.to[1] * VERTEX_SCALING, 
+                                            element.to[2] * VERTEX_SCALING
+                                        ];
+                                        
                                         let render_mode = RenderMode::from_str(&face.render_mode)
                                             .unwrap_or(RenderMode::default());
                                         
                                         let mut quad = Quad::new(
-                                            element.from,
-                                            element.to,
+                                            scaled_min,
+                                            scaled_max,
                                             face.uv,
                                             texture,
                                             facing,
                                             render_mode,
                                             face.tintable,
-                                            VERTEX_SCALING,
                                         );
 
                                         if let Some(rot) = &element.rotation {
