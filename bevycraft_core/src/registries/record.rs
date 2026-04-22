@@ -13,17 +13,19 @@ use {
 pub trait Record: Resource {
     type Value: Recordable;
 
+    type Index: Copy + Eq;
+
     fn finish<C>(commit: C) -> Self
     where
         C: Commit<Value = Self::Value>;
     
     fn get_by_key(&self, key: &AssetLocation) -> Option<&Self::Value>;
     
-    fn get_by_idx(&self, idx: usize) -> Option<&Self::Value>;
+    fn get_by_idx(&self, index: Self::Index) -> Option<&Self::Value>;
 
-    fn key_to_idx(&self, key: &AssetLocation) -> Option<usize>;
+    fn key_to_idx(&self, key: &AssetLocation) -> Option<Self::Index>;
 
-    fn idx_to_key(&self, id: usize) -> Option<&AssetLocation>;
+    fn idx_to_key(&self, index: Self::Index) -> Option<&AssetLocation>;
     
     fn iter(&self) -> impl Iterator<Item = &(AssetLocation, Self::Value)>;
 

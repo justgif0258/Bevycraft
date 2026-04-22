@@ -4,6 +4,39 @@ use bevy::platform::hash::NoOpHash;
 use bevy::prelude::*;
 use crate::prelude::*;
 
+#[derive(Component, Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct ChunkPos(pub IVec2);
+
+impl ChunkPos {
+    #[inline]
+    pub const fn new(x: i32, z: i32) -> Self {
+        Self(IVec2::new(x, z))
+    }
+    
+    #[inline]
+    pub const fn from_world_pos(x: i32, z: i32) -> Self {
+        Self(IVec2::new(x.div_euclid(SECTION_SIZE), z.div_euclid(SECTION_SIZE)))
+    }
+    
+    #[inline]
+    pub fn from_3d_world_pos(pos: Vec3) -> Self {
+        Self(IVec2::new(pos.x.div_euclid(SECTION_SIZE as f32).floor() as i32, pos.z.div_euclid(SECTION_SIZE as f32).floor() as i32))
+    }
+    
+    #[inline]
+    pub const fn as_world_pos(&self) -> IVec2 {
+        IVec2::new(self.0.x * SECTION_SIZE, self.0.y * SECTION_SIZE)
+    }
+    
+    #[inline(always)]
+    pub fn neighbors(&self) -> [IVec2; 4] {
+        [
+            self.0 + IVec2::X, self.0 - IVec2::X,
+            self.0 + IVec2::Y, self.0 - IVec2::Y,
+        ]
+    }
+}
+
 #[derive(Component, Default)]
 pub struct Chunk {
     pub sections: HashMap<u64, PalettedSection, NoOpHash>,
@@ -54,7 +87,7 @@ impl Chunk {
     pub fn set_at(
         &mut self,
         position: impl Into<IVec3>,
-        global_index: usize
+        block_type: BlockType
     ) {
         let position = position.into();
 
@@ -71,28 +104,28 @@ impl Chunk {
         let y_idx = position.y.div_euclid(SECTION_SIZE) as u64;
 
         if let Some(section) = self.sections.get_mut(&y_idx) {
-            section.set(normalized, global_index);
+            section.set(normalized, block_type);
 
             return;
         }
 
         let mut new_section = PalettedSection::new();
 
-        new_section.set(normalized, global_index);
+        new_section.set(normalized, block_type);
 
         self.sections.insert(y_idx, new_section);
     }
 
     #[inline(always)]
-    pub fn remove_at(&mut self, position: impl Into<IVec3>) -> Option<usize> {
+    pub fn remove_at(&mut self, position: impl Into<IVec3>) -> BlockType {
         let position = position.into();
 
         if position.cmplt(IVec3::ZERO).any() {
-            return None;
+            return BlockType::Air;
         }
 
         if position.x >= SECTION_SIZE || position.z >= SECTION_SIZE {
-            return None;
+            return BlockType::Air;
         }
 
         let y_idx = position.y.div_euclid(SECTION_SIZE) as u64;
@@ -103,22 +136,22 @@ impl Chunk {
             return section.remove(normalized);
         }
         
-        None
+        BlockType::Air
     }
 
     #[inline(always)]
     pub fn get_at(
         &self,
         position: impl Into<IVec3>,
-    ) -> Option<usize> {
+    ) -> BlockType {
         let position = position.into();
 
         if position.cmplt(IVec3::ZERO).any() {
-            return None;
+            return BlockType::Air;
         }
 
         if position.x >= SECTION_SIZE || position.z >= SECTION_SIZE {
-            return None;
+            return BlockType::Air;
         }
 
         let y_idx = position.y.div_euclid(SECTION_SIZE) as u64;
@@ -133,6 +166,6 @@ impl Chunk {
             return section.get(normalized);
         }
 
-        None
+        BlockType::Air
     }
 }

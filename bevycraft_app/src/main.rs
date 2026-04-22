@@ -10,7 +10,7 @@ use bevy::pbr::*;
 use bevy::post_process::bloom::Bloom;
 use bevy::prelude::*;
 use bevycraft_app::{AppState, GlobalRecords, Player, WorldRender};
-use bevycraft_app::systems::chunking::{handle_chunk_tasks, manage_chunks};
+use bevycraft_app::systems::chunking::{handle_chunk_tasks, pool_chunks, trash_chunks};
 use bevycraft_app::systems::register::bootstrap_registries;
 use bevycraft_core::prelude::*;
 use bevycraft_render::prelude::*;
@@ -19,6 +19,8 @@ use bevycraft_world::prelude::*;
 const BLOCK_RESOLUTION  : u32 = 8;
 
 fn main() -> AppExit {
+    println!("Sizeof BlockId: {}", size_of::<BlockType>());
+
     App::new()
         .add_plugins((
             DefaultPlugins,
@@ -42,8 +44,9 @@ fn main() -> AppExit {
             setup_world,
         ).chain())
         .add_systems(FixedUpdate, (
-            manage_chunks,
-            handle_chunk_tasks
+            pool_chunks,
+            handle_chunk_tasks,
+            trash_chunks
         ).run_if(in_state(AppState::InGame)))
         .run()
 }
@@ -105,7 +108,7 @@ fn bake_renderers(
     mut state   : ResMut<NextState<AppState>>,
     mut mats    : ResMut<Assets<VertexMaterial>>,
     mut images  : ResMut<Assets<Image>>,
-    mut manager : ResMut<RModelManager>,
+    manager     : Res<RModelManager>,
     holder      : Res<TexturesHolder>,
     global      : Res<GlobalRecords>,
 ) {
@@ -170,6 +173,8 @@ fn setup_world(
     mut commands    : Commands,
     mut scattering  : ResMut<Assets<ScatteringMedium>>,
 ) {
+    let medium = scattering.add(ScatteringMedium::earthlike(256, 256));
+
     commands.insert_resource(GlobalAmbientLight {
         color: Color::WHITE,
         brightness: 1.0,
@@ -194,12 +199,15 @@ fn setup_world(
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(0.0, 0.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        Atmosphere::earthlike(scattering.add(ScatteringMedium::default())),
-        AtmosphereSettings::default(),
+        Atmosphere::earthlike(medium),
+        AtmosphereSettings {
+            rendering_method: AtmosphereMode::LookupTexture,
+            ..default()
+        },
+        AtmosphereEnvironmentMapLight::default(),
         Exposure { ev100: 13.0 },
         Tonemapping::AcesFitted,
         Bloom::NATURAL,
-        AtmosphereEnvironmentMapLight::default(),
         VolumetricFog {
             ambient_intensity: 1.0,
             ..default()
@@ -215,7 +223,7 @@ fn setup_world(
         Player
     ));
 
-    let manager = ChunkManager::new(
+    let manager = ChunkAccessor::new(
         8,
         BasicGenerator {
             seed: 5,

@@ -1,6 +1,7 @@
 use bevy::platform::collections::HashMap;
 use bevy::platform::hash::NoOpHash;
 use bevy::prelude::*;
+use crate::prelude::BlockType;
 
 pub(crate) const SECTION_UPPER_BOUND: IVec3 = IVec3::splat(SECTION_SIZE);
 
@@ -12,8 +13,8 @@ pub(crate) const SECTION_LEN: usize = 4096;
 
 pub struct PalettedSection {
     blocks      : SectionArray<SECTION_LEN>,
-    palette     : HashMap<u64, (u32, u32), NoOpHash>, // (Global Index -> Local Index | Ref counts)
-    to_global   : Vec<usize>,                           // (Global Index | Ref counts)
+    palette     : HashMap<BlockType, (u32, u32), NoOpHash>, // (Global Index -> Local Index | Ref counts)
+    to_global   : Vec<BlockType>,                           // (Global Index | Ref counts)
     free_list   : Vec<u16>,
     needs_resize: bool,
 }
@@ -23,14 +24,14 @@ impl PalettedSection {
 
     #[inline]
     pub fn new() -> Self {
-        let mut refs = Vec::with_capacity(8);
+        let mut to_global = Vec::with_capacity(8);
 
-        refs.push((usize::MAX));
+        to_global.push(BlockType::Air);
 
         Self {
             blocks: SectionArray::ArrayU8(Box::new([0u8; SECTION_LEN])),
             palette: HashMap::with_hasher(NoOpHash),
-            to_global: refs,
+            to_global,
             free_list: Vec::with_capacity(8),
             needs_resize: false,
         }
@@ -38,63 +39,61 @@ impl PalettedSection {
 
     #[inline]
     pub fn empty() -> Self {
-        let mut refs = Vec::with_capacity(8);
+        let mut to_global = Vec::with_capacity(8);
 
-        refs.push(usize::MAX);
+        to_global.push(BlockType::Air);
 
         Self {
             blocks: SectionArray::Empty,
             palette: HashMap::with_hasher(NoOpHash),
-            to_global: refs,
+            to_global,
             free_list: Vec::with_capacity(8),
             needs_resize: false,
         }
     }
 
     #[inline(always)]
-    pub fn get(&self, position: impl Into<IVec3>) -> Option<usize> {
+    pub fn get(&self, position: impl Into<IVec3>) -> BlockType {
         let local_index = self.blocks.get(map_to_flat_index(position));
 
-        if local_index == Self::EMPTY {
-            return None;
-        }
-
-        Some(self.to_global[local_index as usize])
+        self.to_global[local_index as usize]
     }
 
     #[inline(always)]
-    pub fn set(&mut self, position: impl Into<IVec3>, global_index: usize) {
+    pub fn set(&mut self, position: impl Into<IVec3>, block_id: BlockType) {
         let idx = map_to_flat_index(position);
 
-        let local = self.get_or_insert_index(global_index);
+        let local = self.get_or_insert_index(block_id);
 
         self.blocks.set(idx, local)
     }
 
     #[inline(always)]
-    pub fn remove(&mut self, position: impl Into<IVec3>) -> Option<usize> {
+    pub fn remove(&mut self, position: impl Into<IVec3>) -> BlockType {
         let idx = map_to_flat_index(position);
 
         let local = self.blocks.get(idx);
 
         if local == Self::EMPTY {
-            return None;
+            return BlockType::Air;
         }
 
-        let old_global = self.to_global[local as usize];
+        let removed = self.to_global[local as usize];
 
         self.blocks.set(idx, Self::EMPTY);
 
-        let entry = self.palette.get_mut(&(old_global as u64)).unwrap();
+        let entry = self.palette.get_mut(&removed).unwrap();
+
+        entry.1 -= 1;
 
         if entry.1 == 0 {
             self.free_list.push(local as u16);
-            self.palette.remove(&(old_global as u64));
+            self.palette.remove(&removed);
 
             self.needs_resize = true;
         }
 
-        Some(old_global)
+        removed
     }
 
     #[inline(always)]
@@ -113,24 +112,24 @@ impl PalettedSection {
     }
 
     #[inline(always)]
-    fn get_or_insert_index(&mut self, global_index: usize) -> u32 {
-        if let Some(existing) = self.palette.get_mut(&(global_index as u64)) {
+    fn get_or_insert_index(&mut self, block_id: BlockType) -> u32 {
+        if let Some(existing) = self.palette.get_mut(&block_id) {
             existing.1 += 1;
 
             return existing.0;
         }
 
         if let Some(freed) = self.free_list.pop().map(|f| f as u32) {
-            self.to_global[freed as usize] = global_index;
-            self.palette.insert(global_index as u64, (freed, 1));
+            self.to_global[freed as usize] = block_id;
+            self.palette.insert(block_id, (freed, 1));
 
             return freed;
         }
 
         let next = self.to_global.len() as u32;
 
-        self.to_global.push(global_index);
-        self.palette.insert(global_index as u64, (next, 1));
+        self.to_global.push(block_id);
+        self.palette.insert(block_id, (next, 1));
 
         next
     }

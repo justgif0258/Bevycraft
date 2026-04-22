@@ -9,7 +9,7 @@ pub mod prelude {
     pub use crate::{
         block::{
             block::{Block, AttachmentAttribute, Attachments},
-            block_record::BlockRecord,
+            block_record::*,
             block_commit::BlockCommit,
             block_flags::BlockFlags,
             block_behaviour::BlockBehaviour,
@@ -18,7 +18,7 @@ pub mod prelude {
             section::*,
             chunk::*,
             pool::*,
-            manager::*,
+            accessor::*,
         },
         morton::morton_3d::{
             Morton3D,

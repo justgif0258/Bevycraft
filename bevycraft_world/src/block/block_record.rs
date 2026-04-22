@@ -1,7 +1,14 @@
+use std::hash::{Hash, Hasher};
+use std::mem::{transmute, transmute_copy};
+use std::num::NonZeroU32;
+use std::sync::LazyLock;
 use bevy::prelude::Resource;
 use boomphf::Mphf;
 use bevycraft_core::prelude::*;
+use crate::block::block_record::BlockType::Id;
 use crate::prelude::*;
+
+static AIR: LazyLock<AssetLocation> = LazyLock::new(|| AssetLocation::with_default_namespace("air"));
 
 #[derive(Resource)]
 pub struct BlockRecord {
@@ -12,7 +19,7 @@ pub struct BlockRecord {
 impl BlockRecord {
     #[inline(always)]
     fn hash_key(&self, key: &AssetLocation) -> Option<usize> {
-        let idx = self.hash_function.try_hash(key)? as usize;
+        let idx = self.hash_function.try_hash(key)? as usize + 1;
 
         self.blocks.get(idx)
             .and_then(|(k, _)| {
@@ -28,12 +35,14 @@ impl BlockRecord {
 impl Record for BlockRecord {
     type Value = Block;
 
+    type Index = BlockType;
+
     #[inline]
     fn finish<C>(commit: C) -> Self
     where
         C: Commit<Value=Self::Value>
     {
-        let size = commit.len();
+        let size = commit.len() + 1;
         let hash_function = Mphf::new(
             3.3f64, 
             commit.iter_keys()
@@ -44,9 +53,11 @@ impl Record for BlockRecord {
 
         let mut blocks = Box::<[(AssetLocation, Block)]>::new_uninit_slice(size);
 
+        blocks[0].write((AIR.clone(), Block::default()));
+
         commit.into_iter()
             .for_each(|entry| {
-                let idx = hash_function.hash(&entry.0) as usize;
+                let idx = hash_function.hash(&entry.0) as usize + 1;
 
                 blocks[idx].write(entry);
             });
@@ -61,6 +72,10 @@ impl Record for BlockRecord {
 
     #[inline(always)]
     fn get_by_key(&self, key: &AssetLocation) -> Option<&Self::Value> {
+        if key.eq(&AIR) {
+            return Some(&self.blocks[0].1)
+        }
+
         let idx = self.hash_key(key)?;
         
         self.blocks.get(idx)
@@ -74,18 +89,36 @@ impl Record for BlockRecord {
     }
 
     #[inline(always)]
-    fn get_by_idx(&self, idx: usize) -> Option<&Self::Value> {
-        self.blocks.get(idx).map(|(_, b)| b)
+    fn get_by_idx(&self, index: Self::Index) -> Option<&Self::Value> {
+        match index {
+            BlockType::Air => Some(&self.blocks[0].1),
+            Id(idx) => {
+                self.blocks
+                    .get(idx.get() as usize)
+                    .map(|(_, b)| b)
+            }
+        }
     }
 
     #[inline(always)]
-    fn key_to_idx(&self, key: &AssetLocation) -> Option<usize> {
-        self.hash_key(key)
+    fn key_to_idx(&self, key: &AssetLocation) -> Option<Self::Index> {
+        if key.eq(&AIR) {
+            return Some(BlockType::Air)
+        }
+
+        Some(BlockType::from(self.hash_key(key)? as u32))
     }
 
     #[inline(always)]
-    fn idx_to_key(&self, id: usize) -> Option<&AssetLocation> {
-        self.blocks.get(id).map(|(key, _)| key)
+    fn idx_to_key(&self, index: Self::Index) -> Option<&AssetLocation> {
+        match index {
+            BlockType::Air => Some(&AIR),
+            Id(idx) => {
+                self.blocks
+                    .get(idx.get() as usize)
+                    .map(|(key, _)| key)
+            }
+        }
     }
 
     #[inline(always)]
@@ -103,5 +136,41 @@ impl Record for BlockRecord {
     #[inline(always)]
     fn len(&self) -> usize {
         self.blocks.len()
+    }
+}
+
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+pub enum BlockType {
+    Air,
+    Id(NonZeroU32)
+}
+
+impl BlockType {
+    #[inline(always)]
+    pub const fn from(value: u32) -> Self {
+        unsafe { transmute(value) }
+    }
+
+    #[inline(always)]
+    pub const fn inner(self) -> Option<u32> {
+        if let Id(id) = self {
+            return Some(id.get());
+        }
+
+        None
+    }
+}
+
+impl Default for BlockType {
+    #[inline(always)]
+    fn default() -> Self {
+        BlockType::Air
+    }
+}
+
+impl Hash for BlockType {
+    #[inline(always)]
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write_u64(unsafe { transmute_copy::<_, u32>(self) as u64 })
     }
 }

@@ -120,7 +120,7 @@ impl WorldGenerator for BasicGenerator {
                 let mut surface_y = -1;
 
                 for y in (self.min_height..self.max_height).rev() {
-                    if let Some(_) = chunk.get_at([x, y, z]) {
+                    if let BlockType::Id(_) = chunk.get_at([x, y, z]) {
                         surface_y = y;
                         break;
                     }
@@ -130,7 +130,7 @@ impl WorldGenerator for BasicGenerator {
                     continue;
                 }
 
-                if chunk.get_at([x, surface_y, z]).unwrap() == grass_block_id {
+                if chunk.get_at([x, surface_y, z]) == grass_block_id {
                     let change = rng.f32();
 
                     if change < 0.035 {

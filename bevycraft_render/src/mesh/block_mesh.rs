@@ -139,17 +139,24 @@ impl BlockMesh {
                                             element.to[2] * VERTEX_SCALING
                                         ];
                                         
+                                        let scaled_uv = [
+                                            face.uv[0] * VERTEX_SCALING,
+                                            face.uv[1] * VERTEX_SCALING,
+                                            face.uv[2] * VERTEX_SCALING,
+                                            face.uv[3] * VERTEX_SCALING
+                                        ];
+                                        
                                         let render_mode = RenderMode::from_str(&face.render_mode)
                                             .unwrap_or(RenderMode::default());
                                         
                                         let mut quad = Quad::new(
                                             scaled_min,
                                             scaled_max,
-                                            face.uv,
+                                            scaled_uv,
                                             texture,
-                                            facing,
                                             render_mode,
                                             face.tintable,
+                                            facing,
                                         );
 
                                         if let Some(rot) = &element.rotation {

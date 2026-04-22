@@ -34,6 +34,8 @@ impl<T: Recordable> MappedRecord<T> {
 
 impl<T: Recordable> Record for MappedRecord<T> {
     type Value = T;
+    
+    type Index = usize;
 
     fn finish<C>(commit: C) -> Self
     where
@@ -62,12 +64,12 @@ impl<T: Recordable> Record for MappedRecord<T> {
     }
 
     #[inline]
-    fn get_by_idx(&self, idx: usize) -> Option<&Self::Value> {
-        self.entries.get(idx).map(|(_, v)| v)
+    fn get_by_idx(&self, index: Self::Index) -> Option<&Self::Value> {
+        self.entries.get(index).map(|(_, v)| v)
     }
 
     #[inline]
-    fn key_to_idx(&self, key: &AssetLocation) -> Option<usize> {
+    fn key_to_idx(&self, key: &AssetLocation) -> Option<Self::Index> {
         self.m_hasher.try_hash(key).and_then(|idx| {
             if &self.entries[idx as usize].0 != key {
                 return None;

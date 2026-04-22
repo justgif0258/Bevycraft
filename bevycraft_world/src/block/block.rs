@@ -1,14 +1,9 @@
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
-use std::path::{Path, PathBuf};
 use crate::prelude::{BlockBehaviour, BlockFlags};
 use bevy::math::bounding::Aabb3d;
 use builder_pattern::Builder;
 use bevycraft_core::prelude::Recordable;
-
-const DEFAULT_MODEL_PATH: &'static str = "models/block";
-
-const DEFAULT_TEXTURES_PATH: &'static str = "textures/block";
 
 #[derive(Builder, Debug, PartialEq)]
 pub struct Block {
@@ -26,16 +21,17 @@ pub struct Block {
     #[public]
     #[default(Attachments::new())]
     attachments: Attachments,
-    
-    #[into]
-    #[public]
-    #[default(DEFAULT_MODEL_PATH.into())]
-    model: PathBuf,
-    
-    #[into]
-    #[public]
-    #[default(DEFAULT_TEXTURES_PATH.into())]
-    textures: PathBuf,
+}
+
+impl Default for Block {
+    #[inline(always)]
+    fn default() -> Self {
+        Self {
+            behaviour: BlockBehaviour::default(),
+            shapes: Box::new([]),
+            attachments: Attachments::new(),
+        }
+    }
 }
 
 impl Block {
@@ -134,16 +130,6 @@ impl Block {
     #[inline(always)]
     pub fn get_attachment<T: Recordable>(&self, attachment: AttachmentAttribute<T>) -> Option<&T> {
         self.attachments.get(attachment)
-    }
-    
-    #[inline(always)]
-    pub fn model_path(&self) -> &str {
-        self.model.to_str().unwrap_or(DEFAULT_MODEL_PATH)
-    }
-    
-    #[inline(always)]
-    pub fn textures_path(&self) -> impl AsRef<Path> {
-        self.textures.to_str().unwrap_or(DEFAULT_TEXTURES_PATH)
     }
 }
 
