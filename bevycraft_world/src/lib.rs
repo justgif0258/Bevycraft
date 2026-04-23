@@ -18,7 +18,7 @@ pub mod prelude {
             section::*,
             chunk::*,
             pool::*,
-            accessor::*,
+            level::*,
         },
         morton::morton_3d::{
             Morton3D,

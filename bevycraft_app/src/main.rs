@@ -19,8 +19,6 @@ use bevycraft_world::prelude::*;
 const BLOCK_RESOLUTION  : u32 = 8;
 
 fn main() -> AppExit {
-    println!("Sizeof BlockId: {}", size_of::<BlockType>());
-
     App::new()
         .add_plugins((
             DefaultPlugins,
@@ -64,7 +62,8 @@ fn init(
 
     let mut model_manager = RModelManager::default();
 
-    global.blocks.iter_keys()
+    global.blocks
+        .iter_keys()
         .for_each(|block_key| {
             let path = block_key.prefix("block/");
 
@@ -74,7 +73,8 @@ fn init(
 
     let mut textures_holder = TexturesHolder::default();
 
-    model_manager.get_textures_locations()
+    model_manager
+        .get_textures_locations()
         .iter()
         .for_each(|location| {
             let path = format!("{}/textures/{}.png", location.namespace(), location.path());
@@ -142,7 +142,7 @@ fn bake_renderers(
                     &manager,
                     &array_texture,
                     model,
-                    i
+                    BlockType::from(i as u32 + 1)
                 ) {
                     Ok(_) => {},
                     Err(errors) => {

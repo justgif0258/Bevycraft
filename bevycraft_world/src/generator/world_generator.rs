@@ -1,7 +1,7 @@
 use std::sync::Arc;
-use bevy::prelude::{IVec2, Resource};
+use bevy::prelude::Resource;
 use bevycraft_core::prelude::{AssetLocation, Record};
-use crate::prelude::{BlockRecord, Chunk};
+use crate::prelude::{BlockRecord, Chunk, ChunkPos};
 
 pub struct SuperflatGenerator(pub u32);
 
@@ -14,7 +14,7 @@ impl WorldGenerator for SuperflatGenerator {
     #[inline(always)]
     fn generate_base_terrain(
         &self,
-        _position: IVec2,
+        _position: ChunkPos,
         chunk   : &mut Chunk,
         blocks  : Arc<BlockRecord>,
     ) {
@@ -69,7 +69,7 @@ impl ActiveWorldGenerator {
     #[inline(always)]
     pub fn generate_chunk(
         &self,
-        position: IVec2,
+        position: ChunkPos,
         chunk   : &mut Chunk,
         blocks  : Arc<BlockRecord>,
     ) {
@@ -86,7 +86,7 @@ impl WorldGenerator for ActiveWorldGenerator {
     #[inline(always)]
     fn generate_base_terrain(
         &self,
-        position: IVec2,
+        position: ChunkPos,
         chunk   : &mut Chunk,
         blocks  : Arc<BlockRecord>,
     ) { self.generator.generate_base_terrain(position, chunk, blocks); }
@@ -94,14 +94,14 @@ impl WorldGenerator for ActiveWorldGenerator {
     #[inline(always)]
     fn carve_terrain(
         &self, 
-        position: IVec2, 
+        position: ChunkPos, 
         chunk   : &mut Chunk
     ) { self.generator.carve_terrain(position, chunk); }
 
     #[inline(always)]
     fn generate_features(
         &self, 
-        position: IVec2,
+        position: ChunkPos,
         chunk   : &mut Chunk, 
         blocks  : Arc<BlockRecord>
     ) { self.generator.generate_features(position, chunk, blocks); }
@@ -112,7 +112,7 @@ pub trait WorldGenerator: Send + Sync + 'static {
 
     fn generate_base_terrain(
         &self,
-        position: IVec2,
+        position: ChunkPos,
         chunk   : &mut Chunk,
         blocks  : Arc<BlockRecord>,
     );
@@ -121,7 +121,7 @@ pub trait WorldGenerator: Send + Sync + 'static {
     #[allow(unused_variables)]
     fn carve_terrain(
         &self,
-        position: IVec2,
+        position: ChunkPos,
         chunk   : &mut Chunk,
     ) { return; }
 
@@ -129,7 +129,7 @@ pub trait WorldGenerator: Send + Sync + 'static {
     #[allow(unused_variables)]
     fn generate_features(
         &self,
-        position: IVec2,
+        position: ChunkPos,
         chunk   : &mut Chunk,
         blocks  : Arc<BlockRecord>,
     ) { return; }

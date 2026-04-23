@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use bevy::prelude::*;
 use bevy::tasks::{AsyncComputeTaskPool, Task};
 use bevy::tasks::futures::check_ready;
@@ -17,9 +18,7 @@ pub fn pool_chunks(
     let Ok(player_transform) = player_query.single() else { return; };
 
     let player_pos = player_transform.translation;
-    let current_chunk_x = (player_pos.x / 16.0).floor() as i32;
-    let current_chunk_z = (player_pos.z / 16.0).floor() as i32;
-    let player_chunk_pos = IVec2::new(current_chunk_x, current_chunk_z);
+    let player_chunk_pos = ChunkPos::from_world_pos(player_pos);
 
     let view_distance = accessor.view_distance;
 
@@ -27,9 +26,9 @@ pub fn pool_chunks(
 
     for x in -view_distance..view_distance {
         for z in -view_distance..view_distance {
-            let target_chunk_pos = IVec2::new(
-                player_chunk_pos.x + x,
-                player_chunk_pos.y + z,
+            let target_chunk_pos = ChunkPos::new(
+                player_chunk_pos.0.x + x,
+                player_chunk_pos.0.y + z,
             );
 
             if !accessor.is_loaded(&target_chunk_pos) {
@@ -45,7 +44,7 @@ pub fn pool_chunks(
                 });
 
                 let chunk_entity = commands.spawn((
-                    ChunkPos(target_chunk_pos),
+                    target_chunk_pos,
                     ChunkState::Generating(task)
                 )).id();
 
@@ -62,7 +61,7 @@ pub fn handle_chunk_tasks(
         let ChunkState::Generating(task) = &mut *state else { continue };
 
         if let Some(chunk_data) = check_ready(task) {
-            *state = ChunkState::Loaded(chunk_data);
+            *state = ChunkState::Loaded(Arc::from(chunk_data));
         }
     }
 }

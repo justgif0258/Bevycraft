@@ -8,28 +8,12 @@ use bevycraft_core::prelude::*;
 use crate::block::block_record::BlockType::Id;
 use crate::prelude::*;
 
-static AIR: LazyLock<AssetLocation> = LazyLock::new(|| AssetLocation::with_default_namespace("air"));
+static AIR_LOCATION: LazyLock<AssetLocation> = LazyLock::new(|| AssetLocation::with_default_namespace("air"));
 
 #[derive(Resource)]
 pub struct BlockRecord {
     hash_function:  Mphf<AssetLocation>,
     blocks:         Box<[(AssetLocation, Block)]>,
-}
-
-impl BlockRecord {
-    #[inline(always)]
-    fn hash_key(&self, key: &AssetLocation) -> Option<usize> {
-        let idx = self.hash_function.try_hash(key)? as usize + 1;
-
-        self.blocks.get(idx)
-            .and_then(|(k, _)| {
-                if k != key {
-                    return None;
-                }
-
-                Some(idx)
-            })
-    }
 }
 
 impl Record for BlockRecord {
@@ -53,11 +37,12 @@ impl Record for BlockRecord {
 
         let mut blocks = Box::<[(AssetLocation, Block)]>::new_uninit_slice(size);
 
-        blocks[0].write((AIR.clone(), Block::default()));
+        blocks[0].write((AIR_LOCATION.clone(), Block::default()));
 
         commit.into_iter()
             .for_each(|entry| {
-                let idx = hash_function.hash(&entry.0) as usize + 1;
+                let idx = hash_key(&hash_function, &entry.0)
+                    .unwrap();
 
                 blocks[idx].write(entry);
             });
@@ -72,11 +57,11 @@ impl Record for BlockRecord {
 
     #[inline(always)]
     fn get_by_key(&self, key: &AssetLocation) -> Option<&Self::Value> {
-        if key.eq(&AIR) {
+        if key.eq(&AIR_LOCATION) {
             return Some(&self.blocks[0].1)
         }
 
-        let idx = self.hash_key(key)?;
+        let idx = hash_key(&self.hash_function, key)?;
         
         self.blocks.get(idx)
             .and_then(|(k, b)| {
@@ -90,29 +75,29 @@ impl Record for BlockRecord {
 
     #[inline(always)]
     fn get_by_idx(&self, index: Self::Index) -> Option<&Self::Value> {
-        match index {
-            BlockType::Air => Some(&self.blocks[0].1),
-            Id(idx) => {
-                self.blocks
-                    .get(idx.get() as usize)
-                    .map(|(_, b)| b)
-            }
-        }
+        self.blocks.get(index.inner() as usize)
+            .map(|(_, b)| b)
     }
 
     #[inline(always)]
     fn key_to_idx(&self, key: &AssetLocation) -> Option<Self::Index> {
-        if key.eq(&AIR) {
+        if key.eq(&AIR_LOCATION) {
             return Some(BlockType::Air)
         }
+        
+        let idx = hash_key(&self.hash_function, key)?;
+        
+        if &self.blocks[idx].0 != key { 
+            return None;
+        }
 
-        Some(BlockType::from(self.hash_key(key)? as u32))
+        Some(BlockType::from(idx as u32))
     }
 
     #[inline(always)]
     fn idx_to_key(&self, index: Self::Index) -> Option<&AssetLocation> {
         match index {
-            BlockType::Air => Some(&AIR),
+            BlockType::Air => Some(&AIR_LOCATION),
             Id(idx) => {
                 self.blocks
                     .get(idx.get() as usize)
@@ -145,6 +130,13 @@ pub enum BlockType {
     Id(NonZeroU32)
 }
 
+impl Default for BlockType {
+    #[inline(always)]
+    fn default() -> Self {
+        BlockType::Air
+    }
+}
+
 impl BlockType {
     #[inline(always)]
     pub const fn from(value: u32) -> Self {
@@ -152,19 +144,13 @@ impl BlockType {
     }
 
     #[inline(always)]
-    pub const fn inner(self) -> Option<u32> {
-        if let Id(id) = self {
-            return Some(id.get());
-        }
-
-        None
+    pub const fn inner(self) -> u32 {
+        unsafe { transmute(self) }
     }
-}
-
-impl Default for BlockType {
+    
     #[inline(always)]
-    fn default() -> Self {
-        BlockType::Air
+    pub fn is_air(&self) -> bool {
+        *self == BlockType::Air
     }
 }
 
@@ -173,4 +159,9 @@ impl Hash for BlockType {
     fn hash<H: Hasher>(&self, state: &mut H) {
         state.write_u64(unsafe { transmute_copy::<_, u32>(self) as u64 })
     }
+}
+
+#[inline(always)]
+fn hash_key(function: &Mphf<AssetLocation>, key: &AssetLocation) -> Option<usize> {
+    Some(function.try_hash(key)? as usize + 1)
 }

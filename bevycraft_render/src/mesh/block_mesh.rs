@@ -4,6 +4,7 @@ use bevy::platform::hash::NoOpHash;
 use bevy::prelude::*;
 use frozen_collections::FzHashMap;
 use bevycraft_core::prelude::AssetLocation;
+use bevycraft_world::prelude::BlockType;
 use crate::prelude::*;
 
 const VERTEX_SCALING: f32 = 0.125f32;
@@ -12,7 +13,7 @@ const OCCLUSION_GRID: f32 = 8.0f32;
 
 #[derive(Resource)]
 pub struct BlockMeshCache {
-    meshes: FzHashMap<u64, BlockMesh, NoOpHash>,
+    meshes: FzHashMap<BlockType, BlockMesh, NoOpHash>,
 }
 
 impl BlockMeshCache {
@@ -22,13 +23,21 @@ impl BlockMeshCache {
     }
 
     #[inline(always)]
-    pub fn get_mesh(&self, block_index: usize) -> Option<&BlockMesh> {
-        self.meshes.get(&(block_index as u64))
+    pub fn get_mesh(&self, block_type: BlockType) -> Option<&BlockMesh> {
+        if block_type.is_air() {
+            return None;
+        }
+
+        self.meshes.get(&block_type)
     }
 
     #[inline(always)]
-    pub fn get_occlusion_mask(&self, block_index: usize, facing: Facing) -> Option<OcclusionMask> {
-        let mesh = self.get_mesh(block_index)?;
+    pub fn get_occlusion_mask(&self, block_type: BlockType, facing: Facing) -> Option<OcclusionMask> {
+        if block_type.is_air() {
+            return None;
+        }
+
+        let mesh = self.get_mesh(block_type)?;
 
         Some(mesh.occlusion_mask(facing))
     }
@@ -36,13 +45,13 @@ impl BlockMeshCache {
 
 #[derive(Default)]
 pub struct MeshCacheBuilder {
-    entries: HashMap<u64, BlockMesh, NoOpHash>
+    entries: HashMap<BlockType, BlockMesh, NoOpHash>
 }
 
 impl MeshCacheBuilder {
     #[inline]
-    pub fn add_mesh(&mut self, mesh: BlockMesh, block_id: usize) {
-        self.entries.insert(block_id as u64, mesh);
+    pub fn add_mesh(&mut self, mesh: BlockMesh, block_id: BlockType) {
+        self.entries.insert(block_id, mesh);
     }
 
     #[inline]
@@ -51,7 +60,7 @@ impl MeshCacheBuilder {
         manager:        &RModelManager,
         array_texture:  &ArrayTexture,
         model:          &RModel,
-        block_id:       usize
+        block_id:       BlockType,
     ) -> Result<(), Vec<String>> {
         let mesh = BlockMesh::new(
             model,
@@ -61,7 +70,7 @@ impl MeshCacheBuilder {
 
         match mesh {
             Ok(mesh) => {
-                self.entries.insert(block_id as u64, mesh);
+                self.entries.insert(block_id, mesh);
 
                 Ok(())
             },
@@ -71,7 +80,7 @@ impl MeshCacheBuilder {
 
     #[inline]
     pub fn build(self) -> BlockMeshCache {
-        let meshes: FzHashMap<u64, BlockMesh, NoOpHash> = FzHashMap::from_iter(
+        let meshes: FzHashMap<BlockType, BlockMesh, NoOpHash> = FzHashMap::from_iter(
             self.entries.into_iter()
         );
 

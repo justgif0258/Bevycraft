@@ -7,14 +7,14 @@ pub(crate) const SECTION_UPPER_BOUND: IVec3 = IVec3::splat(SECTION_SIZE);
 
 pub(crate) const SECTION_LOWER_BOUND: IVec3 = IVec3::ZERO;
 
-pub(crate) const SECTION_SIZE: i32 = 16;
+pub const SECTION_SIZE: i32 = 16;
 
 pub(crate) const SECTION_LEN: usize = 4096;
 
 pub struct PalettedSection {
     blocks      : SectionArray<SECTION_LEN>,
-    palette     : HashMap<BlockType, (u32, u32), NoOpHash>, // (Global Index -> Local Index | Ref counts)
-    to_global   : Vec<BlockType>,                           // (Global Index | Ref counts)
+    palette     : HashMap<BlockType, (u32, u32), NoOpHash>, // (BlockType -> Local Index | Ref counts)
+    types       : Vec<BlockType>,                           // (Local Index -> BlockType)
     free_list   : Vec<u16>,
     needs_resize: bool,
 }
@@ -24,14 +24,14 @@ impl PalettedSection {
 
     #[inline]
     pub fn new() -> Self {
-        let mut to_global = Vec::with_capacity(8);
+        let mut types = Vec::with_capacity(8);
 
-        to_global.push(BlockType::Air);
+        types.push(BlockType::Air);
 
         Self {
             blocks: SectionArray::ArrayU8(Box::new([0u8; SECTION_LEN])),
             palette: HashMap::with_hasher(NoOpHash),
-            to_global,
+            types,
             free_list: Vec::with_capacity(8),
             needs_resize: false,
         }
@@ -46,7 +46,7 @@ impl PalettedSection {
         Self {
             blocks: SectionArray::Empty,
             palette: HashMap::with_hasher(NoOpHash),
-            to_global,
+            types: to_global,
             free_list: Vec::with_capacity(8),
             needs_resize: false,
         }
@@ -56,14 +56,14 @@ impl PalettedSection {
     pub fn get(&self, position: impl Into<IVec3>) -> BlockType {
         let local_index = self.blocks.get(map_to_flat_index(position));
 
-        self.to_global[local_index as usize]
+        self.types[local_index as usize]
     }
 
     #[inline(always)]
     pub fn set(&mut self, position: impl Into<IVec3>, block_id: BlockType) {
         let idx = map_to_flat_index(position);
 
-        let local = self.get_or_insert_index(block_id);
+        let local = self.get_or_add_type(block_id);
 
         self.blocks.set(idx, local)
     }
@@ -78,7 +78,7 @@ impl PalettedSection {
             return BlockType::Air;
         }
 
-        let removed = self.to_global[local as usize];
+        let removed = self.types[local as usize];
 
         self.blocks.set(idx, Self::EMPTY);
 
@@ -112,23 +112,27 @@ impl PalettedSection {
     }
 
     #[inline(always)]
-    fn get_or_insert_index(&mut self, block_id: BlockType) -> u32 {
+    fn get_or_add_type(&mut self, block_id: BlockType) -> u32 {
         if let Some(existing) = self.palette.get_mut(&block_id) {
             existing.1 += 1;
 
             return existing.0;
         }
 
-        if let Some(freed) = self.free_list.pop().map(|f| f as u32) {
-            self.to_global[freed as usize] = block_id;
+        if let Some(freed) = self.free_list.pop().map(|i| i as u32) {
+            self.types[freed as usize] = block_id;
             self.palette.insert(block_id, (freed, 1));
+            
+            if self.free_list.len() == 0 { 
+                self.needs_resize = false;
+            }
 
             return freed;
         }
 
-        let next = self.to_global.len() as u32;
+        let next = self.types.len() as u32;
 
-        self.to_global.push(block_id);
+        self.types.push(block_id);
         self.palette.insert(block_id, (next, 1));
 
         next

@@ -1,11 +1,20 @@
+use std::hash::{Hash, Hasher};
+use std::mem::transmute_copy;
 use std::sync::Arc;
 use bevy::platform::collections::HashMap;
 use bevy::platform::hash::NoOpHash;
 use bevy::prelude::*;
 use crate::prelude::*;
 
-#[derive(Component, Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Component, Debug, Copy, Clone, Eq, PartialEq)]
 pub struct ChunkPos(pub IVec2);
+
+impl Hash for ChunkPos {
+    #[inline(always)]
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write_u64(unsafe { transmute_copy(self) })
+    }
+}
 
 impl ChunkPos {
     #[inline]
@@ -14,32 +23,32 @@ impl ChunkPos {
     }
     
     #[inline]
-    pub const fn from_world_pos(x: i32, z: i32) -> Self {
-        Self(IVec2::new(x.div_euclid(SECTION_SIZE), z.div_euclid(SECTION_SIZE)))
-    }
-    
-    #[inline]
-    pub fn from_3d_world_pos(pos: Vec3) -> Self {
-        Self(IVec2::new(pos.x.div_euclid(SECTION_SIZE as f32).floor() as i32, pos.z.div_euclid(SECTION_SIZE as f32).floor() as i32))
-    }
-    
-    #[inline]
-    pub const fn as_world_pos(&self) -> IVec2 {
-        IVec2::new(self.0.x * SECTION_SIZE, self.0.y * SECTION_SIZE)
+    pub fn from_world_pos(pos: impl Into<Vec3>) -> Self {
+        let world_pos = pos.into();
+        
+        Self(IVec2::new(
+            (world_pos.x / SECTION_SIZE as f32).floor() as i32,
+            (world_pos.z / SECTION_SIZE as f32).floor() as i32,
+        ))
     }
     
     #[inline(always)]
-    pub fn neighbors(&self) -> [IVec2; 4] {
+    pub const fn into_world_pos(self) -> IVec3 {
+        IVec3::new(self.0.x * SECTION_SIZE, 0, self.0.y * SECTION_SIZE)
+    }
+    
+    #[inline(always)]
+    pub fn neighbors(&self) -> [ChunkPos; 4] {
         [
-            self.0 + IVec2::X, self.0 - IVec2::X,
-            self.0 + IVec2::Y, self.0 - IVec2::Y,
+            Self(self.0 + IVec2::X), Self(self.0 - IVec2::X),
+            Self(self.0 + IVec2::Y), Self(self.0 - IVec2::Y),
         ]
     }
 }
 
 #[derive(Component, Default)]
 pub struct Chunk {
-    pub sections: HashMap<u64, PalettedSection, NoOpHash>,
+    pub sections: HashMap<SectionIndex, PalettedSection, NoOpHash>,
 
     pub dirty: bool,
 }
@@ -55,7 +64,7 @@ impl Chunk {
 
     #[inline(always)]
     pub fn generate_using(
-        position: impl Into<IVec2>,
+        position: ChunkPos,
         blocks: Arc<BlockRecord>,
         generator: ActiveWorldGenerator,
     ) -> Self {
@@ -101,7 +110,7 @@ impl Chunk {
 
         let normalized = position.rem_euclid(IVec3::splat(SECTION_SIZE));
 
-        let y_idx = position.y.div_euclid(SECTION_SIZE) as u64;
+        let y_idx = SectionIndex::from_world_height(position.y);
 
         if let Some(section) = self.sections.get_mut(&y_idx) {
             section.set(normalized, block_type);
@@ -128,7 +137,7 @@ impl Chunk {
             return BlockType::Air;
         }
 
-        let y_idx = position.y.div_euclid(SECTION_SIZE) as u64;
+        let y_idx = SectionIndex::from_world_height(position.y);
 
         if let Some(section) = self.sections.get_mut(&y_idx) {
             let normalized = position.rem_euclid(IVec3::splat(SECTION_SIZE));
@@ -154,7 +163,7 @@ impl Chunk {
             return BlockType::Air;
         }
 
-        let y_idx = position.y.div_euclid(SECTION_SIZE) as u64;
+        let y_idx = SectionIndex::from_world_height(position.y);
 
         if let Some(section) = self.sections.get(&y_idx) {
             let normalized = IVec3::new(
@@ -167,5 +176,27 @@ impl Chunk {
         }
 
         BlockType::Air
+    }
+}
+
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+pub struct SectionIndex(pub i32);
+
+impl SectionIndex {
+    #[inline(always)]
+    pub const fn from_world_height(height: i32) -> Self {
+        Self(height.div_euclid(SECTION_SIZE))
+    }
+    
+    #[inline(always)]
+    pub const fn into_world_height(self) -> i32 {
+        self.0 * SECTION_SIZE
+    }
+}
+
+impl Hash for SectionIndex {
+    #[inline(always)]
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write_u64(self.0 as u64)
     }
 }

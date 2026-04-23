@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use bevy::prelude::IVec2;
 use fastrand::Rng;
 use simdnoise::NoiseBuilder;
 use bevycraft_core::prelude::{AssetLocation, Record};
@@ -25,7 +24,7 @@ impl WorldGenerator for BasicGenerator {
     #[inline(always)]
     fn generate_base_terrain(
         &self,
-        position: IVec2,
+        position: ChunkPos,
         chunk   : &mut Chunk,
         blocks  : Arc<BlockRecord>
     ) {
@@ -41,10 +40,7 @@ impl WorldGenerator for BasicGenerator {
         let snow_block_id = blocks.key_to_idx(&AssetLocation::with_default_namespace("snow_block"))
             .unwrap();
 
-        let world_pos = IVec2::new(
-            position.x * SECTION_SIZE,
-            position.y * SECTION_SIZE,
-        );
+        let world_pos = position.into_world_pos();
 
         let (noise, _, _) = NoiseBuilder::fbm_2d_offset(
             world_pos.x as f32, SECTION_SIZE as usize,
@@ -100,7 +96,7 @@ impl WorldGenerator for BasicGenerator {
 
     fn generate_features(
         &self,
-        _position: IVec2,
+        _position: ChunkPos,
         chunk   : &mut Chunk,
         blocks  : Arc<BlockRecord>
     ) {

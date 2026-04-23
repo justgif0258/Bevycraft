@@ -11,10 +11,10 @@ bevycraft_core.workspace = true
 bevy.workspace = true
 
 rayon.workspace = true
+dashmap.workspace = true
+crossbeam.workspace = true
 
-frozen-collections.workspace = true
 boomphf.workspace = true
-rapidhash.workspace = true
 
 bitflags.workspace = true
 

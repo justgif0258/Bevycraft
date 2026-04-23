@@ -31,6 +31,8 @@ bevy_dylib = { version = "0.18.1", features = [] }
 
 # Parallelism
 rayon = { version = "1.11.0", features = [] }
+crossbeam = { version = "0.8.4", features = [] }
+dashmap = { version = "7.0.0-rc2", features = ["inline-more", "rayon"] }
 
 # Utilities
 builder-pattern = { version = "0.4.2", features = [] }
