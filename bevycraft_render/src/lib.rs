@@ -1,6 +1,7 @@
 mod textures;
 mod mesh;
 mod model;
+pub mod renderer;
 
 pub mod prelude {
     pub use crate::{

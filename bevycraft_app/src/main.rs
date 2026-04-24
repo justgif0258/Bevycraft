@@ -9,11 +9,13 @@ use bevy::light::light_consts::lux;
 use bevy::pbr::*;
 use bevy::post_process::bloom::Bloom;
 use bevy::prelude::*;
-use bevycraft_app::{AppState, GlobalRecords, Player, WorldRender};
-use bevycraft_app::systems::chunking::{handle_chunk_tasks, pool_chunks, trash_chunks};
+use bevycraft_app::{AppState, GlobalRecords, Player, BlockRenderer};
+use bevycraft_app::systems::chunking::world_level_tick;
+use bevycraft_app::systems::meshing::render;
 use bevycraft_app::systems::register::bootstrap_registries;
 use bevycraft_core::prelude::*;
 use bevycraft_render::prelude::*;
+use bevycraft_render::renderer::level_renderer::LevelRenderer;
 use bevycraft_world::prelude::*;
 
 const BLOCK_RESOLUTION  : u32 = 8;
@@ -42,9 +44,8 @@ fn main() -> AppExit {
             setup_world,
         ).chain())
         .add_systems(FixedUpdate, (
-            pool_chunks,
-            handle_chunk_tasks,
-            trash_chunks
+            world_level_tick,
+            render
         ).run_if(in_state(AppState::InGame)))
         .run()
 }
@@ -159,10 +160,10 @@ fn bake_renderers(
 
     commands.remove_resource::<RModelManager>();
     
-    commands.insert_resource(WorldRender {
-        meshes: Arc::new(cache.build()),
-        materials: Arc::new(array_texture),
-    });
+    commands.insert_resource(LevelRenderer::new(
+        Arc::new(cache.build()),
+        Arc::new(array_texture)
+    ));
 
     info!("Successfully baked block meshes");
 
@@ -170,8 +171,9 @@ fn bake_renderers(
 }
 
 fn setup_world(
-    mut commands    : Commands,
-    mut scattering  : ResMut<Assets<ScatteringMedium>>,
+    mut commands:   Commands,
+    mut scattering: ResMut<Assets<ScatteringMedium>>,
+    global:         Res<GlobalRecords>,
 ) {
     let medium = scattering.add(ScatteringMedium::earthlike(256, 256));
 
@@ -222,9 +224,9 @@ fn setup_world(
         },
         Player
     ));
-
-    let manager = ChunkAccessor::new(
-        8,
+    
+    let level = Level::new(
+        global.blocks.clone(),
         BasicGenerator {
             seed: 5,
             frequency: 0.03,
@@ -234,10 +236,11 @@ fn setup_world(
             min_height: 0,
             max_height: 256,
             snow_height: 112
-        }
+        },
+        16
     );
 
-    commands.insert_resource(manager);
+    commands.insert_resource(level);
 }
 
 #[derive(Resource, Default)]

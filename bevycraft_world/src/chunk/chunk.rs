@@ -33,15 +33,22 @@ impl ChunkPos {
     }
     
     #[inline(always)]
-    pub const fn into_world_pos(self) -> IVec3 {
-        IVec3::new(self.0.x * SECTION_SIZE, 0, self.0.y * SECTION_SIZE)
+    pub const fn into_world_pos(self) -> Vec3 {
+        Vec3::new((self.0.x * SECTION_SIZE) as f32, 0.0, (self.0.y * SECTION_SIZE) as f32)
     }
-    
+
+    #[inline(always)]
+    pub fn distance_squared(&self, other: ChunkPos) -> i32 {
+        self.0.distance_squared(other.0)
+    }
+
     #[inline(always)]
     pub fn neighbors(&self) -> [ChunkPos; 4] {
         [
-            Self(self.0 + IVec2::X), Self(self.0 - IVec2::X),
-            Self(self.0 + IVec2::Y), Self(self.0 - IVec2::Y),
+            Self(self.0 + IVec2::X),
+            Self(self.0 - IVec2::X),
+            Self(self.0 + IVec2::Y),
+            Self(self.0 - IVec2::Y),
         ]
     }
 }
@@ -49,8 +56,6 @@ impl ChunkPos {
 #[derive(Component, Default)]
 pub struct Chunk {
     pub sections: HashMap<SectionIndex, PalettedSection, NoOpHash>,
-
-    pub dirty: bool,
 }
 
 impl Chunk {
@@ -58,7 +63,6 @@ impl Chunk {
     pub fn new() -> Self {
         Self {
             sections: HashMap::with_hasher(NoOpHash),
-            dirty: false,
         }
     }
 

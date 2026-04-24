@@ -18,12 +18,12 @@ pub enum AppState {
 pub struct Player;
 
 #[derive(Resource)]
-pub struct WorldRender {
+pub struct BlockRenderer {
     pub meshes: Arc<BlockMeshCache>,
     pub materials: Arc<ArrayTexture>
 }
 
-impl Clone for WorldRender {
+impl Clone for BlockRenderer {
     #[inline(always)]
     fn clone(&self) -> Self {
         Self {

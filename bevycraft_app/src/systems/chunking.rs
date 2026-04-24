@@ -1,86 +1,19 @@
-use std::sync::Arc;
-use bevy::prelude::*;
-use bevy::tasks::{AsyncComputeTaskPool, Task};
-use bevy::tasks::futures::check_ready;
-use bevycraft_world::prelude::*;
-use bevycraft_world::prelude::ChunkState;
-use crate::{GlobalRecords, Player};
+use bevy::prelude::{Commands, Query, Res, ResMut, Transform, With};
+use bevy::tasks::AsyncComputeTaskPool;
+use bevycraft_world::prelude::Level;
+use crate::Player;
 
-#[derive(Component)]
-pub struct ComputeChunkData(pub Task<Chunk>);
-
-pub fn pool_chunks(
+pub fn world_level_tick(
     mut commands: Commands,
-    mut accessor: ResMut<ChunkAccessor>,
-    global      : Res<GlobalRecords>,
-    player_query: Query<&Transform, With<Player>>
+    mut level   : ResMut<Level>,
+    player      : Query<&Transform, With<Player>>,
 ) {
-    let Ok(player_transform) = player_query.single() else { return; };
-
-    let player_pos = player_transform.translation;
-    let player_chunk_pos = ChunkPos::from_world_pos(player_pos);
-
-    let view_distance = accessor.view_distance;
-
-    let thread_pool = AsyncComputeTaskPool::get();
-
-    for x in -view_distance..view_distance {
-        for z in -view_distance..view_distance {
-            let target_chunk_pos = ChunkPos::new(
-                player_chunk_pos.0.x + x,
-                player_chunk_pos.0.y + z,
-            );
-
-            if !accessor.is_loaded(&target_chunk_pos) {
-                let generator_clone = accessor.get_generator();
-                let blocks_clone = global.blocks.clone();
-
-                let task = thread_pool.spawn(async move {
-                    let mut chunk_data = Chunk::default();
-
-                    generator_clone.generate_chunk(target_chunk_pos, &mut chunk_data, blocks_clone);
-
-                    chunk_data
-                });
-
-                let chunk_entity = commands.spawn((
-                    target_chunk_pos,
-                    ChunkState::Generating(task)
-                )).id();
-
-                accessor.insert_chunk_entity(target_chunk_pos, chunk_entity);
-            }
-        }
-    }
-}
-
-pub fn handle_chunk_tasks(
-    mut tasks_query: Query<&mut ChunkState>
-) {
-    for mut state in &mut tasks_query {
-        let ChunkState::Generating(task) = &mut *state else { continue };
-
-        if let Some(chunk_data) = check_ready(task) {
-            *state = ChunkState::Loaded(Arc::from(chunk_data));
-        }
-    }
-}
-
-pub fn trash_chunks(
-    world : &mut World,
-) {
-    let transform = world
-        .query_filtered::<&Transform, With<Player>>()
-        .single(world)
+    let player_transform = player.single()
         .unwrap();
 
-    let player_pos = transform.translation;
-    let current_chunk_x = (player_pos.x / 16.0).floor() as i32;
-    let current_chunk_z = (player_pos.z / 16.0).floor() as i32;
-    let player_chunk_pos = IVec2::new(current_chunk_x, current_chunk_z);
+    let pool = AsyncComputeTaskPool::get();
 
-    world.resource_scope(|mut world, mut accessor: Mut<ChunkAccessor>| {
-        let mut queue = accessor.unload_chunks_out_of_range(player_chunk_pos, &mut world);
-        queue.apply(&mut world);
-    });
+    level.queue_chunks_for_loading(player_transform.translation, pool);
+
+    level.queue_chunks_for_unloading(player_transform.translation);
 }

@@ -1,19 +1,21 @@
 use std::sync::Arc;
+use bevy::platform::collections::{HashMap, HashSet};
 use bevy::platform::hash::NoOpHash;
-use bevy::prelude::{IVec3, Resource, Vec3};
+use bevy::prelude::*;
 use bevy::tasks::AsyncComputeTaskPool;
 use crossbeam::channel::{unbounded, Receiver, Sender};
-use dashmap::*;
-use crate::chunk::level::ChunkState::{Loaded, Pending};
+use crossbeam::queue::SegQueue;
 use crate::prelude::*;
 
 #[derive(Resource)]
 pub struct Level {
-    chunks: Arc<DashMap<ChunkPos, ChunkState, NoOpHash>>,
-    dirty:  DashSet<ChunkPos, NoOpHash>,
+    chunks: HashMap<ChunkPos, ChunkState, NoOpHash>,
+    dirty:  HashSet<ChunkPos, NoOpHash>,
 
-    gen_tx: Sender<(ChunkPos, Chunk)>,
+    unloaded_queue: SegQueue<(ChunkPos, Chunk)>,
+
     gen_rx: Receiver<(ChunkPos, Chunk)>,
+    gen_tx: Sender<(ChunkPos, Chunk)>,
 
     blocks:     Arc<BlockRecord>,
     generator:  ActiveWorldGenerator,
@@ -30,14 +32,16 @@ impl Level {
     ) -> Self {
         assert!(render_distance > 0, "Render distance must be greater than 0");
 
-        let (gen_tx, gen_rx) = unbounded::<(ChunkPos, Chunk)>();
+        let (gen_tx, gen_rx) = unbounded();
 
         Self {
-            chunks: Arc::new(DashMap::with_hasher(NoOpHash)),
-            dirty: DashSet::with_hasher(NoOpHash),
+            chunks: HashMap::with_hasher(NoOpHash),
+            dirty: HashSet::with_hasher(NoOpHash),
 
-            gen_tx,
+            unloaded_queue: SegQueue::new(),
+
             gen_rx,
+            gen_tx,
 
             blocks,
             generator: ActiveWorldGenerator::new(generator),
@@ -48,7 +52,7 @@ impl Level {
     
     #[inline]
     pub fn set_at(
-        &self,
+        &mut self,
         pos: IVec3,
         block_type: BlockType,
     ) {
@@ -60,7 +64,7 @@ impl Level {
         
         self.chunks.entry(target_chunk)
             .and_modify(|state| {
-                if let Loaded(chunk) = state {
+                if let ChunkState::Loaded(chunk) = state {
                     chunk.set_at(pos, block_type);
                     
                     self.dirty.insert(target_chunk);
@@ -81,72 +85,84 @@ impl Level {
         
         self.chunks.get(&target_chunk)
             .and_then(|chunk| {
-                if let Loaded(chunk) = chunk.value() {
+                if let ChunkState::Loaded(chunk) = chunk {
                     let local_pos = world_to_local(pos);
                     
                     return Some(chunk.get_at(local_pos))
                 }
-                
+
                 None
+            })
+    }
+    
+    #[inline]
+    pub fn get_chunk_state(&self, pos: &ChunkPos) -> Option<&ChunkState> {
+        self.chunks.get(pos)
+    }
+
+    #[inline]
+    pub fn handle_chunk_task_queue(&mut self) {
+        self.gen_rx
+            .try_iter()
+            .for_each(|(pos, chunk)| {
+                self.chunks.entry(pos)
+                    .and_modify(|state| {
+                        *state = ChunkState::Loaded(chunk);
+                    });
+
+                self.dirty.insert(pos);
+
+                for neighbor in pos.neighbors() {
+                    if self.chunks.contains_key(&neighbor) {
+                        self.dirty.insert(neighbor);
+                    }
+                }
             })
     }
 
     #[inline]
-    pub fn load_in_range_if_not(
-        &self,
+    pub fn queue_chunks_for_loading(
+        &mut self,
         center: Vec3,
         pool: &AsyncComputeTaskPool
     ) {
         let center_chunk = ChunkPos::from_world_pos(center);
 
-        for x in -self.render_distance..self.render_distance {
-            for z in -self.render_distance..self.render_distance {
-                let current = ChunkPos::new(
-                    center_chunk.0.x + x,
-                    center_chunk.0.y + z,
-                );
+        let render_dist = self.render_distance;
+        let render_dist_sq = self.render_distance_squared();
 
-                self.try_queue_chunk(current, pool);
+        for x in (center_chunk.0.x - render_dist)..(center_chunk.0.x + render_dist) {
+            for z in (center_chunk.0.y - render_dist)..(center_chunk.0.y + render_dist) {
+                let current = ChunkPos::new(x, z);
+
+                if center_chunk.distance_squared(current) <= render_dist_sq {
+
+                    self.try_queue_chunk_task(current, pool);
+                }
             }
         }
     }
     
     #[inline]
-    pub fn load_outside_of_range(
-        &self,
+    pub fn queue_chunks_for_unloading(
+        &mut self,
         center: Vec3,
     ) {
         let center_chunk = ChunkPos::from_world_pos(center);
-        
+        let render_dist = self.render_distance_squared();
+
         self.chunks
-            .retain(|pos, _| {
-                let current_pos = pos.0;
-
-                let dist_x = (center_chunk.0.x - current_pos.x).abs();
-                let dist_z = (center_chunk.0.y - current_pos.y).abs();
-
-                if dist_x > self.render_distance || dist_z > self.render_distance {
-                    return false;
+            .extract_if(|&pos, _| center_chunk.distance_squared(pos) > render_dist)
+            .for_each(|(pos, state)| {
+                if let ChunkState::Loaded(chunk) = state {
+                    self.unloaded_queue.push((pos, chunk));
                 }
-                
-                return true;
-            })
+            });
     }
 
     #[inline]
-    pub fn handle_tasks(&self) {
-        self.gen_rx.try_iter()
-            .for_each(|(chunk_pos, chunk)| {
-                self.chunks.entry(chunk_pos)
-                    .and_modify(|state| {
-                        *state = Loaded(chunk);
-                    });
-            })
-    }
-
-    #[inline]
-    pub fn try_queue_chunk(
-        &self,
+    pub fn try_queue_chunk_task(
+        &mut self,
         pos: ChunkPos,
         pool: &AsyncComputeTaskPool,
     ) {
@@ -154,12 +170,12 @@ impl Level {
             return;
         }
 
-        self.chunks.insert(pos, Pending);
+        self.chunks.insert(pos, ChunkState::Pending);
 
         let blocks = self.blocks.clone();
         let generator = self.generator.clone();
 
-        let chunks = self.chunks.clone();
+        let tx = self.gen_tx.clone();
 
         pool.spawn(async move {
             let chunk = Chunk::generate_using(
@@ -168,11 +184,24 @@ impl Level {
                 generator,
             );
 
-            chunks.entry(pos)
-                .and_modify(|state| {
-                    *state = Loaded(chunk);
-                });
+            tx.send((pos, chunk))
+                .expect("Failed to send chunk");
         }).detach();
+    }
+
+    #[inline]
+    pub fn try_handle_unloaded_chunks<F>(&self, mut f: F)
+    where
+        F: FnMut(ChunkPos, Chunk),
+    {
+        while let Some((pos, chunk)) = self.unloaded_queue.pop() {
+            f(pos, chunk);
+        }
+    }
+
+    #[inline(always)]
+    const fn render_distance_squared(&self) -> i32 {
+        self.render_distance * self.render_distance
     }
 }
 

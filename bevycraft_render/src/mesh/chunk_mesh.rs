@@ -1,13 +1,7 @@
 use std::sync::Arc;
-use bevy::prelude::{Handle, IVec3, Mesh};
-use bevycraft_world::prelude::{BlockRecord, BlockType, Chunk, SECTION_SIZE};
-use crate::prelude::{ArrayTexture, BlockMeshCache, Facing, MeshBuffer, Quad, RenderMode};
-
-pub struct ChunkMeshHandle {
-    pub opaque      : Option<Handle<Mesh>>,
-    pub cutout      : Option<Handle<Mesh>>,
-    pub translucent : Option<Handle<Mesh>>,
-}
+use bevy::prelude::{IVec3, Mesh};
+use bevycraft_world::prelude::*;
+use crate::prelude::*;
 
 pub struct ChunkMesh {
     pub opaque      : Option<Mesh>,
@@ -18,15 +12,14 @@ pub struct ChunkMesh {
 impl ChunkMesh {
     #[inline]
     pub fn new(
-        chunk:      Arc<Chunk>,
-        accessor:  [Arc<Chunk>; 4],
-        blocks:     Arc<BlockRecord>,
+        chunk:      &Chunk,
+        chunk_pos:  &ChunkPos,
+        level:      &Level,
         mesh_cache: Arc<BlockMeshCache>,
-        materials:  Arc<ArrayTexture>,
     ) -> Self {
-        let mut opaque = MeshBuffer::new();
-        let mut cutout = MeshBuffer::new();
-        let mut translucent = MeshBuffer::new();
+        let mut builder = ChunkMeshBuilder::new();
+        
+        let world_pos = chunk_pos.into_world_pos().as_ivec3();
 
         chunk.sections
             .iter()
@@ -47,17 +40,42 @@ impl ChunkMesh {
 
                             for f in 0..6u8 {
                                 let facing = Facing::try_from(f).unwrap();
+                                
+                                let neighbor_pos = match facing {
+                                    Facing::PosX => IVec3::new(world_pos.x + 1, world_pos.y, world_pos.z),
+                                    Facing::NegX => IVec3::new(world_pos.x - 1, world_pos.y, world_pos.z),
+                                    Facing::PosY => IVec3::new(world_pos.x, world_pos.y + 1, world_pos.z),
+                                    Facing::NegY => IVec3::new(world_pos.x, world_pos.y - 1, world_pos.z),
+                                    Facing::PosZ => IVec3::new(world_pos.x, world_pos.y, world_pos.z + 1),
+                                    Facing::NegZ => IVec3::new(world_pos.x, world_pos.y, world_pos.z - 1),
+                                };
+                                
+                                if let Some(neighbor) = level.get_at(neighbor_pos)
+                                    && let Some(mask) = mesh_cache.get_occlusion_mask(neighbor, !facing)
+                                {
+                                    if cached.is_occluded_at(facing, mask) { 
+                                        continue;
+                                    }
+                                    
+                                    builder.push_quads(
+                                        cached.get_occlusion_quads_at(facing),
+                                        Some([0.2, 0.8, 0.2, 1.0]),
+                                        [x as f32, (world_height + y) as f32, z as f32],
+                                    )
+                                }
                             }
+                            
+                            builder.push_quads(
+                                cached.get_inner_quads(),
+                                Some([0.2, 0.8, 0.2, 1.0]),
+                                [x as f32, (world_height + y) as f32, z as f32],
+                            )
                         }
                     }
                 }
             });
 
-        Self {
-            opaque: if opaque.len() > 0 { Some(opaque.mesh()) } else { None },
-            cutout: if cutout.len() > 0 { Some(cutout.mesh()) } else { None },
-            translucent: if translucent.len() > 0 { Some(translucent.mesh()) } else { None },
-        }
+        builder.build()
     }
 
     #[inline(always)]
@@ -68,16 +86,24 @@ impl ChunkMesh {
     }
 }
 
-pub struct ChunkMeshBuilder {
+struct ChunkMeshBuilder {
     opaque      : MeshBuffer,
     cutout      : MeshBuffer,
     translucent : MeshBuffer,
 }
 
 impl ChunkMeshBuilder {
+    #[inline]
+    fn new() -> Self {
+        Self {
+            opaque: MeshBuffer::new(),
+            cutout: MeshBuffer::new(),
+            translucent: MeshBuffer::new(),
+        }
+    }
 
     #[inline]
-    pub fn build(self) -> ChunkMesh {
+    fn build(self) -> ChunkMesh {
         let opaque = if self.opaque.len() > 0 { 
             Some(self.opaque.mesh())
         } else { None };
@@ -94,6 +120,19 @@ impl ChunkMeshBuilder {
     }
     
     #[inline]
+    fn push_quads(
+        &mut self,
+        quads: &[Quad],
+        tint: Option<[f32; 4]>,
+        offset: impl Into<[f32; 3]>,
+    ) {
+        let offset = offset.into();
+        
+        quads.iter()
+            .for_each(|&quad| self.push_quad(quad, tint, offset))
+    }
+    
+    #[inline]
     fn push_quad(
         &mut self, 
         quad: Quad,
@@ -106,36 +145,4 @@ impl ChunkMeshBuilder {
             RenderMode::Translucent => self.translucent.push_quad_with_offset(quad, tint, offset),
         }
     }
-}
-
-#[inline(always)]
-fn get_neighbor_at(
-    pos: impl Into<IVec3>,
-    neighbor: Neighbor,
-    chunk: &Chunk,
-    neighbors: &[Arc<Chunk>; 4],
-) -> Option<BlockType> {
-    let pos = pos.into();
-
-    if pos.x >= 0 && pos.x < SECTION_SIZE && pos.z >= 0 && pos.z < SECTION_SIZE {
-        return Some(chunk.get_at(pos));
-    }
-
-    let localized = IVec3::new(
-        pos.x.rem_euclid(SECTION_SIZE),
-        pos.y,
-        pos.z.rem_euclid(SECTION_SIZE),
-    );
-
-    let neighbor = neighbors[neighbor as usize].as_ref();
-
-    Some(neighbor.get_at(localized))
-}
-
-#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
-enum Neighbor {
-    East = 0,
-    West = 1,
-    North = 2,
-    South = 3,
 }
