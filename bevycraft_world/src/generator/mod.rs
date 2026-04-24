@@ -1,2 +1,2 @@
-pub mod world_generator;
-pub mod basic_generator;
+pub mod chunk_generator;
+pub mod simple_generator;

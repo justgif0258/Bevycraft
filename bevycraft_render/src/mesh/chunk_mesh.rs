@@ -13,66 +13,61 @@ impl ChunkMesh {
     #[inline]
     pub fn new(
         chunk:      &Chunk,
-        chunk_pos:  &ChunkPos,
-        level:      &Level,
         mesh_cache: Arc<BlockMeshCache>,
     ) -> Self {
         let mut builder = ChunkMeshBuilder::new();
-        
-        let world_pos = chunk_pos.into_world_pos().as_ivec3();
 
-        chunk.sections
-            .iter()
-            .for_each(|(&index, section)| {
-                let world_height = index.into_world_height();
+        chunk.iter_with_position()
+            .for_each(|(pos, block)| {
+                if block.is_air() {
+                    return;
+                }
 
-                for x in 0..SECTION_SIZE {
-                    for y in 0..SECTION_SIZE {
-                        for z in 0..SECTION_SIZE {
-                            let b_type = section.get([x, y, z]);
+                let cached = mesh_cache.get_mesh(block)
+                    .unwrap();
 
-                            if b_type.is_air() {
+                let f_pos = pos.as_vec3();
+
+                for f in 0..6u8 {
+                    let facing = Facing::try_from(f).unwrap();
+
+                    let neighbor_pos = match facing {
+                        Facing::PosX => pos + IVec3::X,
+                        Facing::NegX => pos - IVec3::X,
+                        Facing::PosY => pos + IVec3::Y,
+                        Facing::NegY => pos - IVec3::Y,
+                        Facing::PosZ => pos + IVec3::Z,
+                        Facing::NegZ => pos - IVec3::Z,
+                    };
+
+                    if let Some(neighbor) = chunk.get(neighbor_pos) {
+                        if let Some(mask) = mesh_cache.get_occlusion_mask(neighbor, !facing) {
+                            if cached.is_occluded_at(facing, mask) {
                                 continue;
                             }
 
-                            let cached = mesh_cache.get_mesh(b_type)
-                                .unwrap();
-
-                            for f in 0..6u8 {
-                                let facing = Facing::try_from(f).unwrap();
-                                
-                                let neighbor_pos = match facing {
-                                    Facing::PosX => IVec3::new(world_pos.x + 1, world_pos.y, world_pos.z),
-                                    Facing::NegX => IVec3::new(world_pos.x - 1, world_pos.y, world_pos.z),
-                                    Facing::PosY => IVec3::new(world_pos.x, world_pos.y + 1, world_pos.z),
-                                    Facing::NegY => IVec3::new(world_pos.x, world_pos.y - 1, world_pos.z),
-                                    Facing::PosZ => IVec3::new(world_pos.x, world_pos.y, world_pos.z + 1),
-                                    Facing::NegZ => IVec3::new(world_pos.x, world_pos.y, world_pos.z - 1),
-                                };
-                                
-                                if let Some(neighbor) = level.get_at(neighbor_pos)
-                                    && let Some(mask) = mesh_cache.get_occlusion_mask(neighbor, !facing)
-                                {
-                                    if cached.is_occluded_at(facing, mask) { 
-                                        continue;
-                                    }
-                                    
-                                    builder.push_quads(
-                                        cached.get_occlusion_quads_at(facing),
-                                        Some([0.2, 0.8, 0.2, 1.0]),
-                                        [x as f32, (world_height + y) as f32, z as f32],
-                                    )
-                                }
-                            }
-                            
                             builder.push_quads(
-                                cached.get_inner_quads(),
+                                cached.get_occlusion_quads_at(facing),
                                 Some([0.2, 0.8, 0.2, 1.0]),
-                                [x as f32, (world_height + y) as f32, z as f32],
+                                pos.as_vec3(),
                             )
                         }
+
+                        continue;
                     }
+
+                    builder.push_quads(
+                        cached.get_occlusion_quads_at(facing),
+                        Some([0.2, 0.8, 0.2, 1.0]),
+                        f_pos,
+                    )
                 }
+
+                builder.push_quads(
+                    cached.get_inner_quads(),
+                    Some([0.2, 0.8, 0.2, 1.0]),
+                    f_pos,
+                )
             });
 
         builder.build()

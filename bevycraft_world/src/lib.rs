@@ -1,7 +1,6 @@
 mod block;
 mod chunk;
 mod morton;
-mod spatial;
 mod generator;
 
 pub mod prelude {
@@ -15,23 +14,17 @@ pub mod prelude {
             block_behaviour::BlockBehaviour,
         },
         chunk::{
-            section::*,
+            sparse_spatial_map::*,
             chunk::*,
-            pool::*,
-            level::*,
         },
         morton::morton_3d::{
             Morton3D,
             MortonEncodable,
             MortonDecodable
         },
-        spatial::{
-            node_64::Node64, 
-            tree_64::Tree64
-        },
         generator::{
-            world_generator::*,
-            basic_generator::BasicGenerator,
+            chunk_generator::*,
+            simple_generator::SimpleGenerator,
         },
     };
 }

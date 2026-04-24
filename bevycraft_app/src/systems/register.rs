@@ -1,4 +1,4 @@
-use std::sync::{Arc, LazyLock};
+use std::sync::LazyLock;
 use bevy::math::bounding::Aabb3d;
 use bevy::prelude::*;
 use bevycraft_core::prelude::*;
@@ -200,7 +200,7 @@ pub fn bootstrap_registries(
     );
 
     commands.insert_resource(GlobalRecords {
-        blocks: Arc::new(BlockRecord::finish(commit))
+        blocks: BlockRecord::finish(commit)
     });
 }
 

@@ -14,6 +14,7 @@ rayon.workspace = true
 dashmap.workspace = true
 crossbeam.workspace = true
 
+rapidhash.workspace = true
 boomphf.workspace = true
 
 bitflags.workspace = true
@@ -21,3 +22,4 @@ bitflags.workspace = true
 builder-pattern.workspace = true
 simdnoise.workspace = true
 fastrand.workspace = true
+voxelis.workspace = true

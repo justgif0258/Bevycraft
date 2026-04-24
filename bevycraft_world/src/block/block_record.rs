@@ -1,9 +1,11 @@
+use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::mem::{transmute, transmute_copy};
 use std::num::NonZeroU32;
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock};
 use bevy::prelude::Resource;
 use boomphf::Mphf;
+use voxelis::VoxelTrait;
 use bevycraft_core::prelude::*;
 use crate::block::block_record::BlockType::Id;
 use crate::prelude::*;
@@ -11,9 +13,18 @@ use crate::prelude::*;
 static AIR_LOCATION: LazyLock<AssetLocation> = LazyLock::new(|| AssetLocation::with_default_namespace("air"));
 
 #[derive(Resource)]
-pub struct BlockRecord {
+pub struct BlockRecord(Arc<BlockRecordInner>);
+
+struct BlockRecordInner {
     hash_function:  Mphf<AssetLocation>,
     blocks:         Box<[(AssetLocation, Block)]>,
+}
+
+impl Clone for BlockRecord {
+    #[inline(always)]
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
 }
 
 impl Record for BlockRecord {
@@ -48,22 +59,22 @@ impl Record for BlockRecord {
             });
 
         unsafe {
-            Self {
+            Self(Arc::new(BlockRecordInner {
                 hash_function,
-                blocks: blocks.assume_init(),
-            }
+                blocks: blocks.assume_init()
+            }))
         }
     }
 
     #[inline(always)]
     fn get_by_key(&self, key: &AssetLocation) -> Option<&Self::Value> {
         if key.eq(&AIR_LOCATION) {
-            return Some(&self.blocks[0].1)
+            return Some(&self.0.blocks[0].1)
         }
 
-        let idx = hash_key(&self.hash_function, key)?;
+        let idx = hash_key(&self.0.hash_function, key)?;
         
-        self.blocks.get(idx)
+        self.0.blocks.get(idx)
             .and_then(|(k, b)| {
                 if k != key {
                     return None;
@@ -75,7 +86,7 @@ impl Record for BlockRecord {
 
     #[inline(always)]
     fn get_by_idx(&self, index: Self::Index) -> Option<&Self::Value> {
-        self.blocks.get(index.inner() as usize)
+        self.0.blocks.get(index.inner() as usize)
             .map(|(_, b)| b)
     }
 
@@ -85,9 +96,9 @@ impl Record for BlockRecord {
             return Some(BlockType::Air)
         }
         
-        let idx = hash_key(&self.hash_function, key)?;
+        let idx = hash_key(&self.0.hash_function, key)?;
         
-        if &self.blocks[idx].0 != key { 
+        if &self.0.blocks[idx].0 != key { 
             return None;
         }
 
@@ -99,7 +110,7 @@ impl Record for BlockRecord {
         match index {
             BlockType::Air => Some(&AIR_LOCATION),
             Id(idx) => {
-                self.blocks
+                self.0.blocks
                     .get(idx.get() as usize)
                     .map(|(key, _)| key)
             }
@@ -108,19 +119,19 @@ impl Record for BlockRecord {
 
     #[inline(always)]
     fn iter(&self) -> impl Iterator<Item = &(AssetLocation, Self::Value)> {
-        self.blocks.iter()
+        self.0.blocks.iter()
     }
 
     #[inline(always)]
     fn iter_keys(&self) -> impl Iterator<Item = &AssetLocation> {
-        self.blocks
+        self.0.blocks
             .iter()
             .map(|(key, _)| key)
     }
 
     #[inline(always)]
     fn len(&self) -> usize {
-        self.blocks.len()
+        self.0.blocks.len()
     }
 }
 
@@ -129,6 +140,8 @@ pub enum BlockType {
     Air,
     Id(NonZeroU32)
 }
+
+impl VoxelTrait for BlockType {}
 
 impl Default for BlockType {
     #[inline(always)]
@@ -158,6 +171,15 @@ impl Hash for BlockType {
     #[inline(always)]
     fn hash<H: Hasher>(&self, state: &mut H) {
         state.write_u64(unsafe { transmute_copy::<_, u32>(self) as u64 })
+    }
+}
+
+impl Display for BlockType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BlockType::Air => f.write_str("BlockType(Air)"),
+            Id(i) => write!(f, "BlockType(Id = {})", i.get()),
+        }
     }
 }
 

@@ -96,6 +96,35 @@ impl MeshBuffer {
             .with_inserted_attribute(ATTRIBUTE_TEXTURE_LAYER, self.textures)
             .with_inserted_indices(Indices::U32(self.indices))
     }
+
+    #[inline]
+    pub fn extract_mesh(&mut self) -> Mesh {
+        let mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::MAIN_WORLD
+                | RenderAssetUsages::RENDER_WORLD,
+        )
+            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, self.positions.clone())
+            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, self.normals.clone())
+            .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, self.uvs.clone())
+            .with_inserted_attribute(Mesh::ATTRIBUTE_COLOR, self.colors.clone())
+            .with_inserted_attribute(ATTRIBUTE_TEXTURE_LAYER, self.textures.clone())
+            .with_inserted_indices(Indices::U32(self.indices.clone()));
+
+        self.clear();
+
+        mesh
+    }
+
+    #[inline]
+    pub fn clear(&mut self) {
+        self.positions.clear();
+        self.normals.clear();
+        self.uvs.clear();
+        self.colors.clear();
+        self.textures.clear();
+        self.indices.clear();
+    }
     
     #[inline(always)]
     pub const fn len(&self) -> usize {

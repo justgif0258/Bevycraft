@@ -9,9 +9,8 @@ use bevy::light::light_consts::lux;
 use bevy::pbr::*;
 use bevy::post_process::bloom::Bloom;
 use bevy::prelude::*;
-use bevycraft_app::{AppState, GlobalRecords, Player, BlockRenderer};
+use bevycraft_app::{AppState, GlobalRecords, Player};
 use bevycraft_app::systems::chunking::world_level_tick;
-use bevycraft_app::systems::meshing::render;
 use bevycraft_app::systems::register::bootstrap_registries;
 use bevycraft_core::prelude::*;
 use bevycraft_render::prelude::*;
@@ -45,7 +44,6 @@ fn main() -> AppExit {
         ).chain())
         .add_systems(FixedUpdate, (
             world_level_tick,
-            render
         ).run_if(in_state(AppState::InGame)))
         .run()
 }
@@ -225,22 +223,19 @@ fn setup_world(
         Player
     ));
     
-    let level = Level::new(
-        global.blocks.clone(),
-        BasicGenerator {
+    let map = SparseSpatialMap::new(
+        SimpleGenerator {
             seed: 5,
-            frequency: 0.03,
-            octaves: 7,
             amplitude_min: 0.0,
             amplitude_max: 128.0,
-            min_height: 0,
-            max_height: 256,
-            snow_height: 112
+            octaves: 7,
+            ..default()
         },
+        global.blocks.clone(),
         16
     );
 
-    commands.insert_resource(level);
+    commands.insert_resource(map);
 }
 
 #[derive(Resource, Default)]

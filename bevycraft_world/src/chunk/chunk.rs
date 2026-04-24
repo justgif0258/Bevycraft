@@ -1,206 +1,357 @@
+use std::fmt;
+use std::fmt::Formatter;
 use std::hash::{Hash, Hasher};
-use std::mem::transmute_copy;
-use std::sync::Arc;
+use std::mem::transmute;
+use std::ops::{Sub, SubAssign};
+use bevy::math::bounding::Aabb3d;
 use bevy::platform::collections::HashMap;
 use bevy::platform::hash::NoOpHash;
 use bevy::prelude::*;
+use crossbeam::queue::SegQueue;
+use crate::generator::chunk_generator::{ChunkGenerator, ChunkSource};
 use crate::prelude::*;
 
-#[derive(Component, Debug, Copy, Clone, Eq, PartialEq)]
-pub struct ChunkPos(pub IVec2);
+const CHUNK_ARRAY_LENGTH: usize = (CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) as usize;
 
-impl Hash for ChunkPos {
-    #[inline(always)]
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write_u64(unsafe { transmute_copy(self) })
-    }
-}
+pub const CHUNK_SIZE: i32 = 16;
 
-impl ChunkPos {
-    #[inline]
-    pub const fn new(x: i32, z: i32) -> Self {
-        Self(IVec2::new(x, z))
-    }
-    
-    #[inline]
-    pub fn from_world_pos(pos: impl Into<Vec3>) -> Self {
-        let world_pos = pos.into();
-        
-        Self(IVec2::new(
-            (world_pos.x / SECTION_SIZE as f32).floor() as i32,
-            (world_pos.z / SECTION_SIZE as f32).floor() as i32,
-        ))
-    }
-    
-    #[inline(always)]
-    pub const fn into_world_pos(self) -> Vec3 {
-        Vec3::new((self.0.x * SECTION_SIZE) as f32, 0.0, (self.0.y * SECTION_SIZE) as f32)
-    }
+pub type BlockArray = Box<[u32; CHUNK_ARRAY_LENGTH]>;
 
-    #[inline(always)]
-    pub fn distance_squared(&self, other: ChunkPos) -> i32 {
-        self.0.distance_squared(other.0)
-    }
+static CHUNK_POOL: SegQueue<BlockArray> = SegQueue::new();
 
-    #[inline(always)]
-    pub fn neighbors(&self) -> [ChunkPos; 4] {
-        [
-            Self(self.0 + IVec2::X),
-            Self(self.0 - IVec2::X),
-            Self(self.0 + IVec2::Y),
-            Self(self.0 - IVec2::Y),
-        ]
-    }
-}
-
-#[derive(Component, Default)]
+#[derive(Component, Debug, Clone, Eq, PartialEq)]
 pub struct Chunk {
-    pub sections: HashMap<SectionIndex, PalettedSection, NoOpHash>,
+    blocks: Option<BlockArray>,
+    palette: BlockPalette,
+
+    pub dirty: bool,
 }
 
 impl Chunk {
-    #[inline(always)]
-    pub fn new() -> Self {
+    #[inline]
+    pub fn new_empty() -> Self {
+        let blocks = if let Some(mut pooled) = CHUNK_POOL.pop() {
+            pooled.fill(0u32);
+            pooled
+        } else {
+            Box::new([0u32; CHUNK_ARRAY_LENGTH])
+        };
+
         Self {
-            sections: HashMap::with_hasher(NoOpHash),
+            blocks: Some(blocks),
+            palette: BlockPalette::new(),
+            dirty: false,
         }
     }
 
-    #[inline(always)]
-    pub fn generate_using(
-        position: ChunkPos,
-        blocks: Arc<BlockRecord>,
-        generator: ActiveWorldGenerator,
-    ) -> Self {
-        let mut chunk = Self::new();
+    #[inline]
+    pub fn new_from_source(source: ChunkSource, position: ChunkPos, blocks: BlockRecord) -> Self {
+        let mut chunk = Chunk {
+            blocks: if let Some(pooled) = CHUNK_POOL.pop() {
+                Some(pooled)
+            } else { Some(Box::new([0u32; CHUNK_ARRAY_LENGTH])) },
+            palette: BlockPalette::new(),
+            dirty: false,
+        };
 
-        let position = position.into();
-
-        generator.generate_base_terrain(
-            position,
-            &mut chunk,
-            blocks.clone(),
-        );
-
-        generator.carve_terrain(
-            position,
-            &mut chunk,
-        );
-
-        generator.generate_features(
-            position,
-            &mut chunk,
-            blocks,
-        );
+        source.fill(position, &mut chunk, blocks.clone());
+        source.carve(position, &mut chunk);
+        source.place_features(position, &mut chunk, blocks);
 
         chunk
     }
 
-    #[inline(always)]
-    pub fn set_at(
-        &mut self,
-        position: impl Into<IVec3>,
-        block_type: BlockType
-    ) {
+    #[inline]
+    pub fn set(&mut self, position: impl Into<IVec3>, block: BlockType) {
         let position = position.into();
 
-        if position.cmplt(IVec3::ZERO).any() {
-            return;
-        }
+        if position.cmplt(IVec3::ZERO).any() { return }
 
-        if position.x >= SECTION_SIZE || position.z >= SECTION_SIZE {
-            return;
-        }
+        if position.cmpge(IVec3::splat(CHUNK_SIZE)).any() { return }
 
-        let normalized = position.rem_euclid(IVec3::splat(SECTION_SIZE));
+        let blocks = self.blocks.as_mut().unwrap();
 
-        let y_idx = SectionIndex::from_world_height(position.y);
+        let paletted = self.palette.get_or_create_entry(block);
 
-        if let Some(section) = self.sections.get_mut(&y_idx) {
-            section.set(normalized, block_type);
-
-            return;
-        }
-
-        let mut new_section = PalettedSection::new();
-
-        new_section.set(normalized, block_type);
-
-        self.sections.insert(y_idx, new_section);
+        blocks[linearize(position)] = paletted;
     }
 
-    #[inline(always)]
-    pub fn remove_at(&mut self, position: impl Into<IVec3>) -> BlockType {
+    #[inline]
+    pub fn remove(&mut self, position: impl Into<IVec3>) -> Option<BlockType> {
         let position = position.into();
 
-        if position.cmplt(IVec3::ZERO).any() {
-            return BlockType::Air;
-        }
+        if position.cmplt(IVec3::ZERO).any() { return None }
 
-        if position.x >= SECTION_SIZE || position.z >= SECTION_SIZE {
-            return BlockType::Air;
-        }
+        if position.cmpge(IVec3::splat(CHUNK_SIZE)).any() { return None }
 
-        let y_idx = SectionIndex::from_world_height(position.y);
+        let blocks = self.blocks.as_mut().unwrap();
 
-        if let Some(section) = self.sections.get_mut(&y_idx) {
-            let normalized = position.rem_euclid(IVec3::splat(SECTION_SIZE));
+        let linearized = linearize(position);
 
-            return section.remove(normalized);
-        }
-        
-        BlockType::Air
+        let paletted = blocks[linearized];
+
+        blocks[linearized] = 0;
+
+        self.palette.retrieve_and_dec_entry(paletted)
     }
 
-    #[inline(always)]
-    pub fn get_at(
-        &self,
-        position: impl Into<IVec3>,
-    ) -> BlockType {
+    #[inline]
+    pub fn get(&self, position: impl Into<IVec3>) -> Option<BlockType> {
         let position = position.into();
 
-        if position.cmplt(IVec3::ZERO).any() {
-            return BlockType::Air;
-        }
+        if position.cmplt(IVec3::ZERO).any() { return None }
 
-        if position.x >= SECTION_SIZE || position.z >= SECTION_SIZE {
-            return BlockType::Air;
-        }
+        if position.cmpge(IVec3::splat(CHUNK_SIZE)).any() { return None }
 
-        let y_idx = SectionIndex::from_world_height(position.y);
+        let blocks = self.blocks.as_ref().unwrap();
 
-        if let Some(section) = self.sections.get(&y_idx) {
-            let normalized = IVec3::new(
-                position.x,
-                position.y.rem_euclid(SECTION_SIZE),
-                position.z,
-            );
+        let paletted = blocks[linearize(position)];
 
-            return section.get(normalized);
-        }
+        self.palette.entries.get(paletted as usize).copied()
+    }
 
-        BlockType::Air
+    #[inline]
+    pub fn iter(&self) -> impl Iterator<Item = BlockType> {
+        self.blocks.as_ref().unwrap()
+            .iter()
+            .map(|&index| {
+                self.palette.entries[index as usize]
+            })
+    }
+
+    #[inline]
+    pub fn iter_with_position(&self) -> impl Iterator<Item = (IVec3, BlockType)> {
+        let blocks = self.blocks.as_ref().unwrap();
+
+        blocks.iter()
+            .enumerate()
+            .map(|(i, &index)| {
+                let x = (i & 0xF) as i32;
+                let y = ((i >> 4) & 0xF) as i32;
+                let z = (i >> 8) as i32;
+
+                (IVec3::new(x, y, z), self.palette.entries[index as usize])
+            })
+    }
+
+    #[inline]
+    pub fn get_pool() -> &'static SegQueue<BlockArray> {
+        &CHUNK_POOL
     }
 }
 
-#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
-pub struct SectionIndex(pub i32);
-
-impl SectionIndex {
-    #[inline(always)]
-    pub const fn from_world_height(height: i32) -> Self {
-        Self(height.div_euclid(SECTION_SIZE))
-    }
-    
-    #[inline(always)]
-    pub const fn into_world_height(self) -> i32 {
-        self.0 * SECTION_SIZE
+impl Drop for Chunk {
+    #[inline]
+    fn drop(&mut self) {
+        CHUNK_POOL.push(self.blocks.take().unwrap());
     }
 }
 
-impl Hash for SectionIndex {
+#[derive(Component, Debug, Copy, Clone, Eq, PartialEq)]
+pub struct ChunkPos {
+    pub x: i32,
+    pub y: i32,
+    pub z: i32,
+}
+
+impl ChunkPos {
+    #[inline]
+    pub const fn new(x: i32, y: i32, z: i32) -> Self {
+        Self { x, y, z }
+    }
+
+    #[inline]
+    pub fn from_world_pos(pos: impl Into<Vec3>) -> Self {
+        let pos = pos.into().floor().as_ivec3() / CHUNK_SIZE;
+
+        unsafe { transmute(pos) }
+    }
+
+    #[inline]
+    pub fn into_world_pos(self) -> Vec3 {
+        Vec3::new(
+            (self.x * CHUNK_SIZE) as f32,
+            (self.y * CHUNK_SIZE) as f32,
+            (self.z * CHUNK_SIZE) as f32,
+        )
+    }
+
+    #[inline(always)]
+    pub fn bounding_volume(self) -> Aabb3d {
+        let world_pos = self.into_world_pos();
+
+        Aabb3d {
+            min: world_pos.into(),
+            max: (world_pos + CHUNK_SIZE as f32).into(),
+        }
+    }
+
+    #[inline(always)]
+    pub fn distance_squared(self, rhs: Self) -> i32 {
+        (self - rhs).length_squared()
+    }
+
+    #[inline(always)]
+    pub const fn length_squared(self) -> i32 {
+        self.dot(self)
+    }
+
+    #[inline(always)]
+    pub const fn dot(self, rhs: Self) -> i32 {
+        (self.x * rhs.x) + (self.y * rhs.y) + (self.z * rhs.z)
+    }
+}
+
+impl From<IVec3> for ChunkPos {
+    fn from(value: IVec3) -> Self {
+        Self {
+            x: value.x,
+            y: value.y,
+            z: value.z,
+        }
+    }
+}
+
+impl From<Vec3> for ChunkPos {
+    #[inline(always)]
+    fn from(value: Vec3) -> Self {
+        Self {
+            x: value.x.floor() as i32,
+            y: value.y.floor() as i32,
+            z: value.z.floor() as i32,
+        }
+    }
+}
+
+impl Hash for ChunkPos {
     #[inline(always)]
     fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write_u64(self.0 as u64)
+        state.write_i32(self.x);
+        state.write_i32(self.y);
+        state.write_i32(self.z);
     }
+}
+
+impl fmt::Display for ChunkPos {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "Chunk position = [{}, {}, {}]", self.x, self.y, self.z)
+    }
+}
+
+impl core::ops::Add for ChunkPos {
+    type Output = Self;
+
+    #[inline(always)]
+    fn add(self, rhs: Self) -> Self::Output {
+        Self {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+            z: self.z + rhs.z,
+        }
+    }
+}
+
+impl Sub for ChunkPos {
+    type Output = Self;
+
+    #[inline(always)]
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+            z: self.z - rhs.z,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct BlockPalette {
+    entries: Vec<BlockType>,
+    mappings: HashMap<BlockType, (u32, u32), NoOpHash>,
+    free_list: Vec<u32>,
+}
+
+impl BlockPalette {
+    #[inline]
+    pub fn new() -> Self {
+        let mut entries = Vec::with_capacity(8);
+
+        entries.push(BlockType::Air);
+
+        Self {
+            entries,
+            mappings: HashMap::with_capacity_and_hasher(8, NoOpHash),
+            free_list: Vec::with_capacity(8),
+        }
+    }
+
+    #[inline(always)]
+    pub fn get_or_create_entry(&mut self, entry: BlockType) -> u32 {
+        if entry.is_air() { return 0u32 }
+
+        if let Some(index) = self.mappings.get_mut(&entry) {
+            index.1 += 1;
+
+            return index.0;
+        }
+
+        if let Some(freed) = self.free_list.pop() {
+            self.entries[freed as usize] = entry;
+            self.mappings.insert(entry, (freed, 1));
+
+            return freed;
+        }
+
+        let next_index = self.entries.len() as u32;
+
+        self.entries.push(entry);
+        self.mappings.insert(entry, (next_index, 1));
+
+        next_index
+    }
+
+    #[inline(always)]
+    pub fn retrieve_and_dec_entry(&mut self, paletted: u32) -> Option<BlockType> {
+        if let Some(&block) = self.entries.get(paletted as usize) {
+            self.decrement_ref_count(block);
+
+            return Some(block);
+        }
+
+        None
+    }
+
+    #[inline(always)]
+    pub fn decrement_ref_count(&mut self, entry: BlockType) {
+        let mut i = 0u32;
+        let mut c = 0u32;
+
+        if let Some((index, counter)) = self.mappings.get_mut(&entry) {
+            counter.sub_assign(1);
+
+            i = *index;
+            c = *counter;
+        } else { return }
+
+        if c == 0 {
+            self.mappings.remove(&entry);
+            self.free_list.push(i);
+        }
+    }
+
+    #[inline(always)]
+    pub fn is_empty(&self) -> bool {
+        self.mappings.is_empty()
+            && self.entries.len() <= 1
+    }
+
+    #[inline(always)]
+    pub const fn needs_resize(&self) -> bool {
+        self.free_list.len() > 0
+    }
+}
+
+#[inline(always)]
+const fn linearize(position: IVec3) -> usize {
+    (position.x + (position.z * CHUNK_SIZE) + (position.y * CHUNK_SIZE * CHUNK_SIZE)) as usize
 }

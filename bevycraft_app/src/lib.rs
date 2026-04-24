@@ -35,7 +35,7 @@ impl Clone for BlockRenderer {
 
 #[derive(Resource)]
 pub struct GlobalRecords {
-    pub blocks: Arc<BlockRecord>,
+    pub blocks: BlockRecord,
 }
 
 impl Clone for GlobalRecords {

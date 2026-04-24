@@ -14,6 +14,8 @@ bevy.workspace = true
 serde.workspace = true
 ron.workspace = true
 
+crossbeam.workspace = true
+
 frozen-collections.workspace = true
 
 bitflags.workspace = true
