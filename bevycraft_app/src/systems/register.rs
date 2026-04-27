@@ -206,7 +206,7 @@ pub fn bootstrap_registries(
 
 fn register_block(
     commit: &mut BlockCommit,
-    name: &str,
+    name: &'static str,
     behaviour: BlockBehaviour,
     shapes: impl Into<Box<[Aabb3d]>>,
 ) {
@@ -222,7 +222,7 @@ fn register_block(
 #[allow(unused)]
 fn register_block_with_attached(
     commit: &mut BlockCommit,
-    name: &str,
+    name: &'static str,
     behaviour: BlockBehaviour,
     shapes: Vec<Aabb3d>,
     attached: Attachments

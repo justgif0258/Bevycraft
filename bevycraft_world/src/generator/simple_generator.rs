@@ -22,8 +22,8 @@ impl Default for SimpleGenerator {
             amplitude_max: 128.0,
             octaves: 7,
             frequency: 0.03,
-            gain: 1.0,
-            lacunarity: 1.0,
+            gain: 2.0,
+            lacunarity: 0.5,
         }
     }
 }
@@ -55,7 +55,7 @@ impl ChunkGenerator for SimpleGenerator {
             .with_lacunarity(self.lacunarity)
             .generate();
 
-        let world_height = position.y * CHUNK_SIZE;
+        let world_height = world_pos.y as i32;
 
         let height_range = self.amplitude_max - self.amplitude_min;
 
@@ -76,7 +76,7 @@ impl ChunkGenerator for SimpleGenerator {
                         stone
                     };
 
-                    chunk.set([x, y, z], block);
+                    chunk.set([x, y.rem_euclid(CHUNK_SIZE), z], block);
                 }
             }
         }
@@ -84,7 +84,7 @@ impl ChunkGenerator for SimpleGenerator {
 }
 
 #[inline(always)]
-fn get_block_type(blocks: &BlockRecord, name: &str) -> BlockType {
+fn get_block_type(blocks: &BlockRecord, name: &'static str) -> BlockType {
     blocks.key_to_idx(&AssetLocation::parse(name))
         .unwrap()
 }
