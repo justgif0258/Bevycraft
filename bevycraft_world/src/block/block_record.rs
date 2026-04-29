@@ -5,7 +5,6 @@ use std::num::NonZeroU32;
 use std::sync::{Arc, LazyLock};
 use bevy::prelude::Resource;
 use boomphf::Mphf;
-use voxelis::VoxelTrait;
 use bevycraft_core::prelude::*;
 use crate::block::block_record::BlockType::Id;
 use crate::prelude::*;
@@ -140,8 +139,6 @@ pub enum BlockType {
     Air,
     Id(NonZeroU32)
 }
-
-impl VoxelTrait for BlockType {}
 
 impl Default for BlockType {
     #[inline(always)]

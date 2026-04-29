@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use bevy::prelude::{Component, Resource, States};
-use bevycraft_render::prelude::{ArrayTexture, BlockMeshCache};
+use bevycraft_render::prelude::{ArrayTexture, BlockMeshCache, RModelManager};
 use bevycraft_world::prelude::BlockRecord;
 
 pub mod systems;
@@ -45,4 +45,13 @@ impl Clone for GlobalRecords {
             blocks: self.blocks.clone(),
         }
     }
+}
+
+#[derive(Resource)]
+pub struct BevycraftClient(Arc<BevycraftClientInner>);
+
+struct BevycraftClientInner {
+    rmodel_manager: RModelManager,
+    textures: ArrayTexture,
+    meshes: BlockMeshCache,
 }

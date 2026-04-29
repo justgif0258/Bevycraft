@@ -1,24 +1,12 @@
-mod textures;
 mod mesh;
 mod model;
-pub mod renderer;
+mod renderer;
+mod textures;
 
 pub mod prelude {
     pub use crate::{
-        textures::{
-            texture_id::*,
-            array_texture::ArrayTexture
-        },
-        mesh::{
-            vertex::*,
-            block_mesh::*,
-            quad::*,
-            mesh_buffer::MeshBuffer,
-            chunk_mesh::*,
-        },
-        model::{
-            r_model::*,
-            r_model_manager::RModelManager,
-        },
+        mesh::{block_mesh::*, mesh_buffer::MeshBuffer, quad::*, vertex::*},
+        model::r_model::*,
+        textures::array_texture::*,
     };
 }

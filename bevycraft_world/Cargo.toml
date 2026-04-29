@@ -22,4 +22,3 @@ bitflags.workspace = true
 builder-pattern.workspace = true
 simdnoise.workspace = true
 fastrand.workspace = true
-voxelis.workspace = true

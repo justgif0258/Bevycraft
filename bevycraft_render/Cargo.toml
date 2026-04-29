@@ -11,11 +11,14 @@ bevycraft_world.workspace = true
 
 bevy.workspace = true
 
+image.workspace = true
+
 serde.workspace = true
 ron.workspace = true
 
 crossbeam.workspace = true
 
 frozen-collections.workspace = true
+rapidhash.workspace = true
 
 bitflags.workspace = true

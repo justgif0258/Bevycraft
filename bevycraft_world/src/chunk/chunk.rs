@@ -2,10 +2,8 @@ use std::fmt;
 use std::fmt::Formatter;
 use std::hash::{Hash, Hasher};
 use std::mem::transmute;
-use std::ops::{Sub, SubAssign};
+use std::ops::Sub;
 use bevy::math::bounding::Aabb3d;
-use bevy::platform::collections::HashMap;
-use bevy::platform::hash::NoOpHash;
 use bevy::prelude::*;
 use crossbeam::queue::SegQueue;
 use crate::generator::chunk_generator::{ChunkGenerator, ChunkSource};
@@ -15,14 +13,13 @@ const CHUNK_ARRAY_LENGTH: usize = (CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) as usiz
 
 pub const CHUNK_SIZE: i32 = 16;
 
-pub type BlockArray = Box<[u32; CHUNK_ARRAY_LENGTH]>;
+pub type BlockArray = Box<[BlockType; CHUNK_ARRAY_LENGTH]>;
 
 static CHUNK_POOL: SegQueue<BlockArray> = SegQueue::new();
 
 #[derive(Component, Debug, Clone, Eq, PartialEq)]
 pub struct Chunk {
     blocks: Option<BlockArray>,
-    palette: BlockPalette,
 
     pub dirty: bool,
 }
@@ -31,15 +28,14 @@ impl Chunk {
     #[inline]
     pub fn new_empty() -> Self {
         let blocks = if let Some(mut pooled) = CHUNK_POOL.pop() {
-            pooled.fill(0u32);
+            pooled.fill(BlockType::Air);
             pooled
         } else {
-            Box::new([0u32; CHUNK_ARRAY_LENGTH])
+            Box::new([BlockType::Air; CHUNK_ARRAY_LENGTH])
         };
 
         Self {
             blocks: Some(blocks),
-            palette: BlockPalette::new(),
             dirty: false,
         }
     }
@@ -47,10 +43,10 @@ impl Chunk {
     #[inline]
     pub fn new_from_source(source: ChunkSource, position: ChunkPos, blocks: BlockRecord) -> Self {
         let mut chunk = Chunk {
-            blocks: if let Some(pooled) = CHUNK_POOL.pop() {
+            blocks: if let Some(mut pooled) = CHUNK_POOL.pop() {
+                pooled.fill(BlockType::Air);
                 Some(pooled)
-            } else { Some(Box::new([0u32; CHUNK_ARRAY_LENGTH])) },
-            palette: BlockPalette::new(),
+            } else { Some(Box::new([BlockType::Air; CHUNK_ARRAY_LENGTH])) },
             dirty: false,
         };
 
@@ -71,9 +67,7 @@ impl Chunk {
 
         let blocks = self.blocks.as_mut().unwrap();
 
-        let paletted = self.palette.get_or_create_entry(block);
-
-        blocks[linearize(position)] = paletted;
+        blocks[linearize(position)] = block;
     }
 
     #[inline]
@@ -90,9 +84,9 @@ impl Chunk {
 
         let paletted = blocks[linearized];
 
-        blocks[linearized] = 0;
-
-        self.palette.retrieve_and_dec_entry(paletted)
+        blocks[linearized] = BlockType::Air;
+        
+        Some(paletted)
     }
 
     #[inline]
@@ -105,18 +99,14 @@ impl Chunk {
 
         let blocks = self.blocks.as_ref().unwrap();
 
-        let paletted = blocks[linearize(position)];
-
-        self.palette.entries.get(paletted as usize).copied()
+        Some(blocks[linearize(position)])
     }
 
     #[inline]
     pub fn iter(&self) -> impl Iterator<Item = BlockType> {
         self.blocks.as_ref().unwrap()
             .iter()
-            .map(|&index| {
-                self.palette.entries[index as usize]
-            })
+            .copied()
     }
 
     #[inline]
@@ -125,12 +115,12 @@ impl Chunk {
 
         blocks.iter()
             .enumerate()
-            .map(|(i, &index)| {
+            .map(|(i, &block)| {
                 let x = (i & 0xF) as i32;
-                let y = ((i >> 4) & 0xF) as i32;
-                let z = (i >> 8) as i32;
+                let z = ((i >> 4) & 0xF) as i32;
+                let y = (i >> 8) as i32;
 
-                (IVec3::new(x, y, z), self.palette.entries[index as usize])
+                (IVec3::new(x, y, z), block)
             })
     }
 
@@ -234,7 +224,7 @@ impl Hash for ChunkPos {
 
 impl fmt::Display for ChunkPos {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "Chunk position = [{}, {}, {}]", self.x, self.y, self.z)
+        write!(f, "[{}, {}, {}]", self.x, self.y, self.z)
     }
 }
 
@@ -261,93 +251,6 @@ impl Sub for ChunkPos {
             y: self.y - rhs.y,
             z: self.z - rhs.z,
         }
-    }
-}
-
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct BlockPalette {
-    entries: Vec<BlockType>,
-    mappings: HashMap<BlockType, (u32, u32), NoOpHash>,
-    free_list: Vec<u32>,
-}
-
-impl BlockPalette {
-    #[inline]
-    pub fn new() -> Self {
-        let mut entries = Vec::with_capacity(8);
-
-        entries.push(BlockType::Air);
-
-        Self {
-            entries,
-            mappings: HashMap::with_capacity_and_hasher(8, NoOpHash),
-            free_list: Vec::with_capacity(8),
-        }
-    }
-
-    #[inline(always)]
-    pub fn get_or_create_entry(&mut self, entry: BlockType) -> u32 {
-        if entry.is_air() { return 0u32 }
-
-        if let Some(index) = self.mappings.get_mut(&entry) {
-            index.1 += 1;
-
-            return index.0;
-        }
-
-        if let Some(freed) = self.free_list.pop() {
-            self.entries[freed as usize] = entry;
-            self.mappings.insert(entry, (freed, 1));
-
-            return freed;
-        }
-
-        let next_index = self.entries.len() as u32;
-
-        self.entries.push(entry);
-        self.mappings.insert(entry, (next_index, 1));
-
-        next_index
-    }
-
-    #[inline(always)]
-    pub fn retrieve_and_dec_entry(&mut self, paletted: u32) -> Option<BlockType> {
-        if let Some(&block) = self.entries.get(paletted as usize) {
-            self.decrement_ref_count(block);
-
-            return Some(block);
-        }
-
-        None
-    }
-
-    #[inline(always)]
-    pub fn decrement_ref_count(&mut self, entry: BlockType) {
-        let mut i = 0u32;
-        let mut c = 0u32;
-
-        if let Some((index, counter)) = self.mappings.get_mut(&entry) {
-            counter.sub_assign(1);
-
-            i = *index;
-            c = *counter;
-        } else { return }
-
-        if c == 0 {
-            self.mappings.remove(&entry);
-            self.free_list.push(i);
-        }
-    }
-
-    #[inline(always)]
-    pub fn is_empty(&self) -> bool {
-        self.mappings.is_empty()
-            && self.entries.len() <= 1
-    }
-
-    #[inline(always)]
-    pub const fn needs_resize(&self) -> bool {
-        self.free_list.len() > 0
     }
 }
 

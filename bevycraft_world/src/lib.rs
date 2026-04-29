@@ -14,7 +14,6 @@ pub mod prelude {
             block_behaviour::BlockBehaviour,
         },
         chunk::{
-            sparse_spatial_map::*,
             chunk::*,
         },
         morton::morton_3d::{

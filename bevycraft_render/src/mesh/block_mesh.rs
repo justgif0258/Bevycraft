@@ -124,8 +124,9 @@ impl BlockMesh {
                 .for_each(|element| {
                     element.faces
                         .iter()
-                        .for_each(|(facing, face)| {
-                            match Facing::try_from(facing.as_str()) {
+                        .for_each(|(direction, face)| {
+                            /*
+                            match Facing::try_from(direction.as_str()) {
                                 Err(e) => errors.push(e.to_string()),
                                 Ok(facing) => {
                                     let texture = match face.texture.strip_prefix('#') {
@@ -155,15 +156,12 @@ impl BlockMesh {
                                             face.uv[3] * VERTEX_SCALING
                                         ];
                                         
-                                        let render_mode = RenderMode::from_str(&face.render_mode)
-                                            .unwrap_or(RenderMode::default());
-                                        
                                         let mut quad = Quad::new(
                                             scaled_min,
                                             scaled_max,
                                             scaled_uv,
                                             texture,
-                                            render_mode,
+                                            face.render_mode,
                                             face.tintable,
                                             facing,
                                         );
@@ -179,10 +177,8 @@ impl BlockMesh {
                                             );
                                         }
 
-                                        if let Some(cullface) = &face.cullface
-                                            && let Ok(facing_cull) = Facing::try_from(cullface.as_str())
-                                        {
-                                            buckets[facing_cull as usize].push(quad);
+                                        if let Some(cullface) = &face.cullface {
+                                            buckets[*cullface as usize].push(quad);
                                         } else {
                                             inner_faces.push(quad);
                                         }
@@ -191,6 +187,7 @@ impl BlockMesh {
                                     }
                                 }
                             }
+                             */
                         })
                 })
         }

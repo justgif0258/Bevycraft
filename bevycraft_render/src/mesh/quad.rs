@@ -2,6 +2,7 @@ use std::fmt::{Display, Formatter};
 use std::ops::Not;
 use bevy::math::EulerRot;
 use bevy::prelude::{Quat, Vec3};
+use serde::{Deserialize, Serialize};
 use crate::prelude::{TextureId, Vertex};
 
 pub const NEUTRAL_TINT: [f32; 4] = [1.0; 4];
@@ -233,7 +234,8 @@ impl TryFrom<String> for Facing {
     }
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Deserialize, Serialize, Debug, Clone, Copy, Eq, PartialEq)]
+#[serde(rename_all = "lowercase")]
 pub enum RenderMode {
     Opaque = 0,
     Cutout = 1,
