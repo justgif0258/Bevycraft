@@ -1,7 +1,7 @@
+use bevycraft_core::prelude::{AssetLocation, BlockType, CoreRegistries};
 use simdnoise::NoiseBuilder;
-use bevycraft_core::prelude::{AssetLocation, Record};
-use crate::prelude::{BlockRecord, BlockType, Chunk, ChunkGenerator, ChunkPos, CHUNK_SIZE};
 
+use crate::prelude::{CHUNK_SIZE, Chunk, ChunkGenerator, ChunkPos};
 
 pub struct SimpleGenerator {
     pub seed: i32,
@@ -35,25 +35,27 @@ impl ChunkGenerator for SimpleGenerator {
     }
 
     #[inline]
-    fn fill(&self, position: ChunkPos, chunk: &mut Chunk, blocks: BlockRecord) {
+    fn fill(&self, position: ChunkPos, chunk: &mut Chunk) {
         let [grass, dirt, stone] = [
-            get_block_type(&blocks, "grass_block"),
-            get_block_type(&blocks, "dirt"),
-            get_block_type(&blocks, "stone"),
+            get_block_type("grass_block"),
+            get_block_type("dirt"),
+            get_block_type("stone"),
         ];
 
         let world_pos = position.into_world_pos();
 
         let (noise_2d, _, _) = NoiseBuilder::fbm_2d_offset(
-            world_pos.x, CHUNK_SIZE as usize,
-            world_pos.z, CHUNK_SIZE as usize,
+            world_pos.x,
+            CHUNK_SIZE as usize,
+            world_pos.z,
+            CHUNK_SIZE as usize,
         )
-            .with_seed(self.seed)
-            .with_octaves(self.octaves)
-            .with_freq(self.frequency)
-            .with_gain(self.gain)
-            .with_lacunarity(self.lacunarity)
-            .generate();
+        .with_seed(self.seed)
+        .with_octaves(self.octaves)
+        .with_freq(self.frequency)
+        .with_gain(self.gain)
+        .with_lacunarity(self.lacunarity)
+        .generate();
 
         let world_height = world_pos.y as i32;
 
@@ -84,7 +86,8 @@ impl ChunkGenerator for SimpleGenerator {
 }
 
 #[inline(always)]
-fn get_block_type(blocks: &BlockRecord, name: &'static str) -> BlockType {
-    blocks.key_to_idx(&AssetLocation::parse(name))
+fn get_block_type(name: &'static str) -> BlockType {
+    CoreRegistries::blocks()
+        .key_to_type(&AssetLocation::parse(name))
         .unwrap()
 }

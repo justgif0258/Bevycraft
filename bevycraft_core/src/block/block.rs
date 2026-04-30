@@ -1,9 +1,8 @@
-use std::collections::BTreeMap;
-use std::marker::PhantomData;
-use crate::prelude::{BlockBehaviour, BlockFlags};
+use crate::prelude::*;
 use bevy::math::bounding::Aabb3d;
 use builder_pattern::Builder;
-use bevycraft_core::prelude::Recordable;
+use std::collections::BTreeMap;
+use std::marker::PhantomData;
 
 #[derive(Builder, Debug, PartialEq)]
 pub struct Block {
@@ -128,13 +127,13 @@ impl Block {
     }
 
     #[inline(always)]
-    pub fn get_attachment<T: Recordable>(&self, attachment: AttachmentAttribute<T>) -> Option<&T> {
+    pub fn get_attachment<T: Registrable>(&self, attachment: AttachmentAttribute<T>) -> Option<&T> {
         self.attachments.get(attachment)
     }
 }
 
 #[derive(Debug, PartialEq)]
-pub struct Attachments(BTreeMap<&'static str, Box<dyn Recordable>>);
+pub struct Attachments(BTreeMap<&'static str, Box<dyn Registrable>>);
 
 impl Attachments {
     #[inline]
@@ -143,32 +142,35 @@ impl Attachments {
     }
 
     #[inline]
-    pub fn attach<T: Recordable>(mut self, attachment: AttachmentAttribute<T>, value: T) {
-        assert!(!self.0.contains_key(&attachment.name), "Duplicate attachment name");
+    pub fn attach<T: Registrable>(mut self, attachment: AttachmentAttribute<T>, value: T) {
+        assert!(
+            !self.0.contains_key(&attachment.name),
+            "Duplicate attachment name"
+        );
 
         self.0.insert(attachment.name, Box::new(value));
     }
 
     #[inline(always)]
-    pub fn get<T: Recordable>(&self, attachment: AttachmentAttribute<T>) -> Option<&T> {
-        self.0.get(&attachment.name)
-            .map(|b|
-                b.as_ref()
-                    .downcast_ref::<T>()
-                    .unwrap()
-            )
+    pub fn get<T: Registrable>(&self, attachment: AttachmentAttribute<T>) -> Option<&T> {
+        self.0
+            .get(&attachment.name)
+            .map(|b| b.as_ref().downcast_ref::<T>().unwrap())
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct AttachmentAttribute<T: Recordable> {
-    name    : &'static str,
-    _marker : PhantomData<T>,
+pub struct AttachmentAttribute<T: Registrable> {
+    name: &'static str,
+    _marker: PhantomData<T>,
 }
 
-impl<T: Recordable> AttachmentAttribute<T> {
+impl<T: Registrable> AttachmentAttribute<T> {
     #[inline(always)]
     pub const fn new(name: &'static str) -> Self {
-        Self { name, _marker : PhantomData }
+        Self {
+            name,
+            _marker: PhantomData,
+        }
     }
 }

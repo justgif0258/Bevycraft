@@ -1,13 +1,18 @@
-use std::fmt;
-use std::fmt::Formatter;
-use std::hash::{Hash, Hasher};
-use std::mem::transmute;
-use std::ops::Sub;
-use bevy::math::bounding::Aabb3d;
-use bevy::prelude::*;
+use std::{
+    fmt::{Display, Formatter, Result},
+    hash::{Hash, Hasher},
+    mem::transmute,
+    ops::Sub,
+};
+
+use bevy::{
+    ecs::component::Component,
+    math::{IVec3, Vec3, bounding::Aabb3d},
+};
+use bevycraft_core::prelude::BlockType;
 use crossbeam::queue::SegQueue;
-use crate::generator::chunk_generator::{ChunkGenerator, ChunkSource};
-use crate::prelude::*;
+
+use crate::prelude::{ChunkGenerator, ChunkSource};
 
 const CHUNK_ARRAY_LENGTH: usize = (CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) as usize;
 
@@ -41,18 +46,20 @@ impl Chunk {
     }
 
     #[inline]
-    pub fn new_from_source(source: ChunkSource, position: ChunkPos, blocks: BlockRecord) -> Self {
+    pub fn new_from_source(source: ChunkSource, position: ChunkPos) -> Self {
         let mut chunk = Chunk {
             blocks: if let Some(mut pooled) = CHUNK_POOL.pop() {
                 pooled.fill(BlockType::Air);
                 Some(pooled)
-            } else { Some(Box::new([BlockType::Air; CHUNK_ARRAY_LENGTH])) },
+            } else {
+                Some(Box::new([BlockType::Air; CHUNK_ARRAY_LENGTH]))
+            },
             dirty: false,
         };
 
-        source.fill(position, &mut chunk, blocks.clone());
+        source.fill(position, &mut chunk);
         source.carve(position, &mut chunk);
-        source.place_features(position, &mut chunk, blocks);
+        source.place_features(position, &mut chunk);
 
         chunk
     }
@@ -61,9 +68,13 @@ impl Chunk {
     pub fn set(&mut self, position: impl Into<IVec3>, block: BlockType) {
         let position = position.into();
 
-        if position.cmplt(IVec3::ZERO).any() { return }
+        if position.cmplt(IVec3::ZERO).any() {
+            return;
+        }
 
-        if position.cmpge(IVec3::splat(CHUNK_SIZE)).any() { return }
+        if position.cmpge(IVec3::splat(CHUNK_SIZE)).any() {
+            return;
+        }
 
         let blocks = self.blocks.as_mut().unwrap();
 
@@ -74,9 +85,13 @@ impl Chunk {
     pub fn remove(&mut self, position: impl Into<IVec3>) -> Option<BlockType> {
         let position = position.into();
 
-        if position.cmplt(IVec3::ZERO).any() { return None }
+        if position.cmplt(IVec3::ZERO).any() {
+            return None;
+        }
 
-        if position.cmpge(IVec3::splat(CHUNK_SIZE)).any() { return None }
+        if position.cmpge(IVec3::splat(CHUNK_SIZE)).any() {
+            return None;
+        }
 
         let blocks = self.blocks.as_mut().unwrap();
 
@@ -85,7 +100,7 @@ impl Chunk {
         let paletted = blocks[linearized];
 
         blocks[linearized] = BlockType::Air;
-        
+
         Some(paletted)
     }
 
@@ -93,9 +108,13 @@ impl Chunk {
     pub fn get(&self, position: impl Into<IVec3>) -> Option<BlockType> {
         let position = position.into();
 
-        if position.cmplt(IVec3::ZERO).any() { return None }
+        if position.cmplt(IVec3::ZERO).any() {
+            return None;
+        }
 
-        if position.cmpge(IVec3::splat(CHUNK_SIZE)).any() { return None }
+        if position.cmpge(IVec3::splat(CHUNK_SIZE)).any() {
+            return None;
+        }
 
         let blocks = self.blocks.as_ref().unwrap();
 
@@ -104,24 +123,20 @@ impl Chunk {
 
     #[inline]
     pub fn iter(&self) -> impl Iterator<Item = BlockType> {
-        self.blocks.as_ref().unwrap()
-            .iter()
-            .copied()
+        self.blocks.as_ref().unwrap().iter().copied()
     }
 
     #[inline]
     pub fn iter_with_position(&self) -> impl Iterator<Item = (IVec3, BlockType)> {
         let blocks = self.blocks.as_ref().unwrap();
 
-        blocks.iter()
-            .enumerate()
-            .map(|(i, &block)| {
-                let x = (i & 0xF) as i32;
-                let z = ((i >> 4) & 0xF) as i32;
-                let y = (i >> 8) as i32;
+        blocks.iter().enumerate().map(|(i, &block)| {
+            let x = (i & 0xF) as i32;
+            let z = ((i >> 4) & 0xF) as i32;
+            let y = (i >> 8) as i32;
 
-                (IVec3::new(x, y, z), block)
-            })
+            (IVec3::new(x, y, z), block)
+        })
     }
 
     #[inline]
@@ -222,8 +237,8 @@ impl Hash for ChunkPos {
     }
 }
 
-impl fmt::Display for ChunkPos {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+impl Display for ChunkPos {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "[{}, {}, {}]", self.x, self.y, self.z)
     }
 }

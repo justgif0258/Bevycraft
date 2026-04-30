@@ -6,19 +6,25 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+# Bevycraft API
 bevycraft_core.workspace = true
 bevycraft_world.workspace = true
 
+# Bevy
 bevy.workspace = true
+bevy_dylib.workspace = true
 
-image.workspace = true
-
-serde.workspace = true
-ron.workspace = true
-
+# Parallelism
 crossbeam.workspace = true
 
+# Hashing
 frozen-collections.workspace = true
 rapidhash.workspace = true
 
+# Serialization
+serde.workspace = true
+ron.workspace = true
+
+#Utilities
+image.workspace = true
 bitflags.workspace = true

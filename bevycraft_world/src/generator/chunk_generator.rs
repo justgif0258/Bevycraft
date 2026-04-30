@@ -1,6 +1,8 @@
 use std::sync::Arc;
-use bevy::prelude::Resource;
-use crate::prelude::{BlockRecord, Chunk, ChunkPos};
+
+use bevy::ecs::resource::Resource;
+
+use crate::prelude::{Chunk, ChunkPos};
 
 #[derive(Resource)]
 pub struct ChunkSource {
@@ -30,10 +32,10 @@ impl ChunkGenerator for ChunkSource {
     fn seed(&self) -> i32 {
         self.generator.seed()
     }
-    
+
     #[inline(always)]
-    fn fill(&self, position: ChunkPos, chunk: &mut Chunk, blocks: BlockRecord) {
-        self.generator.fill(position, chunk, blocks);
+    fn fill(&self, position: ChunkPos, chunk: &mut Chunk) {
+        self.generator.fill(position, chunk);
     }
 
     #[inline(always)]
@@ -42,33 +44,23 @@ impl ChunkGenerator for ChunkSource {
     }
 
     #[inline(always)]
-    fn place_features(&self, position: ChunkPos, chunk: &mut Chunk, blocks: BlockRecord) {
-        self.generator.place_features(position, chunk, blocks);
+    fn place_features(&self, position: ChunkPos, chunk: &mut Chunk) {
+        self.generator.place_features(position, chunk);
     }
 }
 
 pub trait ChunkGenerator: Send + Sync + 'static {
     fn seed(&self) -> i32;
-    
-    fn fill(
-        &self,
-        position: ChunkPos,
-        chunk: &mut Chunk,
-        blocks: BlockRecord,
-    );
-    
+
+    fn fill(&self, position: ChunkPos, chunk: &mut Chunk);
+
     #[allow(unused_variables)]
-    fn carve(
-        &self,
-        position: ChunkPos,
-        chunk: &mut Chunk,
-    ) { return; }
-    
+    fn carve(&self, position: ChunkPos, chunk: &mut Chunk) {
+        return;
+    }
+
     #[allow(unused_variables)]
-    fn place_features(
-        &self,
-        position: ChunkPos,
-        chunk: &mut Chunk,
-        blocks: BlockRecord,
-    ) { return; }
+    fn place_features(&self, position: ChunkPos, chunk: &mut Chunk) {
+        return;
+    }
 }

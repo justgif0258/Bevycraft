@@ -5,10 +5,16 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+# Bevy
 bevy.workspace = true
+bevy_dylib.workspace = true
 
+#Hashing
 rapidhash.workspace = true
 boomphf.workspace = true
 
+# Utilities
 serde.workspace = true
 bitcode.workspace = true
+bitflags.workspace = true
+builder-pattern.workspace = true

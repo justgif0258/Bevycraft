@@ -6,19 +6,24 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+# Bevycraft API
 bevycraft_core.workspace = true
 
+# Bevy
 bevy.workspace = true
+bevy_dylib.workspace = true
 
+# Parallelism
 rayon.workspace = true
 dashmap.workspace = true
 crossbeam.workspace = true
 
+# Hashing
 rapidhash.workspace = true
 boomphf.workspace = true
 
+# Utilities
 bitflags.workspace = true
-
 builder-pattern.workspace = true
 simdnoise.workspace = true
 fastrand.workspace = true

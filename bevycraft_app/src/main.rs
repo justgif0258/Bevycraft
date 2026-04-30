@@ -15,9 +15,7 @@ use bevy::{
 };
 use bevycraft_app::{AppState, GlobalRecords, Player, systems::register::bootstrap_registries};
 use bevycraft_core::prelude::{AssetLocation, Record};
-use bevycraft_render::prelude::{
-    ArrayTexture, BlockMeshCache, RModel, RModelManager, VertexMaterial,
-};
+use bevycraft_render::prelude::{ArrayTexture, BlockMeshCache, RModel, VertexMaterial};
 use bevycraft_world::prelude::BlockType;
 
 const BLOCK_RESOLUTION: u32 = 8;
@@ -29,13 +27,18 @@ fn main() -> AppExit {
             FreeCameraPlugin,
             MaterialPlugin::<VertexMaterial>::default(),
         ))
-        .insert_resource(Time::<Fixed>::from_hz(64.0))
         .init_state::<AppState>()
+        .init_resource::<AssetsLoading>()
+        .insert_resource(Time::<Fixed>::from_hz(64.0))
         .add_systems(
             OnEnter(AppState::LoadingContent),
             (bootstrap_registries, init).chain(),
         )
-        .add_systems(OnEnter(AppState::BakingRenderers), bake_renderers)
+        .add_systems(
+            FixedPostUpdate,
+            wait_models_to_load.run_if(in_state(AppState::WaitingForServer)),
+        )
+        .add_systems(OnEnter(AppState::MeshCaching), bake_renderers)
         .add_systems(OnEnter(AppState::InGame), (setup_world,).chain())
         // .add_systems(FixedUpdate, (
         // ).run_if(in_state(AppState::InGame)))
@@ -77,7 +80,7 @@ fn wait_models_to_load(
         .all(|(h, _): (Handle<RModel>, _)| server.is_loaded_with_dependencies(h));
 
     if ready {
-        state.set(AppState::BakingRenderers);
+        state.set(AppState::MeshCaching);
     }
 }
 
@@ -174,15 +177,4 @@ fn setup_world(
 }
 
 #[derive(Resource, Default)]
-pub struct TexturesHolder {
-    pub storage: Vec<(AssetLocation, Handle<Image>)>,
-}
-
-impl TexturesHolder {
-    #[inline]
-    fn all_loaded(&self, asset_server: &AssetServer) -> bool {
-        self.storage
-            .iter()
-            .all(|(_, handle)| asset_server.is_loaded_with_dependencies(handle))
-    }
-}
+pub struct AssetsLoading(Vec<UntypedHandle>);

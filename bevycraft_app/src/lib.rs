@@ -1,7 +1,7 @@
-use std::sync::Arc;
 use bevy::prelude::{Component, Resource, States};
 use bevycraft_render::prelude::{ArrayTexture, BlockMeshCache, RModelManager};
 use bevycraft_world::prelude::BlockRecord;
+use std::sync::Arc;
 
 pub mod systems;
 
@@ -9,8 +9,9 @@ pub mod systems;
 pub enum AppState {
     #[default]
     LoadingContent,
+    LockingRegistries,
     WaitingForServer,
-    BakingRenderers,
+    MeshCaching,
     InGame,
 }
 
@@ -20,7 +21,7 @@ pub struct Player;
 #[derive(Resource)]
 pub struct BlockRenderer {
     pub meshes: Arc<BlockMeshCache>,
-    pub materials: Arc<ArrayTexture>
+    pub materials: Arc<ArrayTexture>,
 }
 
 impl Clone for BlockRenderer {
@@ -28,7 +29,7 @@ impl Clone for BlockRenderer {
     fn clone(&self) -> Self {
         Self {
             meshes: self.meshes.clone(),
-            materials: self.materials.clone()
+            materials: self.materials.clone(),
         }
     }
 }
@@ -50,8 +51,13 @@ impl Clone for GlobalRecords {
 #[derive(Resource)]
 pub struct BevycraftClient(Arc<BevycraftClientInner>);
 
+impl BevycraftClient {
+    pub fn new(textures: ArrayTexture, meshes: BlockMeshCache) -> Self {
+        Self(Arc::new(BevycraftClientInner { textures, meshes }))
+    }
+}
+
 struct BevycraftClientInner {
-    rmodel_manager: RModelManager,
     textures: ArrayTexture,
     meshes: BlockMeshCache,
 }
