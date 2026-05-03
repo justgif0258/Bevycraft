@@ -1,14 +1,12 @@
 use std::sync::OnceLock;
 
-use crate::prelude::{Block, DefaultedRegistry, ErasedRegistry, OrderedRegistry};
+use crate::prelude::{Block, DefaultedRegistry};
 
-pub static ROOT: OnceLock<OrderedRegistry<&'static dyn ErasedRegistry>> = OnceLock::new();
+static BLOCKS: OnceLock<DefaultedRegistry<Block>> = OnceLock::new();
 
-pub static BLOCKS: OnceLock<DefaultedRegistry<Block>> = OnceLock::new();
+pub struct GameRegistries;
 
-pub struct CoreRegistries;
-
-impl CoreRegistries {
+impl GameRegistries {
     #[inline(always)]
     pub fn blocks() -> &'static DefaultedRegistry<Block> {
         BLOCKS.get().expect("Cannot access uninitialized registry")

@@ -3,6 +3,8 @@ use std::any::TypeId;
 use crate::prelude::{AssetLocation, Registrable, RegistrationError, Registry};
 
 pub trait ErasedRegistry: Send + Sync + 'static {
+    fn erased_iter(&self) -> Box<dyn Iterator<Item = (&AssetLocation, &dyn Registrable)> + '_>;
+
     fn erased_keys(&self) -> Box<dyn Iterator<Item = &AssetLocation> + '_>;
 
     fn contains_erased(&self, location: &AssetLocation) -> bool;
@@ -26,6 +28,14 @@ pub trait ErasedRegistry: Send + Sync + 'static {
     fn registry_id(&self) -> TypeId;
 
     #[inline(always)]
+    fn erase_registry_mut(&mut self) -> &mut dyn ErasedRegistry
+    where
+        Self: Sized,
+    {
+        self
+    }
+
+    #[inline(always)]
     fn erase_registry(&self) -> &dyn ErasedRegistry
     where
         Self: Sized,
@@ -35,6 +45,14 @@ pub trait ErasedRegistry: Send + Sync + 'static {
 }
 
 impl<R: Registry> ErasedRegistry for R {
+    #[inline]
+    fn erased_iter(&self) -> Box<dyn Iterator<Item = (&AssetLocation, &dyn Registrable)> + '_> {
+        Box::new(
+            self.iter()
+                .map(|(key, value)| (key, value.as_registrable())),
+        )
+    }
+
     #[inline]
     fn erased_keys(&self) -> Box<dyn Iterator<Item = &AssetLocation> + '_> {
         Box::new(self.keys())
@@ -47,12 +65,12 @@ impl<R: Registry> ErasedRegistry for R {
 
     #[inline]
     fn get_erased_by_key(&self, location: &AssetLocation) -> Option<&dyn Registrable> {
-        self.get_by_key(location).map(|v| v as &dyn Registrable)
+        self.get_by_key(location).map(|v| v.as_registrable())
     }
 
     #[inline]
     fn get_erased_by_idx(&self, index: usize) -> Option<&dyn Registrable> {
-        self.get_by_idx(index).map(|v| v as &dyn Registrable)
+        self.get_by_idx(index).map(|v| v.as_registrable())
     }
 
     #[inline]
@@ -80,7 +98,7 @@ impl<R: Registry> ErasedRegistry for R {
             return self.register(location, *downcasted);
         }
 
-        Err(RegistrationError::DowncastFailed)
+        Err(RegistrationError::DowncastingFailure)
     }
 
     #[inline(always)]
@@ -93,28 +111,28 @@ impl dyn ErasedRegistry {
     #[inline(always)]
     pub fn downcast<R: Registry>(self: Box<Self>) -> Result<Box<R>, Box<Self>> {
         if self.is::<R>() {
-            unsafe { Ok(self.downcast_unchecked()) }
-        } else {
-            Err(self)
+            unsafe { return Ok(self.downcast_unchecked()) }
         }
+
+        Err(self)
     }
 
     #[inline(always)]
     pub fn downcast_mut<R: Registry>(&mut self) -> Option<&mut R> {
         if self.is::<R>() {
-            unsafe { Some(self.downcast_mut_unchecked::<R>()) }
-        } else {
-            None
+            unsafe { return Some(self.downcast_mut_unchecked::<R>()) }
         }
+
+        None
     }
 
     #[inline(always)]
     pub fn downcast_ref<R: Registry>(&self) -> Option<&R> {
         if self.is::<R>() {
-            unsafe { Some(self.downcast_ref_unchecked::<R>()) }
-        } else {
-            None
+            unsafe { return Some(self.downcast_ref_unchecked::<R>()) }
         }
+
+        None
     }
 
     #[inline(always)]

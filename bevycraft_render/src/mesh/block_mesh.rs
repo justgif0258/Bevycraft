@@ -65,12 +65,11 @@ impl MeshCacheBuilder {
     #[inline]
     pub fn bake_and_add_mesh(
         &mut self,
-        manager: &RModelManager,
         array_texture: &ArrayTexture,
         model: &RModel,
         block_id: BlockType,
     ) -> Result<(), Vec<String>> {
-        let mesh = BlockMesh::new(model, &manager, &array_texture);
+        let mesh = BlockMesh::new(model, &array_texture);
 
         match mesh {
             Ok(mesh) => {
@@ -102,95 +101,79 @@ pub struct BlockMesh {
 
 impl BlockMesh {
     #[inline]
-    pub fn new(
-        model: &RModel,
-        manager: &RModelManager,
-        textures: &ArrayTexture,
-    ) -> Result<Self, Vec<String>> {
+    pub fn new(model: &RModel, textures: &ArrayTexture) -> Result<Self, Vec<String>> {
         let mut errors: Vec<String> = Vec::new();
 
         let mut buckets: [Vec<Quad>; 6] = Default::default();
         let mut inner_faces: Vec<Quad> = Vec::new();
 
-        let geometry = if let Some(elements) = &model.elements {
-            elements
-        } else if let Some(elements) = manager.try_load_parent(&model) {
-            elements
-        } else {
-            errors.push("Failed to bake block mesh elements".to_string());
+        model.elements.iter().for_each(|element| {
+            element.faces.iter().for_each(|(direction, face)| {
+                /*
+                match Facing::try_from(direction.as_str()) {
+                    Err(e) => errors.push(e.to_string()),
+                    Ok(facing) => {
+                        let texture = match face.texture.strip_prefix('#') {
+                            None => AssetLocation::try_parse(&face.texture).ok(),
+                            Some(key) => textures_names.get(key).cloned(),
+                        };
 
-            return Err(errors);
-        };
+                        if let Some(texture_location) = &texture
+                            && let Some(texture) = textures.get_texture_id(texture_location)
+                        {
+                            let scaled_min = [
+                                element.from[0] * VERTEX_SCALING,
+                                element.from[1] * VERTEX_SCALING,
+                                element.from[2] * VERTEX_SCALING
+                            ];
 
-        if let Some(textures_names) = &model.textures {
-            geometry.iter().for_each(|element| {
-                element.faces.iter().for_each(|(direction, face)| {
-                    /*
-                    match Facing::try_from(direction.as_str()) {
-                        Err(e) => errors.push(e.to_string()),
-                        Ok(facing) => {
-                            let texture = match face.texture.strip_prefix('#') {
-                                None => AssetLocation::try_parse(&face.texture).ok(),
-                                Some(key) => textures_names.get(key).cloned(),
-                            };
+                            let scaled_max = [
+                                element.to[0] * VERTEX_SCALING,
+                                element.to[1] * VERTEX_SCALING,
+                                element.to[2] * VERTEX_SCALING
+                            ];
 
-                            if let Some(texture_location) = &texture
-                                && let Some(texture) = textures.get_texture_id(texture_location)
-                            {
-                                let scaled_min = [
-                                    element.from[0] * VERTEX_SCALING,
-                                    element.from[1] * VERTEX_SCALING,
-                                    element.from[2] * VERTEX_SCALING
-                                ];
+                            let scaled_uv = [
+                                face.uv[0] * VERTEX_SCALING,
+                                face.uv[1] * VERTEX_SCALING,
+                                face.uv[2] * VERTEX_SCALING,
+                                face.uv[3] * VERTEX_SCALING
+                            ];
 
-                                let scaled_max = [
-                                    element.to[0] * VERTEX_SCALING,
-                                    element.to[1] * VERTEX_SCALING,
-                                    element.to[2] * VERTEX_SCALING
-                                ];
+                            let mut quad = Quad::new(
+                                scaled_min,
+                                scaled_max,
+                                scaled_uv,
+                                texture,
+                                face.render_mode,
+                                face.tintable,
+                                facing,
+                            );
 
-                                let scaled_uv = [
-                                    face.uv[0] * VERTEX_SCALING,
-                                    face.uv[1] * VERTEX_SCALING,
-                                    face.uv[2] * VERTEX_SCALING,
-                                    face.uv[3] * VERTEX_SCALING
-                                ];
+                            if let Some(rot) = &element.rotation {
+                                let origin = Vec3::from(rot.origin) * VERTEX_SCALING;
 
-                                let mut quad = Quad::new(
-                                    scaled_min,
-                                    scaled_max,
-                                    scaled_uv,
-                                    texture,
-                                    face.render_mode,
-                                    face.tintable,
-                                    facing,
+                                quad.rotate(
+                                    origin,
+                                    rot.x,
+                                    rot.y,
+                                    rot.z,
                                 );
-
-                                if let Some(rot) = &element.rotation {
-                                    let origin = Vec3::from(rot.origin) * VERTEX_SCALING;
-
-                                    quad.rotate(
-                                        origin,
-                                        rot.x,
-                                        rot.y,
-                                        rot.z,
-                                    );
-                                }
-
-                                if let Some(cullface) = &face.cullface {
-                                    buckets[*cullface as usize].push(quad);
-                                } else {
-                                    inner_faces.push(quad);
-                                }
-                            } else {
-                                errors.push(format!("Failed to load texture {} for {} face", &face.texture, facing))
                             }
+
+                            if let Some(cullface) = &face.cullface {
+                                buckets[*cullface as usize].push(quad);
+                            } else {
+                                inner_faces.push(quad);
+                            }
+                        } else {
+                            errors.push(format!("Failed to load texture {} for {} face", &face.texture, facing))
                         }
                     }
-                     */
-                })
+                }
+                 */
             })
-        }
+        });
 
         if !errors.is_empty() {
             return Err(errors);

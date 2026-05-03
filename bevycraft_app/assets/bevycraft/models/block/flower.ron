@@ -10,9 +10,9 @@
                 z: 0.0
             ),
             faces: {
-               "west": (uv: (0.0, 0.0, 8.0, 8.0), texture: "#all"),
-               "east": (uv: (0.0, 0.0, 8.0, 8.0), texture: "#all"),
-           },
+                west: (uv: (0.0, 0.0, 8.0, 8.0), texture: "#all", render_mode: cutout),
+                east: (uv: (0.0, 0.0, 8.0, 8.0), texture: "#all", render_mode: cutout),
+            },
         ),
         (
             from: (0.0, 0.0, 4.0),
@@ -24,9 +24,9 @@
                 z: 0.0
             ),
             faces: {
-                "north": (uv: (0.0, 0.0, 8.0, 8.0), texture: "#all"),
-                "south": (uv: (0.0, 0.0, 8.0, 8.0), texture: "#all"),
-           },
+                north: (uv: (0.0, 0.0, 8.0, 8.0), texture: "#all", render_mode: cutout),
+                south: (uv: (0.0, 0.0, 8.0, 8.0), texture: "#all", render_mode: cutout),
+            },
         )
     ],
 )

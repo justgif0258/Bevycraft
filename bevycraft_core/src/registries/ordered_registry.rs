@@ -28,6 +28,13 @@ impl<T: Registrable> Registry for OrderedRegistry<T> {
     type Item = T;
 
     #[inline]
+    fn iter(&self) -> impl Iterator<Item = (&AssetLocation, &Self::Item)> {
+        self.key_to_idx
+            .iter()
+            .map(|(key, &idx)| (key, &self.values[idx]))
+    }
+
+    #[inline]
     fn keys(&self) -> impl Iterator<Item = &AssetLocation> {
         self.key_to_idx.keys()
     }
@@ -39,7 +46,10 @@ impl<T: Registrable> Registry for OrderedRegistry<T> {
 
     #[inline]
     fn get_by_key(&self, location: &AssetLocation) -> Option<&T> {
-        self.key_to_idx.get(location).map(|idx| &self.values[*idx])
+        self.key_to_idx
+            .get(location)
+            .copied()
+            .map(|idx| &self.values[idx])
     }
 
     #[inline]

@@ -1,8 +1,6 @@
 use crate::prelude::*;
 use bevy::math::bounding::Aabb3d;
 use builder_pattern::Builder;
-use std::collections::BTreeMap;
-use std::marker::PhantomData;
 
 #[derive(Builder, Debug, PartialEq)]
 pub struct Block {
@@ -15,11 +13,6 @@ pub struct Block {
     #[public]
     #[default(Box::new([]))]
     shapes: Box<[Aabb3d]>,
-
-    #[into]
-    #[public]
-    #[default(Attachments::new())]
-    attachments: Attachments,
 }
 
 impl Default for Block {
@@ -28,7 +21,6 @@ impl Default for Block {
         Self {
             behaviour: BlockBehaviour::default(),
             shapes: Box::new([]),
-            attachments: Attachments::new(),
         }
     }
 }
@@ -57,7 +49,7 @@ impl Block {
 
     #[inline(always)]
     pub const fn viscosity(&self) -> f32 {
-        self.behaviour.viscosity
+        self.behaviour.bounciness
     }
 
     #[inline(always)]
@@ -71,24 +63,8 @@ impl Block {
     }
 
     #[inline(always)]
-    pub const fn greedy_meshable(&self) -> bool {
-        self.behaviour.flags.contains(BlockFlags::GREEDY_MESHABLE)
-    }
-
-    #[inline(always)]
-    pub const fn opaque(&self) -> bool {
-        !self.behaviour.flags.contains(BlockFlags::CUTOUT)
-            && !self.behaviour.flags.contains(BlockFlags::TRANSLUCENT)
-    }
-
-    #[inline(always)]
-    pub const fn cutout(&self) -> bool {
-        self.behaviour.flags.contains(BlockFlags::CUTOUT)
-    }
-
-    #[inline(always)]
-    pub const fn translucent(&self) -> bool {
-        self.behaviour.flags.contains(BlockFlags::TRANSLUCENT)
+    pub const fn see_through(&self) -> bool {
+        self.behaviour.flags.contains(BlockFlags::SEE_THROUGH)
     }
 
     #[inline(always)]
@@ -124,53 +100,5 @@ impl Block {
     #[inline(always)]
     pub const fn shapes(&self) -> &[Aabb3d] {
         &self.shapes
-    }
-
-    #[inline(always)]
-    pub fn get_attachment<T: Registrable>(&self, attachment: AttachmentAttribute<T>) -> Option<&T> {
-        self.attachments.get(attachment)
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub struct Attachments(BTreeMap<&'static str, Box<dyn Registrable>>);
-
-impl Attachments {
-    #[inline]
-    pub const fn new() -> Self {
-        Self(BTreeMap::new())
-    }
-
-    #[inline]
-    pub fn attach<T: Registrable>(mut self, attachment: AttachmentAttribute<T>, value: T) {
-        assert!(
-            !self.0.contains_key(&attachment.name),
-            "Duplicate attachment name"
-        );
-
-        self.0.insert(attachment.name, Box::new(value));
-    }
-
-    #[inline(always)]
-    pub fn get<T: Registrable>(&self, attachment: AttachmentAttribute<T>) -> Option<&T> {
-        self.0
-            .get(&attachment.name)
-            .map(|b| b.as_ref().downcast_ref::<T>().unwrap())
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct AttachmentAttribute<T: Registrable> {
-    name: &'static str,
-    _marker: PhantomData<T>,
-}
-
-impl<T: Registrable> AttachmentAttribute<T> {
-    #[inline(always)]
-    pub const fn new(name: &'static str) -> Self {
-        Self {
-            name,
-            _marker: PhantomData,
-        }
     }
 }

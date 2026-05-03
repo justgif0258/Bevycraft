@@ -10,6 +10,8 @@ use crate::prelude::AssetLocation;
 pub trait Registry: Send + Sync + 'static {
     type Item: Registrable;
 
+    fn iter(&self) -> impl Iterator<Item = (&AssetLocation, &Self::Item)>;
+
     fn keys(&self) -> impl Iterator<Item = &AssetLocation>;
 
     fn contains_key(&self, location: &AssetLocation) -> bool;
@@ -29,25 +31,6 @@ pub trait Registry: Send + Sync + 'static {
         location: AssetLocation,
         value: Self::Item,
     ) -> Result<(), RegistrationError>;
-}
-
-#[derive(Debug)]
-pub enum RegistrationError {
-    DuplicateKey,
-    DowncastFailed,
-    Custom(String),
-}
-
-impl std::error::Error for RegistrationError {}
-
-impl std::fmt::Display for RegistrationError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            RegistrationError::DuplicateKey => f.write_str("Attempted to write on duplicated key"),
-            RegistrationError::DowncastFailed => f.write_str("Failed to downcast registration"),
-            RegistrationError::Custom(msg) => write!(f, "{}", msg),
-        }
-    }
 }
 
 /// # Registrable
@@ -152,5 +135,24 @@ impl Hash for dyn Registrable {
     #[inline(always)]
     fn hash<H: Hasher>(&self, state: &mut H) {
         state.write_u128(unsafe { std::mem::transmute(self) });
+    }
+}
+
+#[derive(Debug)]
+pub enum RegistrationError {
+    DuplicateKey,
+    DowncastingFailure,
+    Custom(String),
+}
+
+impl std::error::Error for RegistrationError {}
+
+impl std::fmt::Display for RegistrationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RegistrationError::DuplicateKey => f.write_str("Attempted to write on duplicated key"),
+            RegistrationError::DowncastingFailure => f.write_str("Failed to downcast registration"),
+            RegistrationError::Custom(msg) => write!(f, "{}", msg),
+        }
     }
 }

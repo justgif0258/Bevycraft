@@ -18,7 +18,7 @@ pub struct AssetLocation {
 
 impl Debug for AssetLocation {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("RegistrationId")
+        f.debug_struct("AssetLocation")
             .field("namespace", &self.namespace)
             .field("path", &self.path)
             .finish()
@@ -92,7 +92,10 @@ impl AssetLocation {
     }
 
     #[inline(always)]
-    pub fn try_with_custom_namespace<'a>(namespace: &'a str, path: &'a str) -> Result<Self, AssetLocationError<'a>> {
+    pub fn try_with_custom_namespace<'a>(
+        namespace: &'a str,
+        path: &'a str,
+    ) -> Result<Self, AssetLocationError<'a>> {
         Self::try_new(namespace, path)
     }
 
@@ -130,13 +133,17 @@ impl AssetLocation {
                 let slice = slice::from_raw_parts(bytes.as_ptr(), i);
 
                 from_utf8_unchecked(slice)
-            } else { Self::DEFAULT_NAMESPACE };
+            } else {
+                Self::DEFAULT_NAMESPACE
+            };
 
             let path = if has_separator {
                 let slice = slice::from_raw_parts(bytes.as_ptr().add(i + 1), bytes.len() - i - 1);
 
                 from_utf8_unchecked(slice)
-            } else { location };
+            } else {
+                location
+            };
 
             Self::new(namespace, path)
         }
@@ -157,7 +164,10 @@ impl AssetLocation {
         assert!(Self::can_use_namespace(namespace), "Invalid namespace name");
         assert!(Self::can_use_path(path), "Invalid path name");
 
-        Self { namespace: Cow::Borrowed(namespace), path: Cow::Borrowed(path) }
+        Self {
+            namespace: Cow::Borrowed(namespace),
+            path: Cow::Borrowed(path),
+        }
     }
 
     #[inline(always)]

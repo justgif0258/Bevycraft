@@ -1,5 +1,5 @@
+use crate::prelude::BlockFlags;
 use builder_pattern::Builder;
-use crate::prelude::{BlockFlags};
 
 #[derive(Builder, Debug, Clone, PartialEq)]
 pub struct BlockBehaviour {
@@ -21,7 +21,7 @@ pub struct BlockBehaviour {
     #[into]
     #[public]
     #[default(0.0)]
-    pub(super) viscosity: f32,
+    pub(super) bounciness: f32,
 
     #[into]
     #[public]
@@ -63,8 +63,8 @@ impl BlockBehaviour {
     }
 
     #[inline(always)]
-    pub const fn viscosity(&self) -> f32 {
-        self.viscosity
+    pub const fn bounciness(&self) -> f32 {
+        self.bounciness
     }
 
     #[inline(always)]
@@ -78,24 +78,8 @@ impl BlockBehaviour {
     }
 
     #[inline(always)]
-    pub const fn greedy_meshable(&self) -> bool {
-        self.flags.contains(BlockFlags::GREEDY_MESHABLE)
-    }
-    
-    #[inline(always)]
-    pub const fn opaque(&self) -> bool {
-        !self.flags.contains(BlockFlags::CUTOUT)
-            && !self.flags.contains(BlockFlags::TRANSLUCENT)
-    }
-    
-    #[inline(always)]
-    pub const fn cutout(&self) -> bool {
-        self.flags.contains(BlockFlags::CUTOUT)
-    }
-
-    #[inline(always)]
-    pub const fn translucent(&self) -> bool {
-        self.flags.contains(BlockFlags::TRANSLUCENT)
+    pub const fn see_through(&self) -> bool {
+        self.flags.contains(BlockFlags::SEE_THROUGH)
     }
 
     #[inline(always)]

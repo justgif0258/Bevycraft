@@ -1,19 +1,22 @@
+use crate::prelude::{RenderMode, TextureId};
 use bevy::mesh::*;
 use bevy::pbr::*;
 use bevy::prelude::*;
 use bevy::render::render_resource::*;
 use bevy::shader::{ShaderDefVal, ShaderRef};
-use crate::prelude::{RenderMode, TextureId};
 
-pub const ATTRIBUTE_TEXTURE_LAYER: MeshVertexAttribute =
-    MeshVertexAttribute::new("Vertex_Layer", Mesh::FIRST_AVAILABLE_CUSTOM_ATTRIBUTE, VertexFormat::Uint32);
+pub const ATTRIBUTE_TEXTURE_LAYER: MeshVertexAttribute = MeshVertexAttribute::new(
+    "Vertex_Layer",
+    Mesh::FIRST_AVAILABLE_CUSTOM_ATTRIBUTE,
+    VertexFormat::Uint32,
+);
 
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 pub struct VertexMaterial {
     #[texture(0, dimension = "2d_array")]
     #[sampler(1)]
     pub array_texture: Handle<Image>,
-    
+
     pub render_mode: RenderMode,
 }
 
@@ -52,7 +55,7 @@ impl Material for VertexMaterial {
         _pipeline: &MaterialPipeline,
         descriptor: &mut RenderPipelineDescriptor,
         layout: &MeshVertexBufferLayoutRef,
-        _key: MaterialPipelineKey<Self>
+        _key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         let mut shader_defs: Vec<ShaderDefVal> = vec![];
 
@@ -60,7 +63,7 @@ impl Material for VertexMaterial {
             Mesh::ATTRIBUTE_POSITION.at_shader_location(0),
             Mesh::ATTRIBUTE_NORMAL.at_shader_location(1),
             Mesh::ATTRIBUTE_UV_0.at_shader_location(2),
-            ATTRIBUTE_TEXTURE_LAYER.at_shader_location(8)
+            ATTRIBUTE_TEXTURE_LAYER.at_shader_location(8),
         ];
 
         if layout.0.contains(Mesh::ATTRIBUTE_TANGENT) {
@@ -89,10 +92,10 @@ impl Material for VertexMaterial {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Vertex {
     pub position: [f32; 3],
-    pub uv      : [f32; 2],
-    pub normal  : [f32; 3],
-    pub texture : TextureId,
+    pub uv: [f32; 2],
+    pub normal: [f32; 3],
+    pub texture: TextureId,
 }

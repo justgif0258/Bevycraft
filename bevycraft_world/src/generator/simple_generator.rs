@@ -1,4 +1,4 @@
-use bevycraft_core::prelude::{AssetLocation, BlockType, CoreRegistries};
+use bevycraft_core::prelude::{AssetLocation, BlockType, GameRegistries};
 use simdnoise::NoiseBuilder;
 
 use crate::prelude::{CHUNK_SIZE, Chunk, ChunkGenerator, ChunkPos};
@@ -87,7 +87,7 @@ impl ChunkGenerator for SimpleGenerator {
 
 #[inline(always)]
 fn get_block_type(name: &'static str) -> BlockType {
-    CoreRegistries::blocks()
+    GameRegistries::blocks()
         .key_to_type(&AssetLocation::parse(name))
-        .unwrap()
+        .unwrap_or(BlockType::Air)
 }

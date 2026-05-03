@@ -1,29 +1,29 @@
-use std::fmt::{Display, Formatter};
-use std::ops::Not;
+use crate::prelude::{TextureId, Vertex};
 use bevy::math::EulerRot;
 use bevy::prelude::{Quat, Vec3};
 use serde::{Deserialize, Serialize};
-use crate::prelude::{TextureId, Vertex};
+use std::fmt::{Display, Formatter};
+use std::ops::Not;
 
 pub const NEUTRAL_TINT: [f32; 4] = [1.0; 4];
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Quad {
-    vertices    : [Vertex; 4],
-    render_mode : RenderMode,
-    tintable    : bool,
+    vertices: [Vertex; 4],
+    render_mode: RenderMode,
+    tintable: bool,
 }
 
 impl Quad {
     #[inline]
     pub fn new(
-        min     : [f32; 3],
-        max     : [f32; 3],
-        uv      : [f32; 4],
-        texture : TextureId,
-        mode    : RenderMode,
+        min: [f32; 3],
+        max: [f32; 3],
+        uv: [f32; 4],
+        texture: TextureId,
+        mode: RenderMode,
         tintable: bool,
-        facing  : Facing,
+        facing: Facing,
     ) -> Self {
         Self {
             vertices: build_vertex_array(min, max, uv, texture, facing),
@@ -33,18 +33,12 @@ impl Quad {
     }
 
     #[inline]
-    pub fn rotate(
-        &mut self,
-        origin: Vec3,
-        x:      f32,
-        y:      f32,
-        z:      f32
-    ) {
+    pub fn rotate(&mut self, origin: Vec3, x: f32, y: f32, z: f32) {
         let rotation = Quat::from_euler(
             EulerRot::XYZ,
             x.to_radians(),
             y.to_radians(),
-            z.to_radians()
+            z.to_radians(),
         );
 
         for vertex in self.vertices.iter_mut() {
@@ -120,15 +114,25 @@ impl Quad {
     }
 }
 
-#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
+#[derive(Deserialize, Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Facing {
-    PosX = 0, NegX = 1,
-    PosY = 2, NegY = 3,
-    PosZ = 4, NegZ = 5,
+    #[serde(rename = "east")]
+    PosX = 0,
+    #[serde(rename = "west")]
+    NegX = 1,
+
+    #[serde(rename = "up")]
+    PosY = 2,
+    #[serde(rename = "down")]
+    NegY = 3,
+
+    #[serde(rename = "south")]
+    PosZ = 4,
+    #[serde(rename = "north")]
+    NegZ = 5,
 }
 
 impl Facing {
-
     #[inline(always)]
     pub const fn get_normal(self) -> [f32; 3] {
         match self {
@@ -138,32 +142,6 @@ impl Facing {
             Facing::NegY => [0.0, -1.0, 0.0],
             Facing::PosZ => [0.0, 0.0, 1.0],
             Facing::NegZ => [0.0, 0.0, -1.0],
-        }
-    }
-
-    #[inline(always)]
-    fn from_str(str: impl AsRef<str>) -> Result<Self, String> {
-        match str.as_ref() {
-            "east" => Ok(Facing::PosX),
-            "west" => Ok(Facing::NegX),
-            "up" => Ok(Facing::PosY),
-            "down" => Ok(Facing::NegY),
-            "south" => Ok(Facing::PosZ),
-            "north" => Ok(Facing::NegZ),
-            _ => Err(format!("Unknown face direction: {}", str.as_ref())),
-        }
-    }
-
-    #[inline(always)]
-    const fn from_value(value: u8) -> Result<Self, &'static str> {
-        match value {
-            0 => Ok(Facing::PosX),
-            1 => Ok(Facing::NegX),
-            2 => Ok(Facing::PosY),
-            3 => Ok(Facing::NegY),
-            4 => Ok(Facing::PosZ),
-            5 => Ok(Facing::NegZ),
-            _ => Err("Invalid facing value")
         }
     }
 }
@@ -198,60 +176,12 @@ impl Not for Facing {
     }
 }
 
-impl TryFrom<usize> for Facing {
-    type Error = &'static str;
-
-    #[inline(always)]
-    fn try_from(value: usize) -> Result<Self, Self::Error> {
-        Self::from_value(value as u8)
-    }
-}
-
-impl TryFrom<u8> for Facing {
-    type Error = &'static str;
-
-    #[inline(always)]
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        Self::from_value(value)
-    }
-}
-
-impl<'a> TryFrom<&'a str> for Facing {
-    type Error = String;
-
-    #[inline(always)]
-    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
-        Self::from_str(value)
-    }
-}
-
-impl TryFrom<String> for Facing {
-    type Error = String;
-
-    #[inline(always)]
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        Self::from_str(value)
-    }
-}
-
 #[derive(Deserialize, Serialize, Debug, Clone, Copy, Eq, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum RenderMode {
     Opaque = 0,
     Cutout = 1,
     Translucent = 2,
-}
-
-impl RenderMode {
-    #[inline(always)]
-    pub fn from_str(str: impl AsRef<str>) -> Result<Self, String> {
-        match str.as_ref() {
-            "opaque" => Ok(RenderMode::Opaque),
-            "cutout" => Ok(RenderMode::Cutout),
-            "translucent" => Ok(RenderMode::Translucent),
-            _ => Err(format!("Unknown render mode: {}", str.as_ref())),
-        }
-    }
 }
 
 impl Display for RenderMode {

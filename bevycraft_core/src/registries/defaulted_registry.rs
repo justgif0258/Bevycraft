@@ -1,13 +1,18 @@
 use bevy::{ecs::resource::Resource, platform::collections::HashMap};
 use rapidhash::fast::RandomState;
 
-use crate::prelude::{AssetLocation, Registrable, RegistrationError, Registry};
+use crate::{
+    block::BlockType,
+    prelude::{AssetLocation, Block, Registrable, RegistrationError, Registry},
+};
 
 #[derive(Resource)]
 pub struct DefaultedRegistry<T: Registrable> {
     key_to_idx: HashMap<AssetLocation, usize, RandomState>,
     idx_to_key: Vec<AssetLocation>,
     values: Vec<T>,
+
+    default_key: AssetLocation,
 }
 
 impl<T: Registrable> DefaultedRegistry<T> {
@@ -18,34 +23,92 @@ impl<T: Registrable> DefaultedRegistry<T> {
         let mut values = Vec::new();
 
         key_to_idx.insert(default_key.clone(), 0);
-        idx_to_key.push(default_key);
+        idx_to_key.push(default_key.clone());
         values.push(default_value);
 
         Self {
             key_to_idx,
             idx_to_key,
             values,
+            default_key,
         }
     }
 
     #[inline]
     pub fn get_by_key_or_default(&self, location: &AssetLocation) -> &T {
-        unsafe { self.get_by_key(location).unwrap_unchecked() }
+        self.get_by_key(location).unwrap_or(&self.values[0])
     }
 
     #[inline]
     pub fn get_by_idx_or_default(&self, index: usize) -> &T {
-        unsafe { self.get_by_idx(index).unwrap_unchecked() }
+        self.get_by_idx(index).unwrap_or(&self.values[0])
     }
 
     #[inline]
-    pub fn get_default(&self) -> &T {
+    pub fn key_to_idx_or_default(&self, location: &AssetLocation) -> usize {
+        self.key_to_idx.get(location).copied().unwrap_or(0)
+    }
+
+    #[inline]
+    pub fn idx_to_key_or_default(&self, index: usize) -> &AssetLocation {
+        self.idx_to_key.get(index).unwrap_or(&self.default_key)
+    }
+
+    #[inline]
+    pub fn default_key(&self) -> &AssetLocation {
+        &self.default_key
+    }
+
+    #[inline]
+    pub fn default_value(&self) -> &T {
         &self.values[0]
+    }
+}
+
+impl DefaultedRegistry<Block> {
+    #[inline]
+    pub fn get_by_type(&self, block_type: BlockType) -> Option<&Block> {
+        self.values.get::<usize>(block_type.into())
+    }
+
+    #[inline]
+    pub fn key_to_type(&self, location: &AssetLocation) -> Option<BlockType> {
+        self.key_to_idx
+            .get(location)
+            .copied()
+            .map(|idx| BlockType::from(idx))
+    }
+
+    #[inline]
+    pub fn type_to_key(&self, block_type: BlockType) -> Option<&AssetLocation> {
+        self.idx_to_key.get::<usize>(block_type.into())
+    }
+
+    #[inline]
+    pub fn get_by_type_or_default(&self, block_type: BlockType) -> &Block {
+        self.get_by_type(block_type).unwrap_or(&self.values[0])
+    }
+
+    #[inline]
+    pub fn key_to_type_or_default(&self, location: &AssetLocation) -> BlockType {
+        self.key_to_type(location).unwrap_or(BlockType::Air)
+    }
+
+    #[inline]
+    pub fn type_to_key_or_default(&self, block_type: BlockType) -> &AssetLocation {
+        self.type_to_key(block_type).unwrap_or(&self.default_key)
     }
 }
 
 impl<T: Registrable> Registry for DefaultedRegistry<T> {
     type Item = T;
+
+    #[inline]
+    fn iter(&self) -> impl Iterator<Item = (&AssetLocation, &Self::Item)> {
+        self.key_to_idx
+            .iter()
+            .map(|(key, &idx)| (key, &self.values[idx]))
+    }
 
     #[inline]
     fn keys(&self) -> impl Iterator<Item = &AssetLocation> {
@@ -61,12 +124,13 @@ impl<T: Registrable> Registry for DefaultedRegistry<T> {
     fn get_by_key(&self, location: &AssetLocation) -> Option<&Self::Item> {
         self.key_to_idx
             .get(location)
-            .and_then(|&idx| self.values.get(idx).or(Some(&self.values[0])))
+            .copied()
+            .map(|idx| &self.values[idx])
     }
 
     #[inline]
     fn get_by_idx(&self, index: usize) -> Option<&Self::Item> {
-        self.values.get(index).or(Some(&self.values[0]))
+        self.values.get(index)
     }
 
     #[inline]

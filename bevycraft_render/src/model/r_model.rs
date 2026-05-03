@@ -1,11 +1,15 @@
+use std::sync::LazyLock;
+
 use bevy::{
-    asset::{Asset, AssetLoader, Handle, LoadContext, io::Reader},
-    log::info,
-    platform::collections::{HashMap, hash_map::Values},
+    asset::{Asset, AssetLoader, LoadContext, io::Reader},
+    platform::collections::HashMap,
     reflect::TypePath,
 };
 use bevycraft_core::prelude::AssetLocation;
-use serde::{Deserialize, Serialize};
+use ron::{Options, extensions::Extensions};
+use serde::Deserialize;
+
+use crate::prelude::{Facing, RenderMode};
 
 #[derive(Default, TypePath)]
 pub struct RModelLoader;
@@ -26,22 +30,38 @@ impl AssetLoader for RModelLoader {
 
         reader.read_to_end(&mut bytes).await?;
 
-        let unsolved_model: UnsolvedRModel = ron::de::from_bytes(&bytes)
+        static RON_READER: LazyLock<Options> =
+            LazyLock::new(|| Options::default().with_default_extension(Extensions::IMPLICIT_SOME));
+
+        let unsolved_model: UnresolvedRModel = RON_READER
+            .from_bytes(&bytes)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
 
-        let parent = unsolved_model.parent.map(|p| {
-            let path = format!("{}/models/{}.ron", p.namespace(), p.path());
+        let mut elements = unsolved_model.elements.unwrap_or_default();
+        let mut textures = unsolved_model.textures.unwrap_or_default();
 
-            info!("Loading parent model: {}", path);
+        if let Some(parent) = unsolved_model.parent {
+            let path = format!("{}/models/{}.ron", parent.namespace(), parent.path());
 
-            load_context.load::<RModel>(path)
-        });
+            let loaded = load_context
+                .loader()
+                .immediate()
+                .load::<RModel>(path)
+                .await
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
 
-        Ok(RModel {
-            parent,
-            textures: unsolved_model.textures,
-            elements: unsolved_model.elements,
-        })
+            let parent = loaded.get();
+
+            if elements.is_empty() {
+                elements = parent.elements.clone();
+            }
+
+            if textures.is_empty() {
+                textures = parent.textures.clone();
+            }
+        }
+
+        Ok(RModel { textures, elements })
     }
 
     fn extensions(&self) -> &[&str] {
@@ -50,7 +70,7 @@ impl AssetLoader for RModelLoader {
 }
 
 #[derive(Deserialize)]
-struct UnsolvedRModel {
+struct UnresolvedRModel {
     parent: Option<AssetLocation>,
     textures: Option<HashMap<String, AssetLocation>>,
     elements: Option<Vec<Element>>,
@@ -58,51 +78,42 @@ struct UnsolvedRModel {
 
 #[derive(Asset, TypePath, Debug, Clone)]
 pub struct RModel {
-    pub parent: Option<Handle<RModel>>,
-    pub textures: Option<HashMap<String, AssetLocation>>,
-    pub elements: Option<Vec<Element>>,
+    pub textures: HashMap<String, AssetLocation>,
+    pub elements: Vec<Element>,
 }
 
 impl RModel {
     #[inline]
     pub fn textures(&self) -> impl Iterator<Item = &AssetLocation> {
-        if let Some(textures) = &self.textures {
-            return textures.values();
-        }
-
-        Values::default()
+        self.textures.values()
     }
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Element {
     pub from: [f32; 3],
     pub to: [f32; 3],
     pub rotation: Option<Rotation>,
-    pub faces: HashMap<String, Face>,
+    pub faces: HashMap<Facing, Face>,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Face {
     pub uv: [f32; 4],
     pub texture: String,
-    pub cullface: Option<String>,
+    pub cullface: Option<Facing>,
 
-    #[serde(default = "default_rendering_mode")]
-    pub render_mode: String,
+    #[serde(default)]
+    pub render_mode: RenderMode,
 
     #[serde(default)]
     pub tintable: bool,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Rotation {
     pub origin: [f32; 3],
     pub x: f32,
     pub y: f32,
     pub z: f32,
-}
-
-fn default_rendering_mode() -> String {
-    String::from("opaque")
 }

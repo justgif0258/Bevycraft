@@ -1,0 +1,19 @@
+(
+    textures: {
+        "all": "bevycraft:block/oak_leaves",
+    },
+    elements: [
+        (
+            from: (0.0, 0.0, 0.0),
+            to: (8.0, 8.0, 8.0),
+            faces: {
+               down: (uv: (0.0, 0.0, 8.0, 8.0), texture: "#all", cullface: down, render_mode: cutout, tintable: true),
+               up: (uv: (0.0, 0.0, 8.0, 8.0), texture: "#all", cullface: up, render_mode: cutout, tintable: true),
+               north: (uv: (0.0, 0.0, 8.0, 8.0), texture: "#all", cullface: north, render_mode: cutout, tintable: true),
+               south: (uv: (0.0, 0.0, 8.0, 8.0), texture: "#all", cullface: south, render_mode: cutout, tintable: true),
+               west: (uv: (0.0, 0.0, 8.0, 8.0), texture: "#all", cullface: west, render_mode: cutout, tintable: true),
+               east: (uv: (0.0, 0.0, 8.0, 8.0), texture: "#all", cullface: east, render_mode: cutout, tintable: true),
+            },
+        )
+    ],
+)
