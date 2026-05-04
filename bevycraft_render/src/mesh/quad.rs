@@ -23,7 +23,7 @@ impl Quad {
         texture: TextureId,
         mode: RenderMode,
         tintable: bool,
-        facing: Facing,
+        facing: Direction,
     ) -> Self {
         Self {
             vertices: build_vertex_array(min, max, uv, texture, facing),
@@ -115,7 +115,7 @@ impl Quad {
 }
 
 #[derive(Deserialize, Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum Facing {
+pub enum Direction {
     #[serde(rename = "east")]
     PosX = 0,
     #[serde(rename = "west")]
@@ -132,46 +132,46 @@ pub enum Facing {
     NegZ = 5,
 }
 
-impl Facing {
+impl Direction {
     #[inline(always)]
     pub const fn get_normal(self) -> [f32; 3] {
         match self {
-            Facing::PosX => [1.0, 0.0, 0.0],
-            Facing::NegX => [-1.0, 0.0, 0.0],
-            Facing::PosY => [0.0, 1.0, 0.0],
-            Facing::NegY => [0.0, -1.0, 0.0],
-            Facing::PosZ => [0.0, 0.0, 1.0],
-            Facing::NegZ => [0.0, 0.0, -1.0],
+            Direction::PosX => [1.0, 0.0, 0.0],
+            Direction::NegX => [-1.0, 0.0, 0.0],
+            Direction::PosY => [0.0, 1.0, 0.0],
+            Direction::NegY => [0.0, -1.0, 0.0],
+            Direction::PosZ => [0.0, 0.0, 1.0],
+            Direction::NegZ => [0.0, 0.0, -1.0],
         }
     }
 }
 
-impl Display for Facing {
+impl Display for Direction {
     #[inline(always)]
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Facing::PosX => f.write_str("east"),
-            Facing::NegX => f.write_str("west"),
-            Facing::PosY => f.write_str("up"),
-            Facing::NegY => f.write_str("down"),
-            Facing::PosZ => f.write_str("south"),
-            Facing::NegZ => f.write_str("north"),
+            Direction::PosX => f.write_str("east"),
+            Direction::NegX => f.write_str("west"),
+            Direction::PosY => f.write_str("up"),
+            Direction::NegY => f.write_str("down"),
+            Direction::PosZ => f.write_str("south"),
+            Direction::NegZ => f.write_str("north"),
         }
     }
 }
 
-impl Not for Facing {
+impl Not for Direction {
     type Output = Self;
 
     #[inline(always)]
     fn not(self) -> Self::Output {
         match self {
-            Facing::PosX => Facing::NegX,
-            Facing::NegX => Facing::PosX,
-            Facing::PosY => Facing::NegY,
-            Facing::NegY => Facing::PosY,
-            Facing::PosZ => Facing::NegZ,
-            Facing::NegZ => Facing::PosZ,
+            Direction::PosX => Direction::NegX,
+            Direction::NegX => Direction::PosX,
+            Direction::PosY => Direction::NegY,
+            Direction::NegY => Direction::PosY,
+            Direction::PosZ => Direction::NegZ,
+            Direction::NegZ => Direction::PosZ,
         }
     }
 }
@@ -208,7 +208,7 @@ const fn build_vertex_array(
     max: [f32; 3],
     uv: [f32; 4],
     texture: TextureId,
-    facing: Facing,
+    facing: Direction,
 ) -> [Vertex; 4] {
     let arranged_uvs = [
         [uv[0], uv[3]],
@@ -220,7 +220,7 @@ const fn build_vertex_array(
     let normal = facing.get_normal();
 
     match facing {
-        Facing::PosX => [
+        Direction::PosX => [
             Vertex {
                 position: [max[0], min[1], max[2]],
                 uv: arranged_uvs[0],
@@ -246,7 +246,7 @@ const fn build_vertex_array(
                 texture,
             },
         ],
-        Facing::NegX => [
+        Direction::NegX => [
             Vertex {
                 position: [min[0], min[1], min[2]],
                 uv: arranged_uvs[0],
@@ -272,7 +272,7 @@ const fn build_vertex_array(
                 texture,
             },
         ],
-        Facing::PosY => [
+        Direction::PosY => [
             Vertex {
                 position: [min[0], max[1], max[2]],
                 uv: arranged_uvs[0],
@@ -298,7 +298,7 @@ const fn build_vertex_array(
                 texture,
             },
         ],
-        Facing::NegY => [
+        Direction::NegY => [
             Vertex {
                 position: [min[0], min[1], min[2]],
                 uv: arranged_uvs[0],
@@ -324,7 +324,7 @@ const fn build_vertex_array(
                 texture,
             },
         ],
-        Facing::PosZ => [
+        Direction::PosZ => [
             Vertex {
                 position: [min[0], min[1], max[2]],
                 uv: arranged_uvs[0],
@@ -350,7 +350,7 @@ const fn build_vertex_array(
                 texture,
             },
         ],
-        Facing::NegZ => [
+        Direction::NegZ => [
             Vertex {
                 position: [max[0], min[1], min[2]],
                 uv: arranged_uvs[0],

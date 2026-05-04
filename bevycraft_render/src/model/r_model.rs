@@ -9,7 +9,7 @@ use bevycraft_core::prelude::AssetLocation;
 use ron::{Options, extensions::Extensions};
 use serde::Deserialize;
 
-use crate::prelude::{Facing, RenderMode};
+use crate::prelude::{Direction, RenderMode};
 
 #[derive(Default, TypePath)]
 pub struct RModelLoader;
@@ -94,14 +94,14 @@ pub struct Element {
     pub from: [f32; 3],
     pub to: [f32; 3],
     pub rotation: Option<Rotation>,
-    pub faces: HashMap<Facing, Face>,
+    pub faces: HashMap<Direction, Face>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Face {
     pub uv: [f32; 4],
     pub texture: String,
-    pub cullface: Option<Facing>,
+    pub cullface: Option<Direction>,
 
     #[serde(default)]
     pub render_mode: RenderMode,

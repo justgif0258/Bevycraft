@@ -28,3 +28,4 @@ ron.workspace = true
 #Utilities
 image.workspace = true
 bitflags.workspace = true
+geo.workspace = true

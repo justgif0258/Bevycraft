@@ -40,6 +40,7 @@ builder-pattern = { version = "0.4.2", features = [] }
 simdnoise = { version = "3.1.6", features = [] }
 fastrand = { version = "2.4.1", features = [] }
 image = { version = "0.25.10", features = [] }
+geo = { version = "0.33.1", features = [] }
 
 # Hashing
 frozen-collections = { version = "0.9.1", features = [] }

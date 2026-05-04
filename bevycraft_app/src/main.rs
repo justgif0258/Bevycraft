@@ -15,8 +15,12 @@ use bevy::{
     prelude::*,
 };
 use bevycraft_app::{AppState, Player};
-use bevycraft_core::prelude::{
-    AssetLocation, Block, BlockBehaviour, BlockFlags, DefaultedRegistry, GameRegistries, Registry,
+use bevycraft_core::{
+    loc,
+    prelude::{
+        AssetLocation, Block, BlockBehaviour, BlockFlags, DefaultedRegistry, GameRegistries,
+        Registry,
+    },
 };
 use bevycraft_render::prelude::{ArrayTexture, RModel, RModelLoader, VertexMaterial};
 
@@ -38,6 +42,8 @@ const FULL_BLOCK: LazyLock<BlockFlags> = LazyLock::new(|| {
 });
 
 const BLOCK_RESOLUTION: u32 = 8;
+
+static TEST: AssetLocation = loc!(minecraft:dirt);
 
 fn main() -> AppExit {
     let mut blocks = DefaultedRegistry::<Block>::new(

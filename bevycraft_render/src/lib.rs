@@ -5,7 +5,10 @@ mod textures;
 
 pub mod prelude {
     pub use crate::{
-        mesh::{block_mesh::*, mesh_buffer::MeshBuffer, quad::*, vertex::*},
+        mesh::{
+            mesh_buffer::MeshBuffer, occlusion_mask::OcclusionMask, occlusion_quad::*, quad::*,
+            vertex::*,
+        },
         model::r_model::*,
         textures::array_texture::*,
     };
