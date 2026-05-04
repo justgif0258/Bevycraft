@@ -1,13 +1,14 @@
 use crate::prelude::{Direction, OcclusionMask, RenderMode, TextureId, Vertex};
 
-pub struct OcclusionQuad {
+#[derive(Debug, Clone, PartialEq)]
+pub struct OccludableQuad {
     vertices: [Vertex; 4],
     mask: OcclusionMask,
     render_mode: RenderMode,
     tintable: bool,
 }
 
-impl OcclusionQuad {
+impl OccludableQuad {
     #[inline]
     pub fn new(
         dir: Direction,
@@ -15,8 +16,8 @@ impl OcclusionQuad {
         to: [f32; 2],
         depth: f32,
         uv: [f32; 4],
-        render_mode: RenderMode,
         texture: TextureId,
+        render_mode: RenderMode,
         tintable: bool,
     ) -> Self {
         let [[x0, y0], [x1, y1]] = [from, to];
@@ -56,9 +57,11 @@ impl OcclusionQuad {
             },
         });
 
+        let mask = OcclusionMask::for_points([[x0, y0], [x1, y0], [x1, y1], [x0, y1]]);
+
         Self {
             vertices,
-            mask: OcclusionMask::default(),
+            mask,
             render_mode,
             tintable,
         }

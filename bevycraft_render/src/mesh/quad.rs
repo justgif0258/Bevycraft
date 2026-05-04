@@ -17,23 +17,61 @@ pub struct Quad {
 impl Quad {
     #[inline]
     pub fn new(
-        min: [f32; 3],
-        max: [f32; 3],
+        dir: Direction,
+        from: [f32; 2],
+        to: [f32; 2],
+        depth: f32,
         uv: [f32; 4],
         texture: TextureId,
-        mode: RenderMode,
+        render_mode: RenderMode,
         tintable: bool,
-        facing: Direction,
     ) -> Self {
+        let [[x0, y0], [x1, y1]] = [from, to];
+        let [u0, v0, u1, v1] = uv;
+
+        let mut corners = [
+            ([x0, y0], [u0, v1]),
+            ([x1, y0], [u1, v1]),
+            ([x1, y1], [u1, v0]),
+            ([x0, y1], [u0, v0]),
+        ];
+
+        if matches!(dir, Direction::NegX | Direction::NegY | Direction::NegZ) {
+            corners.swap(1, 3);
+        }
+
+        let normal = dir.get_normal();
+
+        let vertices = corners.map(|([x, y], uv)| match dir {
+            Direction::PosX | Direction::NegX => Vertex {
+                position: [depth, y, x],
+                uv,
+                normal,
+                texture,
+            },
+            Direction::PosY | Direction::NegY => Vertex {
+                position: [x, depth, y],
+                uv,
+                normal,
+                texture,
+            },
+            Direction::PosZ | Direction::NegZ => Vertex {
+                position: [x, y, depth],
+                uv,
+                normal,
+                texture,
+            },
+        });
+
         Self {
-            vertices: build_vertex_array(min, max, uv, texture, facing),
-            render_mode: mode,
+            vertices,
+            render_mode,
             tintable,
         }
     }
 
     #[inline]
-    pub fn rotate(&mut self, origin: Vec3, x: f32, y: f32, z: f32) {
+    pub fn rotate(self, origin: Vec3, x: f32, y: f32, z: f32) -> Self {
         let rotation = Quat::from_euler(
             EulerRot::XYZ,
             x.to_radians(),
@@ -41,7 +79,7 @@ impl Quad {
             z.to_radians(),
         );
 
-        for vertex in self.vertices.iter_mut() {
+        for mut vertex in self.vertices {
             let pos = Vec3::from(vertex.position);
             let rotated = rotation * (pos - origin) + origin;
 
@@ -51,6 +89,8 @@ impl Quad {
 
             vertex.normal = (rotation * n).into();
         }
+
+        self
     }
 
     #[inline(always)]
@@ -61,16 +101,6 @@ impl Quad {
             self.vertices[2].position,
             self.vertices[3].position,
         ]
-    }
-
-    #[inline(always)]
-    pub fn min(&self) -> [f32; 3] {
-        self.vertices[0].position
-    }
-
-    #[inline(always)]
-    pub fn max(&self) -> [f32; 3] {
-        self.vertices[2].position
     }
 
     #[inline(always)]
@@ -199,182 +229,5 @@ impl Default for RenderMode {
     #[inline(always)]
     fn default() -> Self {
         RenderMode::Opaque
-    }
-}
-
-#[inline(always)]
-const fn build_vertex_array(
-    min: [f32; 3],
-    max: [f32; 3],
-    uv: [f32; 4],
-    texture: TextureId,
-    facing: Direction,
-) -> [Vertex; 4] {
-    let arranged_uvs = [
-        [uv[0], uv[3]],
-        [uv[2], uv[3]],
-        [uv[2], uv[1]],
-        [uv[0], uv[1]],
-    ];
-
-    let normal = facing.get_normal();
-
-    match facing {
-        Direction::PosX => [
-            Vertex {
-                position: [max[0], min[1], max[2]],
-                uv: arranged_uvs[0],
-                normal,
-                texture,
-            },
-            Vertex {
-                position: [max[0], min[1], min[2]],
-                uv: arranged_uvs[1],
-                normal,
-                texture,
-            },
-            Vertex {
-                position: [max[0], max[1], min[2]],
-                uv: arranged_uvs[2],
-                normal,
-                texture,
-            },
-            Vertex {
-                position: [max[0], max[1], max[2]],
-                uv: arranged_uvs[3],
-                normal,
-                texture,
-            },
-        ],
-        Direction::NegX => [
-            Vertex {
-                position: [min[0], min[1], min[2]],
-                uv: arranged_uvs[0],
-                normal,
-                texture,
-            },
-            Vertex {
-                position: [min[0], min[1], max[2]],
-                uv: arranged_uvs[1],
-                normal,
-                texture,
-            },
-            Vertex {
-                position: [min[0], max[1], max[2]],
-                uv: arranged_uvs[2],
-                normal,
-                texture,
-            },
-            Vertex {
-                position: [min[0], max[1], min[2]],
-                uv: arranged_uvs[3],
-                normal,
-                texture,
-            },
-        ],
-        Direction::PosY => [
-            Vertex {
-                position: [min[0], max[1], max[2]],
-                uv: arranged_uvs[0],
-                normal,
-                texture,
-            },
-            Vertex {
-                position: [max[0], max[1], max[2]],
-                uv: arranged_uvs[1],
-                normal,
-                texture,
-            },
-            Vertex {
-                position: [max[0], max[1], min[2]],
-                uv: arranged_uvs[2],
-                normal,
-                texture,
-            },
-            Vertex {
-                position: [min[0], max[1], min[2]],
-                uv: arranged_uvs[3],
-                normal,
-                texture,
-            },
-        ],
-        Direction::NegY => [
-            Vertex {
-                position: [min[0], min[1], min[2]],
-                uv: arranged_uvs[0],
-                normal,
-                texture,
-            },
-            Vertex {
-                position: [max[0], min[1], min[2]],
-                uv: arranged_uvs[1],
-                normal,
-                texture,
-            },
-            Vertex {
-                position: [max[0], min[1], max[2]],
-                uv: arranged_uvs[2],
-                normal,
-                texture,
-            },
-            Vertex {
-                position: [min[0], min[1], max[2]],
-                uv: arranged_uvs[3],
-                normal,
-                texture,
-            },
-        ],
-        Direction::PosZ => [
-            Vertex {
-                position: [min[0], min[1], max[2]],
-                uv: arranged_uvs[0],
-                normal,
-                texture,
-            },
-            Vertex {
-                position: [max[0], min[1], max[2]],
-                uv: arranged_uvs[1],
-                normal,
-                texture,
-            },
-            Vertex {
-                position: [max[0], max[1], max[2]],
-                uv: arranged_uvs[2],
-                normal,
-                texture,
-            },
-            Vertex {
-                position: [min[0], max[1], max[2]],
-                uv: arranged_uvs[3],
-                normal,
-                texture,
-            },
-        ],
-        Direction::NegZ => [
-            Vertex {
-                position: [max[0], min[1], min[2]],
-                uv: arranged_uvs[0],
-                normal,
-                texture,
-            },
-            Vertex {
-                position: [min[0], min[1], min[2]],
-                uv: arranged_uvs[1],
-                normal,
-                texture,
-            },
-            Vertex {
-                position: [min[0], max[1], min[2]],
-                uv: arranged_uvs[2],
-                normal,
-                texture,
-            },
-            Vertex {
-                position: [max[0], max[1], min[2]],
-                uv: arranged_uvs[3],
-                normal,
-                texture,
-            },
-        ],
     }
 }

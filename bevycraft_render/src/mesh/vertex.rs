@@ -11,6 +11,14 @@ pub const ATTRIBUTE_TEXTURE_LAYER: MeshVertexAttribute = MeshVertexAttribute::ne
     VertexFormat::Uint32,
 );
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Vertex {
+    pub position: [f32; 3],
+    pub uv: [f32; 2],
+    pub normal: [f32; 3],
+    pub texture: TextureId,
+}
+
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 pub struct VertexMaterial {
     #[texture(0, dimension = "2d_array")]
@@ -90,12 +98,4 @@ impl Material for VertexMaterial {
 
         Ok(())
     }
-}
-
-#[derive(Default, Debug, Clone, Copy, PartialEq)]
-pub struct Vertex {
-    pub position: [f32; 3],
-    pub uv: [f32; 2],
-    pub normal: [f32; 3],
-    pub texture: TextureId,
 }
