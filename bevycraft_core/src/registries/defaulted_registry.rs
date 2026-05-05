@@ -11,8 +11,6 @@ pub struct DefaultedRegistry<T: Registrable> {
     key_to_idx: HashMap<AssetLocation, usize, RandomState>,
     idx_to_key: Vec<AssetLocation>,
     values: Vec<T>,
-
-    default_key: AssetLocation,
 }
 
 impl<T: Registrable> DefaultedRegistry<T> {
@@ -23,25 +21,24 @@ impl<T: Registrable> DefaultedRegistry<T> {
         let mut values = Vec::new();
 
         key_to_idx.insert(default_key.clone(), 0);
-        idx_to_key.push(default_key.clone());
+        idx_to_key.push(default_key);
         values.push(default_value);
 
         Self {
             key_to_idx,
             idx_to_key,
             values,
-            default_key,
         }
     }
 
     #[inline]
     pub fn get_by_key_or_default(&self, location: &AssetLocation) -> &T {
-        self.get_by_key(location).unwrap_or(&self.values[0])
+        self.get_by_key(location).unwrap_or(&self.default_value())
     }
 
     #[inline]
     pub fn get_by_idx_or_default(&self, index: usize) -> &T {
-        self.get_by_idx(index).unwrap_or(&self.values[0])
+        self.get_by_idx(index).unwrap_or(&self.default_value())
     }
 
     #[inline]
@@ -51,12 +48,12 @@ impl<T: Registrable> DefaultedRegistry<T> {
 
     #[inline]
     pub fn idx_to_key_or_default(&self, index: usize) -> &AssetLocation {
-        self.idx_to_key.get(index).unwrap_or(&self.default_key)
+        self.idx_to_key.get(index).unwrap_or(&self.default_key())
     }
 
     #[inline]
     pub fn default_key(&self) -> &AssetLocation {
-        &self.default_key
+        &self.idx_to_key[0]
     }
 
     #[inline]
@@ -86,7 +83,8 @@ impl DefaultedRegistry<Block> {
 
     #[inline]
     pub fn get_by_type_or_default(&self, block_type: BlockType) -> &Block {
-        self.get_by_type(block_type).unwrap_or(&self.values[0])
+        self.get_by_type(block_type)
+            .unwrap_or(&self.default_value())
     }
 
     #[inline]
@@ -96,7 +94,7 @@ impl DefaultedRegistry<Block> {
 
     #[inline]
     pub fn type_to_key_or_default(&self, block_type: BlockType) -> &AssetLocation {
-        self.type_to_key(block_type).unwrap_or(&self.default_key)
+        self.type_to_key(block_type).unwrap_or(&self.default_key())
     }
 }
 

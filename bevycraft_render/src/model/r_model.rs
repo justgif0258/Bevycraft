@@ -1,15 +1,26 @@
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock, atomic::AtomicBool};
 
 use bevy::{
-    asset::{Asset, AssetLoader, LoadContext, io::Reader},
-    platform::collections::HashMap,
+    app::{App, Plugin},
+    asset::{Asset, AssetApp, AssetLoader, AssetServer, LoadContext, io::Reader},
+    platform::{collections::HashMap, hash::RandomState},
     reflect::TypePath,
 };
 use bevycraft_core::prelude::AssetLocation;
+use dashmap::DashMap;
 use ron::{Options, extensions::Extensions};
 use serde::Deserialize;
 
 use crate::prelude::{Direction, RenderMode};
+
+pub struct RModelPlugin;
+
+impl Plugin for RModelPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_asset::<RModel>()
+            .init_asset_loader::<RModelLoader>();
+    }
+}
 
 #[derive(Default, TypePath)]
 pub struct RModelLoader;

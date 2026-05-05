@@ -11,7 +11,6 @@ bevy_dylib.workspace = true
 
 #Hashing
 rapidhash.workspace = true
-boomphf.workspace = true
 
 # Utilities
 serde.workspace = true

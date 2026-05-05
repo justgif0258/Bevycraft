@@ -16,9 +16,9 @@ bevy_dylib.workspace = true
 
 # Parallelism
 crossbeam.workspace = true
+dashmap.workspace = true
 
 # Hashing
-frozen-collections.workspace = true
 rapidhash.workspace = true
 
 # Serialization

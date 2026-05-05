@@ -5,6 +5,7 @@ use bevy::{
     camera::Exposure,
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     core_pipeline::tonemapping::Tonemapping,
+    gltf::GltfLoader,
     light::{
         AtmosphereEnvironmentMapLight, CascadeShadowConfigBuilder, VolumetricFog, VolumetricLight,
         light_consts::lux,
@@ -22,7 +23,7 @@ use bevycraft_core::{
         Registry,
     },
 };
-use bevycraft_render::prelude::{ArrayTexture, RModel, RModelLoader, VertexMaterial};
+use bevycraft_render::prelude::{ArrayTexture, RModel, RModelLoader, RModelPlugin, VertexMaterial};
 
 const FULL_SHAPE: Aabb3d = Aabb3d {
     min: Vec3A::new(0.0, 0.0, 0.0),
@@ -43,8 +44,6 @@ const FULL_BLOCK: LazyLock<BlockFlags> = LazyLock::new(|| {
 
 const BLOCK_RESOLUTION: u32 = 8;
 
-static TEST: AssetLocation = loc!(minecraft:dirt);
-
 fn main() -> AppExit {
     let mut blocks = DefaultedRegistry::<Block>::new(
         AssetLocation::with_default_namespace("air"),
@@ -59,10 +58,9 @@ fn main() -> AppExit {
         .add_plugins((
             DefaultPlugins,
             FreeCameraPlugin,
+            RModelPlugin,
             MaterialPlugin::<VertexMaterial>::default(),
         ))
-        .init_asset::<RModel>()
-        .init_asset_loader::<RModelLoader>()
         .init_state::<AppState>()
         .init_resource::<AssetsLoading>()
         .insert_resource(Time::<Fixed>::from_hz(64.0))

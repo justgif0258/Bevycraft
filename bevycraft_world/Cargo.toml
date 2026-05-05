@@ -20,7 +20,6 @@ crossbeam.workspace = true
 
 # Hashing
 rapidhash.workspace = true
-boomphf.workspace = true
 
 # Utilities
 bitflags.workspace = true

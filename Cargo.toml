@@ -41,11 +41,10 @@ simdnoise = { version = "3.1.6", features = [] }
 fastrand = { version = "2.4.1", features = [] }
 image = { version = "0.25.10", features = [] }
 geo = { version = "0.33.1", features = [] }
+bitvec = { version = "1.0.1", features = [] }
 
 # Hashing
-frozen-collections = { version = "0.9.1", features = [] }
 rapidhash = { version = "4.4.1", features = ["default"] }
-boomphf = { version = "0.6.0", features = ["rayon"] }
 
 # Serialization
 ron = { version = "0.12.1", features = [] }

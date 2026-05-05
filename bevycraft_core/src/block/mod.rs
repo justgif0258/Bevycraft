@@ -1,13 +1,8 @@
-use std::{
-    hash::Hash,
-    mem::{transmute, transmute_copy},
-    num::NonZeroU32,
-};
+use std::{hash::Hash, mem::transmute, num::NonZeroU32};
 
 pub mod block;
 pub mod block_behaviour;
 pub mod block_flags;
-pub mod blocks;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BlockType {
@@ -33,7 +28,7 @@ impl BlockType {
 }
 
 impl Default for BlockType {
-    #[inline]
+    #[inline(always)]
     fn default() -> Self {
         Self::Air
     }
@@ -42,16 +37,14 @@ impl Default for BlockType {
 impl Hash for BlockType {
     #[inline(always)]
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        unsafe {
-            state.write_u64(transmute_copy::<_, u32>(self) as u64);
-        }
+        state.write_u64(self.raw() as u64);
     }
 }
 
 impl From<BlockType> for usize {
     #[inline(always)]
     fn from(value: BlockType) -> Self {
-        unsafe { transmute::<_, u32>(value) as usize }
+        value.raw() as usize
     }
 }
 
@@ -60,6 +53,6 @@ impl From<usize> for BlockType {
     fn from(value: usize) -> Self {
         debug_assert!(value <= u32::MAX as usize);
 
-        unsafe { transmute(value as u32) }
+        Self::new(value as u32)
     }
 }
