@@ -1,15 +1,18 @@
-use crate::prelude::{TextureId, Vertex};
+use crate::mesh::occlusion_mask::OcclusionMask;
+use crate::prelude::TextureId;
 use bevy::math::EulerRot;
 use bevy::prelude::{Quat, Vec3};
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::ops::Not;
 
-pub const NEUTRAL_TINT: [f32; 4] = [1.0; 4];
-
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Quad {
-    vertices: [Vertex; 4],
+    positions: [[f32; 3]; 4],
+    uvs: [[f32; 2]; 4],
+    normal: [f32; 3],
+    mask: OcclusionMask,
+    texture: TextureId,
     render_mode: RenderMode,
     tintable: bool,
 }
@@ -29,49 +32,80 @@ impl Quad {
         let [[x0, y0], [x1, y1]] = [from, to];
         let [u0, v0, u1, v1] = uv;
 
-        let mut corners = [
-            ([x0, y0], [u0, v1]),
-            ([x1, y0], [u1, v1]),
-            ([x1, y1], [u1, v0]),
-            ([x0, y1], [u0, v0]),
-        ];
+        let mut corners = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+
+        let mut uvs = [[u0, v1], [u1, v1], [u1, v0], [u0, v0]];
 
         if matches!(dir, Direction::NegX | Direction::NegY | Direction::NegZ) {
             corners.swap(1, 3);
+            uvs.swap(1, 3);
         }
+
+        let positions = corners.map(|[x, y]| match dir {
+            Direction::PosX | Direction::NegX => [depth, y, x],
+            Direction::PosY | Direction::NegY => [x, depth, y],
+            Direction::PosZ | Direction::NegZ => [x, y, depth],
+        });
 
         let normal = dir.get_normal();
 
-        let vertices = corners.map(|([x, y], uv)| match dir {
-            Direction::PosX | Direction::NegX => Vertex {
-                position: [depth, y, x],
-                uv,
-                normal,
-                texture,
-            },
-            Direction::PosY | Direction::NegY => Vertex {
-                position: [x, depth, y],
-                uv,
-                normal,
-                texture,
-            },
-            Direction::PosZ | Direction::NegZ => Vertex {
-                position: [x, y, depth],
-                uv,
-                normal,
-                texture,
-            },
-        });
-
         Self {
-            vertices,
+            positions,
+            uvs,
+            normal,
+            mask: OcclusionMask::EMPTY,
+            texture,
             render_mode,
             tintable,
         }
     }
 
     #[inline]
-    pub fn rotate(self, origin: Vec3, x: f32, y: f32, z: f32) -> Self {
+    pub fn with_occlusion_mask(
+        dir: Direction,
+        from: [f32; 2],
+        to: [f32; 2],
+        depth: f32,
+        uv: [f32; 4],
+        texture: TextureId,
+        render_mode: RenderMode,
+        tintable: bool,
+    ) -> Self {
+        let [[x0, y0], [x1, y1]] = [from, to];
+        let [u0, v0, u1, v1] = uv;
+
+        let mut corners = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+
+        let mut uvs = [[u0, v1], [u1, v1], [u1, v0], [u0, v0]];
+
+        if matches!(dir, Direction::NegX | Direction::NegY | Direction::NegZ) {
+            corners.swap(1, 3);
+            uvs.swap(1, 3);
+        }
+
+        let positions = corners.map(|[x, y]| match dir {
+            Direction::PosX | Direction::NegX => [depth, y, x],
+            Direction::PosY | Direction::NegY => [x, depth, y],
+            Direction::PosZ | Direction::NegZ => [x, y, depth],
+        });
+
+        let normal = dir.get_normal();
+
+        let mask = OcclusionMask::for_corners(corners);
+
+        Self {
+            positions,
+            uvs,
+            normal,
+            mask,
+            texture,
+            render_mode,
+            tintable,
+        }
+    }
+
+    #[inline]
+    pub fn rotate(mut self, origin: Vec3, x: f32, y: f32, z: f32) -> Self {
         let rotation = Quat::from_euler(
             EulerRot::XYZ,
             x.to_radians(),
@@ -79,58 +113,91 @@ impl Quad {
             z.to_radians(),
         );
 
-        for mut vertex in self.vertices {
-            let pos = Vec3::from(vertex.position);
+        for position in &mut self.positions {
+            let pos = Vec3::from(*position);
             let rotated = rotation * (pos - origin) + origin;
 
-            vertex.position = rotated.into();
-
-            let n = Vec3::from(vertex.normal);
-
-            vertex.normal = (rotation * n).into();
+            *position = rotated.into();
         }
+
+        let n = Vec3::from(self.normal);
+
+        self.normal = (rotation * n).into();
+
+        self
+    }
+
+    #[inline]
+    pub fn rotate_and_recompute_mask(
+        mut self,
+        dir: Direction,
+        origin: Vec3,
+        x: f32,
+        y: f32,
+        z: f32,
+    ) -> Self {
+        let rotation = Quat::from_euler(
+            EulerRot::XYZ,
+            x.to_radians(),
+            y.to_radians(),
+            z.to_radians(),
+        );
+
+        for position in &mut self.positions {
+            let pos = Vec3::from(*position);
+            let rotated = rotation * (pos - origin) + origin;
+
+            *position = rotated.into();
+        }
+
+        let n = Vec3::from(self.normal);
+
+        self.normal = (rotation * n).into();
+
+        let corners = match dir {
+            Direction::PosX | Direction::NegX => self.positions.map(|[_, y, z]| [z, y]),
+            Direction::PosY | Direction::NegY => self.positions.map(|[x, _, z]| [z, x]),
+            Direction::PosZ | Direction::NegZ => self.positions.map(|[x, y, _]| [x, y]),
+        };
+
+        self.mask = OcclusionMask::for_corners(corners);
 
         self
     }
 
     #[inline(always)]
-    pub const fn positions(&self) -> [[f32; 3]; 4] {
-        [
-            self.vertices[0].position,
-            self.vertices[1].position,
-            self.vertices[2].position,
-            self.vertices[3].position,
-        ]
+    pub fn can_occlude(&self) -> bool {
+        !self.mask.is_empty()
     }
 
     #[inline(always)]
-    pub const fn normals(&self) -> [[f32; 3]; 4] {
-        [
-            self.vertices[0].normal,
-            self.vertices[1].normal,
-            self.vertices[2].normal,
-            self.vertices[3].normal,
-        ]
+    pub const fn positions(&self) -> &[[f32; 3]] {
+        &self.positions
     }
 
     #[inline(always)]
-    pub const fn uvs(&self) -> [[f32; 2]; 4] {
-        [
-            self.vertices[0].uv,
-            self.vertices[1].uv,
-            self.vertices[2].uv,
-            self.vertices[3].uv,
-        ]
+    pub const fn normal(&self) -> &[f32; 3] {
+        &self.normal
     }
 
     #[inline(always)]
-    pub const fn textures(&self) -> [u32; 4] {
-        [
-            self.vertices[0].texture.0,
-            self.vertices[1].texture.0,
-            self.vertices[2].texture.0,
-            self.vertices[3].texture.0,
-        ]
+    pub const fn uvs(&self) -> &[[f32; 2]] {
+        &self.uvs
+    }
+
+    #[inline(always)]
+    pub const fn mask(&self) -> OcclusionMask {
+        self.mask
+    }
+
+    #[inline(always)]
+    pub const fn texture(&self) -> TextureId {
+        self.texture
+    }
+
+    #[inline(always)]
+    pub const fn texture_raw(&self) -> u32 {
+        self.texture.0
     }
 
     #[inline(always)]
