@@ -45,6 +45,7 @@ bitvec = { version = "1.0.1", features = [] }
 
 # Hashing
 rapidhash = { version = "4.4.1", features = ["default"] }
+hashbrown = { version = "0.17.0", features = ["inline-more"] }
 
 # Serialization
 ron = { version = "0.12.1", features = [] }

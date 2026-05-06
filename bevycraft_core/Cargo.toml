@@ -11,9 +11,11 @@ bevy_dylib.workspace = true
 
 #Hashing
 rapidhash.workspace = true
+hashbrown.workspace = true
 
 # Utilities
 serde.workspace = true
 bitcode.workspace = true
 bitflags.workspace = true
 builder-pattern.workspace = true
+bitvec.workspace = true
