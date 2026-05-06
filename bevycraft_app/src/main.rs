@@ -5,7 +5,6 @@ use bevy::{
     camera::Exposure,
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     core_pipeline::tonemapping::Tonemapping,
-    gltf::GltfLoader,
     light::{
         AtmosphereEnvironmentMapLight, CascadeShadowConfigBuilder, VolumetricFog, VolumetricLight,
         light_consts::lux,
@@ -16,14 +15,10 @@ use bevy::{
     prelude::*,
 };
 use bevycraft_app::{AppState, Player};
-use bevycraft_core::{
-    loc,
-    prelude::{
-        AssetLocation, Block, BlockBehaviour, BlockFlags, DefaultedRegistry, GameRegistries,
-        Registry,
-    },
+use bevycraft_core::prelude::{
+    AssetLocation, Block, BlockBehaviour, BlockFlags, DefaultedRegistry, GameRegistries, Registry,
 };
-use bevycraft_render::prelude::{ArrayTexture, RModel, RModelLoader, RModelPlugin, VertexMaterial};
+use bevycraft_render::prelude::{ArrayTexture, RModel, VertexMaterial};
 
 const FULL_SHAPE: Aabb3d = Aabb3d {
     min: Vec3A::new(0.0, 0.0, 0.0),
@@ -58,7 +53,6 @@ fn main() -> AppExit {
         .add_plugins((
             DefaultPlugins,
             FreeCameraPlugin,
-            RModelPlugin,
             MaterialPlugin::<VertexMaterial>::default(),
         ))
         .init_state::<AppState>()
