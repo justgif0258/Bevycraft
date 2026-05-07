@@ -10,37 +10,33 @@ use bevy::{
     math::{IVec3, Vec3, bounding::Aabb3d},
 };
 use bevycraft_core::prelude::BlockType;
-use crossbeam::queue::SegQueue;
 
-use crate::prelude::{ChunkGenerator, ChunkSource};
+use crate::prelude::*;
 
-const CHUNK_ARRAY_LENGTH: usize = (CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) as usize;
+pub const CHUNK_LEN: usize = (CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) as usize;
 
 pub const CHUNK_SIZE: i32 = 16;
 
-pub type BlockArray = Box<[BlockType; CHUNK_ARRAY_LENGTH]>;
-
-static CHUNK_POOL: SegQueue<BlockArray> = SegQueue::new();
-
-#[derive(Component, Debug, Clone, Eq, PartialEq)]
+#[derive(Component)]
 pub struct Chunk {
-    blocks: Option<BlockArray>,
+    storage: ChunkStorage,
 
     pub dirty: bool,
 }
 
 impl Chunk {
     #[inline]
-    pub fn new_empty() -> Self {
-        let blocks = if let Some(mut pooled) = CHUNK_POOL.pop() {
-            pooled.fill(BlockType::Air);
-            pooled
-        } else {
-            Box::new([BlockType::Air; CHUNK_ARRAY_LENGTH])
-        };
-
+    pub fn empty() -> Self {
         Self {
-            blocks: Some(blocks),
+            storage: ChunkStorage::Empty,
+            dirty: false,
+        }
+    }
+
+    #[inline]
+    pub fn uniform(block: BlockType) -> Self {
+        Self {
+            storage: ChunkStorage::Single(block),
             dirty: false,
         }
     }
@@ -48,18 +44,17 @@ impl Chunk {
     #[inline]
     pub fn new_from_source(source: ChunkSource, position: ChunkPos) -> Self {
         let mut chunk = Chunk {
-            blocks: if let Some(mut pooled) = CHUNK_POOL.pop() {
-                pooled.fill(BlockType::Air);
-                Some(pooled)
-            } else {
-                Some(Box::new([BlockType::Air; CHUNK_ARRAY_LENGTH]))
-            },
+            storage: ChunkStorage::empty_pattern(),
             dirty: false,
         };
 
         source.fill(position, &mut chunk);
         source.carve(position, &mut chunk);
         source.place_features(position, &mut chunk);
+
+        // We wanna make sure that the delivered Chunk is fully compressed
+        // Generators tend to be messy sometimes
+        chunk.storage.optimize();
 
         chunk
     }
@@ -76,9 +71,7 @@ impl Chunk {
             return;
         }
 
-        let blocks = self.blocks.as_mut().unwrap();
-
-        blocks[linearize(position)] = block;
+        self.storage.set(position, block);
     }
 
     #[inline]
@@ -93,15 +86,11 @@ impl Chunk {
             return None;
         }
 
-        let blocks = self.blocks.as_mut().unwrap();
+        let removed = self.storage.get(position);
 
-        let linearized = linearize(position);
+        self.storage.set(position, BlockType::Air);
 
-        let paletted = blocks[linearized];
-
-        blocks[linearized] = BlockType::Air;
-
-        Some(paletted)
+        Some(removed)
     }
 
     #[inline]
@@ -116,39 +105,23 @@ impl Chunk {
             return None;
         }
 
-        let blocks = self.blocks.as_ref().unwrap();
-
-        Some(blocks[linearize(position)])
+        Some(self.storage.get(position))
     }
 
     #[inline]
     pub fn iter(&self) -> impl Iterator<Item = BlockType> {
-        self.blocks.as_ref().unwrap().iter().copied()
+        self.storage.iter()
     }
 
     #[inline]
     pub fn iter_with_position(&self) -> impl Iterator<Item = (IVec3, BlockType)> {
-        let blocks = self.blocks.as_ref().unwrap();
-
-        blocks.iter().enumerate().map(|(i, &block)| {
+        self.storage.iter().enumerate().map(|(i, block)| {
             let x = (i & 0xF) as i32;
             let z = ((i >> 4) & 0xF) as i32;
             let y = (i >> 8) as i32;
 
             (IVec3::new(x, y, z), block)
         })
-    }
-
-    #[inline]
-    pub fn get_pool() -> &'static SegQueue<BlockArray> {
-        &CHUNK_POOL
-    }
-}
-
-impl Drop for Chunk {
-    #[inline]
-    fn drop(&mut self) {
-        CHUNK_POOL.push(self.blocks.take().unwrap());
     }
 }
 
@@ -239,7 +212,7 @@ impl Hash for ChunkPos {
 
 impl Display for ChunkPos {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        write!(f, "[{}, {}, {}]", self.x, self.y, self.z)
+        write!(f, "({}; {}; {})", self.x, self.y, self.z)
     }
 }
 
@@ -267,9 +240,4 @@ impl Sub for ChunkPos {
             z: self.z - rhs.z,
         }
     }
-}
-
-#[inline(always)]
-const fn linearize(position: IVec3) -> usize {
-    (position.x + (position.z * CHUNK_SIZE) + (position.y * CHUNK_SIZE * CHUNK_SIZE)) as usize
 }

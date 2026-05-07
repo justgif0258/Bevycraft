@@ -92,13 +92,13 @@ where
 
     #[inline]
     pub fn set(&mut self, index: usize, value: T) {
+        self.decay_pattern_at_index(index);
+
         let bit_len = self.bit_cap.get();
         let start = index * bit_len;
         let end = start + bit_len;
 
         let pattern = self.get_or_insert_pattern(value);
-
-        self.decay_pattern_at_index(index);
 
         self.container[start..end].store(pattern);
     }
@@ -214,6 +214,15 @@ where
 
 impl<T, const N: usize, S> PatternContainer<T, N, S> {
     #[inline]
+    pub const fn iter(&self) -> PatternIter<'_, T, N, S> {
+        PatternIter {
+            container: &self,
+            index: 0,
+            cursor: 0,
+        }
+    }
+
+    #[inline]
     pub fn try_compress(&mut self) -> bool {
         let active = self.entries.len();
 
@@ -265,8 +274,8 @@ impl<T, const N: usize, S> PatternContainer<T, N, S> {
             dst_next += dst_cap;
         }
 
-        self.bit_cap = new_cap;
         self.container = new_container;
+        self.bit_cap = new_cap;
 
         true
     }
@@ -331,6 +340,17 @@ impl<T, const N: usize, S> PatternContainer<T, N, S> {
     }
 
     #[inline]
+    pub fn as_single(&self) -> Option<&T> {
+        if self.entries.len() != 0 {
+            return None;
+        }
+
+        let pattern = self.entries.iter().next().unwrap();
+
+        unsafe { Some(&self.patterns[pattern.index].value) }
+    }
+
+    #[inline]
     pub const fn size(&self) -> usize {
         N
     }
@@ -343,6 +363,46 @@ impl<T, const N: usize, S> PatternContainer<T, N, S> {
     #[inline]
     pub const fn bit_capacity(&self) -> usize {
         self.bit_cap.get()
+    }
+}
+
+pub struct PatternIter<'a, T, const N: usize, S = RandomState> {
+    container: &'a PatternContainer<T, N, S>,
+    index: usize,
+    cursor: usize,
+}
+
+impl<'a, T, const N: usize, S> ExactSizeIterator for PatternIter<'a, T, N, S> {
+    #[inline]
+    fn len(&self) -> usize {
+        N
+    }
+}
+
+impl<'a, T, const N: usize, S> Iterator for PatternIter<'a, T, N, S> {
+    type Item = &'a T;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index >= N {
+            return None;
+        }
+
+        let bit_cap = self.container.bit_cap.get();
+        let tail = self.cursor + bit_cap;
+
+        let idx = self.container.container[self.cursor..tail].load::<usize>();
+
+        self.index += 1;
+        self.cursor = tail;
+
+        unsafe { Some(&self.container.patterns[idx].value) }
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = N - self.index;
+        (remaining, Some(remaining))
     }
 }
 

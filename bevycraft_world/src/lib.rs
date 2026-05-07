@@ -3,9 +3,8 @@ mod generator;
 mod morton;
 
 pub mod prelude {
-    #[allow(deprecated)]
     pub use crate::{
-        chunk::chunk::*,
+        chunk::{chunk::*, storage::ChunkStorage},
         generator::{chunk_generator::*, simple_generator::SimpleGenerator},
         morton::morton_3d::{Morton3D, MortonDecodable, MortonEncodable},
     };
