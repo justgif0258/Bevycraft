@@ -1,13 +1,12 @@
-use std::sync::{Arc, LazyLock, atomic::AtomicBool};
+use std::sync::LazyLock;
 
 use bevy::{
     app::{App, Plugin},
-    asset::{Asset, AssetApp, AssetLoader, AssetServer, LoadContext, io::Reader},
-    platform::{collections::HashMap, hash::RandomState},
+    asset::{Asset, AssetApp, AssetLoader, LoadContext, io::Reader},
+    platform::collections::HashMap,
     reflect::TypePath,
 };
 use bevycraft_core::prelude::AssetLocation;
-use dashmap::DashMap;
 use ron::{Options, extensions::Extensions};
 use serde::Deserialize;
 

@@ -36,6 +36,11 @@ impl OcclusionMask {
     }
 
     #[inline(always)]
+    pub const fn merge_assign(&mut self, other: Self) {
+        *self = self.merge(other);
+    }
+
+    #[inline(always)]
     pub const fn occludes(&self, other: &Self) -> bool {
         self.0 & other.0 == other.0
     }

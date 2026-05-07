@@ -18,7 +18,7 @@ use bevycraft_app::{AppState, Player};
 use bevycraft_core::prelude::{
     AssetLocation, Block, BlockBehaviour, BlockFlags, DefaultedRegistry, GameRegistries, Registry,
 };
-use bevycraft_render::prelude::{ArrayTexture, RModel, VertexMaterial};
+use bevycraft_render::prelude::{ArrayTexture, RModel, RModelPlugin, VertexMaterial};
 
 const FULL_SHAPE: Aabb3d = Aabb3d {
     min: Vec3A::new(0.0, 0.0, 0.0),
@@ -37,7 +37,7 @@ const FULL_BLOCK: LazyLock<BlockFlags> = LazyLock::new(|| {
         | BlockFlags::CAN_SUPPORT
 });
 
-const BLOCK_RESOLUTION: u32 = 8;
+const BLOCK_RES: u32 = 8;
 
 fn main() -> AppExit {
     let mut blocks = DefaultedRegistry::<Block>::new(
@@ -53,20 +53,21 @@ fn main() -> AppExit {
         .add_plugins((
             DefaultPlugins,
             FreeCameraPlugin,
+            RModelPlugin,
             MaterialPlugin::<VertexMaterial>::default(),
         ))
         .init_state::<AppState>()
         .init_resource::<AssetsLoading>()
+        .insert_resource(ArrayTexture::new_uninit(BLOCK_RES, BLOCK_RES))
         .insert_resource(Time::<Fixed>::from_hz(64.0))
-        .insert_resource(ArrayTexture::new_uninit(BLOCK_RESOLUTION, BLOCK_RESOLUTION))
         .add_systems(OnEnter(AppState::ModelDiscovery), discover_models)
-        .add_systems(OnEnter(AppState::TextureDiscovery), discover_textures)
-        .add_systems(OnEnter(AppState::CachingMeshes), cache_meshes)
+        .add_systems(OnEnter(AppState::BuildArrayTexture), build_array_texture)
+        .add_systems(OnEnter(AppState::CacheMeshes), cache_meshes)
         .add_systems(
             FixedPostUpdate,
-            wait_models_to_load.run_if(in_state(AppState::FinishingLoadingModels)),
+            await_models.run_if(in_state(AppState::AwaitModels)),
         )
-        .add_systems(OnEnter(AppState::InGame), setup_world)
+        .add_systems(OnEnter(AppState::Finishing), setup_world)
         // .add_systems(FixedUpdate, (
         // ).run_if(in_state(AppState::InGame)))
         .run()
@@ -77,8 +78,6 @@ fn discover_models(
     mut loading: ResMut<AssetsLoading>,
     server: Res<AssetServer>,
 ) {
-    info!("Initializing app...");
-
     info!("Discovering models...");
 
     GameRegistries::blocks()
@@ -99,10 +98,10 @@ fn discover_models(
             loading.0.push(h.untyped());
         });
 
-    state.set(AppState::FinishingLoadingModels);
+    state.set(AppState::AwaitModels);
 }
 
-fn wait_models_to_load(
+fn await_models(
     mut state: ResMut<NextState<AppState>>,
     loading: Res<AssetsLoading>,
     server: Res<AssetServer>,
@@ -113,11 +112,11 @@ fn wait_models_to_load(
         .all(|h: &UntypedHandle| server.is_loaded_with_dependencies(h));
 
     if ready {
-        state.set(AppState::CachingMeshes);
+        state.set(AppState::BuildArrayTexture);
     }
 }
 
-fn discover_textures(
+fn build_array_texture(
     mut state: ResMut<NextState<AppState>>,
     mut array_texture: ResMut<ArrayTexture>,
     mut images: ResMut<Assets<Image>>,
@@ -132,7 +131,7 @@ fn discover_textures(
 
     array_texture.init_array(&mut images, &mut mats);
 
-    state.set(AppState::CachingMeshes);
+    state.set(AppState::CacheMeshes);
 }
 
 fn cache_meshes(
@@ -152,6 +151,8 @@ fn cache_meshes(
 
         let model = models.get(&model_handle).expect("Failed to load RModel");
     });
+
+    state.set(AppState::Finishing);
 }
 
 fn setup_world(mut commands: Commands, mut scattering: ResMut<Assets<ScatteringMedium>>) {

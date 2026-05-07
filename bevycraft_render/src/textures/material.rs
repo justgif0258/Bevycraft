@@ -1,4 +1,4 @@
-use crate::prelude::{RenderMode, TextureId};
+use crate::prelude::RenderMode;
 use bevy::mesh::*;
 use bevy::pbr::*;
 use bevy::prelude::*;
@@ -11,13 +11,7 @@ pub const ATTRIBUTE_TEXTURE_LAYER: MeshVertexAttribute = MeshVertexAttribute::ne
     VertexFormat::Uint32,
 );
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Vertex {
-    pub position: [f32; 3],
-    pub uv: [f32; 2],
-    pub normal: [f32; 3],
-    pub texture: TextureId,
-}
+const SHADER_PATH: &'static str = "bevycraft/shaders/material.wgsl";
 
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 pub struct VertexMaterial {
@@ -31,12 +25,12 @@ pub struct VertexMaterial {
 impl Material for VertexMaterial {
     #[inline]
     fn vertex_shader() -> ShaderRef {
-        "bevycraft/shaders/texture/array_texture.wgsl".into()
+        SHADER_PATH.into()
     }
 
     #[inline]
     fn fragment_shader() -> ShaderRef {
-        "bevycraft/shaders/texture/array_texture.wgsl".into()
+        SHADER_PATH.into()
     }
 
     #[inline]

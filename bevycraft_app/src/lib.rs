@@ -8,9 +8,10 @@ pub mod systems;
 pub enum AppState {
     #[default]
     ModelDiscovery,
-    FinishingLoadingModels,
-    TextureDiscovery,
-    CachingMeshes,
+    AwaitModels,
+    BuildArrayTexture,
+    CacheMeshes,
+    Finishing,
     InGame,
 }
 

@@ -75,6 +75,14 @@ impl AssetLocation {
     const SEPARATOR: char = ':';
 
     #[inline]
+    pub fn new_unchecked(namespace: &str, path: &str) -> Self {
+        Self {
+            namespace: Box::from(namespace),
+            path: Box::from(path),
+        }
+    }
+
+    #[inline]
     pub fn parse(location: &str) -> Self {
         Self::try_parsing(location).unwrap()
     }

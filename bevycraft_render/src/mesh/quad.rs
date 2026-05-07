@@ -29,35 +29,17 @@ impl Quad {
         render_mode: RenderMode,
         tintable: bool,
     ) -> Self {
-        let [[x0, y0], [x1, y1]] = [from, to];
-        let [u0, v0, u1, v1] = uv;
-
-        let mut corners = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
-
-        let mut uvs = [[u0, v1], [u1, v1], [u1, v0], [u0, v0]];
-
-        if matches!(dir, Direction::NegX | Direction::NegY | Direction::NegZ) {
-            corners.swap(1, 3);
-            uvs.swap(1, 3);
-        }
-
-        let positions = corners.map(|[x, y]| match dir {
-            Direction::PosX | Direction::NegX => [depth, y, x],
-            Direction::PosY | Direction::NegY => [x, depth, y],
-            Direction::PosZ | Direction::NegZ => [x, y, depth],
-        });
-
-        let normal = dir.get_normal();
-
-        Self {
-            positions,
-            uvs,
-            normal,
-            mask: OcclusionMask::EMPTY,
+        Self::build(
+            dir,
+            from,
+            to,
+            depth,
+            uv,
             texture,
             render_mode,
             tintable,
-        }
+            false,
+        )
     }
 
     #[inline]
@@ -71,6 +53,30 @@ impl Quad {
         render_mode: RenderMode,
         tintable: bool,
     ) -> Self {
+        Self::build(
+            dir,
+            from,
+            to,
+            depth,
+            uv,
+            texture,
+            render_mode,
+            tintable,
+            true,
+        )
+    }
+
+    pub(crate) fn build(
+        dir: Direction,
+        from: [f32; 2],
+        to: [f32; 2],
+        depth: f32,
+        uv: [f32; 4],
+        texture: TextureId,
+        render_mode: RenderMode,
+        tintable: bool,
+        compute_mask: bool,
+    ) -> Self {
         let [[x0, y0], [x1, y1]] = [from, to];
         let [u0, v0, u1, v1] = uv;
 
@@ -78,7 +84,7 @@ impl Quad {
 
         let mut uvs = [[u0, v1], [u1, v1], [u1, v0], [u0, v0]];
 
-        if matches!(dir, Direction::NegX | Direction::NegY | Direction::NegZ) {
+        if matches!(dir, Direction::PosX | Direction::PosY | Direction::NegZ) {
             corners.swap(1, 3);
             uvs.swap(1, 3);
         }
@@ -91,7 +97,11 @@ impl Quad {
 
         let normal = dir.get_normal();
 
-        let mask = OcclusionMask::for_corners(corners);
+        let mask = if compute_mask {
+            OcclusionMask::for_corners(corners)
+        } else {
+            OcclusionMask::EMPTY
+        };
 
         Self {
             positions,

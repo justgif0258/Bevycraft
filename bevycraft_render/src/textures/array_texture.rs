@@ -14,6 +14,8 @@ use rapidhash::fast::RandomState;
 
 use crate::prelude::{RenderMode, VertexMaterial};
 
+pub static NULL_TEXTURE: LazyLock<AssetLocation> = LazyLock::new(|| AssetLocation::new_unchecked("", ""));
+
 #[derive(Resource)]
 pub struct ArrayTexture {
     texture_lut: HashMap<AssetLocation, TextureId, RandomState>,
@@ -30,8 +32,10 @@ pub struct ArrayTexture {
 impl ArrayTexture {
     #[inline]
     pub fn new_uninit(width: u32, height: u32) -> Self {
-        assert!(width.is_power_of_two());
+        let mut texture_lut = HashMap::with_hasher(RandomState::new());
 
+        texture_lut.insert(NULL_TEXTURE.clone(), TextureId(0));
+        
         Self {
             texture_lut: HashMap::with_hasher(RandomState::new()),
             materials: None,
