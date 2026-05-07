@@ -11,6 +11,8 @@ pub struct OrderedRegistry<T: Registrable> {
     key_to_idx: HashMap<AssetLocation, usize, RandomState>,
     idx_to_key: Vec<AssetLocation>,
     values: Vec<T>,
+
+    frozen: bool,
 }
 
 impl<T: Registrable> OrderedRegistry<T> {
@@ -20,6 +22,7 @@ impl<T: Registrable> OrderedRegistry<T> {
             key_to_idx: HashMap::with_hasher(RandomState::new()),
             idx_to_key: Vec::new(),
             values: Vec::new(),
+            frozen: false,
         }
     }
 }
@@ -68,12 +71,21 @@ impl<T: Registrable> Registry for OrderedRegistry<T> {
     }
 
     #[inline]
+    fn frozen(&self) -> bool {
+        self.frozen
+    }
+
+    #[inline]
     fn len(&self) -> usize {
         self.values.len()
     }
 
     #[inline]
     fn register(&mut self, location: AssetLocation, value: T) -> Result<(), RegistrationError> {
+        if self.frozen {
+            return Err(RegistrationError::FrozenRegistry);
+        }
+
         if self.key_to_idx.contains_key(&location) {
             return Err(RegistrationError::DuplicateKey);
         }
@@ -84,5 +96,10 @@ impl<T: Registrable> Registry for OrderedRegistry<T> {
         self.values.push(value);
 
         Ok(())
+    }
+
+    #[inline]
+    fn freeze(&mut self) {
+        self.frozen = true;
     }
 }

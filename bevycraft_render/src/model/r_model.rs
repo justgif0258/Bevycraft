@@ -82,13 +82,13 @@ impl AssetLoader for RModelLoader {
 #[derive(Deserialize)]
 struct UnresolvedRModel {
     parent: Option<AssetLocation>,
-    textures: Option<HashMap<String, AssetLocation>>,
+    textures: Option<HashMap<Box<str>, AssetLocation>>,
     elements: Option<Vec<Element>>,
 }
 
 #[derive(Asset, TypePath, Debug, Clone)]
 pub struct RModel {
-    pub textures: HashMap<String, AssetLocation>,
+    pub textures: HashMap<Box<str>, AssetLocation>,
     pub elements: Vec<Element>,
 }
 
@@ -110,7 +110,7 @@ pub struct Element {
 #[derive(Deserialize, Debug, Clone)]
 pub struct Face {
     pub uv: [f32; 4],
-    pub texture: String,
+    pub texture: Box<str>,
     pub cullface: Option<Direction>,
 
     #[serde(default)]

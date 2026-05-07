@@ -17,6 +17,8 @@ pub trait ErasedRegistry: Send + Sync + 'static {
 
     fn erased_idx_to_key(&self, index: usize) -> Option<&AssetLocation>;
 
+    fn erased_frozen(&self) -> bool;
+
     fn erased_len(&self) -> usize;
 
     fn register_erased(
@@ -24,6 +26,8 @@ pub trait ErasedRegistry: Send + Sync + 'static {
         location: AssetLocation,
         value: Box<dyn Registrable>,
     ) -> Result<(), RegistrationError>;
+
+    fn freeze_erased(&mut self);
 
     fn registry_id(&self) -> TypeId;
 
@@ -84,6 +88,11 @@ impl<R: Registry> ErasedRegistry for R {
     }
 
     #[inline]
+    fn erased_frozen(&self) -> bool {
+        self.frozen()
+    }
+
+    #[inline]
     fn erased_len(&self) -> usize {
         self.len()
     }
@@ -99,6 +108,11 @@ impl<R: Registry> ErasedRegistry for R {
         }
 
         Err(RegistrationError::DowncastingFailure)
+    }
+
+    #[inline]
+    fn freeze_erased(&mut self) {
+        self.freeze();
     }
 
     #[inline(always)]

@@ -18,7 +18,7 @@ use bevycraft_app::{AppState, Player};
 use bevycraft_core::prelude::{
     AssetLocation, Block, BlockBehaviour, BlockFlags, DefaultedRegistry, GameRegistries, Registry,
 };
-use bevycraft_render::prelude::{ArrayTexture, RModel, RModelPlugin, VertexMaterial};
+use bevycraft_render::prelude::{ArrayTexture, BlockModel, RModel, RModelPlugin, VertexMaterial};
 
 const FULL_SHAPE: Aabb3d = Aabb3d {
     min: Vec3A::new(0.0, 0.0, 0.0),
@@ -57,8 +57,7 @@ fn main() -> AppExit {
             MaterialPlugin::<VertexMaterial>::default(),
         ))
         .init_state::<AppState>()
-        .init_resource::<AssetsLoading>()
-        .insert_resource(ArrayTexture::new_uninit(BLOCK_RES, BLOCK_RES))
+        .init_resource::<AssetsLoading<RModel>>()
         .insert_resource(Time::<Fixed>::from_hz(64.0))
         .add_systems(OnEnter(AppState::ModelDiscovery), discover_models)
         .add_systems(OnEnter(AppState::BuildArrayTexture), build_array_texture)
@@ -75,7 +74,7 @@ fn main() -> AppExit {
 
 fn discover_models(
     mut state: ResMut<NextState<AppState>>,
-    mut loading: ResMut<AssetsLoading>,
+    mut loading: ResMut<AssetsLoading<RModel>>,
     server: Res<AssetServer>,
 ) {
     info!("Discovering models...");
@@ -95,7 +94,7 @@ fn discover_models(
 
             let h = server.load::<RModel>(path);
 
-            loading.0.push(h.untyped());
+            loading.0.push((block_key.clone(), h));
         });
 
     state.set(AppState::AwaitModels);
@@ -103,13 +102,13 @@ fn discover_models(
 
 fn await_models(
     mut state: ResMut<NextState<AppState>>,
-    loading: Res<AssetsLoading>,
+    loading: Res<AssetsLoading<RModel>>,
     server: Res<AssetServer>,
 ) {
     let ready = loading
         .0
         .iter()
-        .all(|h: &UntypedHandle| server.is_loaded_with_dependencies(h));
+        .all(|(_, h)| server.is_loaded_with_dependencies(h));
 
     if ready {
         state.set(AppState::BuildArrayTexture);
@@ -117,12 +116,14 @@ fn await_models(
 }
 
 fn build_array_texture(
+    mut commands: Commands,
     mut state: ResMut<NextState<AppState>>,
-    mut array_texture: ResMut<ArrayTexture>,
     mut images: ResMut<Assets<Image>>,
     mut mats: ResMut<Assets<VertexMaterial>>,
     models: Res<Assets<RModel>>,
 ) {
+    let mut array_texture = ArrayTexture::new_uninit(BLOCK_RES, BLOCK_RES);
+
     for (_, model) in models.iter() {
         model.textures().for_each(|location| {
             array_texture.load_from_asset_location(location);
@@ -130,6 +131,8 @@ fn build_array_texture(
     }
 
     array_texture.init_array(&mut images, &mut mats);
+
+    commands.insert_resource(array_texture);
 
     state.set(AppState::CacheMeshes);
 }
@@ -208,8 +211,14 @@ fn setup_world(mut commands: Commands, mut scattering: ResMut<Assets<ScatteringM
     ));
 }
 
-#[derive(Resource, Default)]
-pub struct AssetsLoading(Vec<UntypedHandle>);
+#[derive(Resource)]
+pub struct AssetsLoading<T: Asset>(Vec<(AssetLocation, Handle<T>)>);
+
+impl<T: Asset> Default for AssetsLoading<T> {
+    fn default() -> Self {
+        Self(Vec::new())
+    }
+}
 
 fn bootstrap_blocks(registry: &mut impl Registry<Item = Block>) {
     register_block(

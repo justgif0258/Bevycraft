@@ -24,6 +24,8 @@ pub trait Registry: Send + Sync + 'static {
 
     fn idx_to_key(&self, index: usize) -> Option<&AssetLocation>;
 
+    fn frozen(&self) -> bool;
+
     fn len(&self) -> usize;
 
     fn register(
@@ -31,6 +33,8 @@ pub trait Registry: Send + Sync + 'static {
         location: AssetLocation,
         value: Self::Item,
     ) -> Result<(), RegistrationError>;
+
+    fn freeze(&mut self);
 }
 
 /// # Registrable
@@ -142,6 +146,7 @@ impl Hash for dyn Registrable {
 pub enum RegistrationError {
     DuplicateKey,
     DowncastingFailure,
+    FrozenRegistry,
     Custom(String),
 }
 
@@ -152,6 +157,7 @@ impl std::fmt::Display for RegistrationError {
         match self {
             RegistrationError::DuplicateKey => f.write_str("Attempted to write on duplicated key"),
             RegistrationError::DowncastingFailure => f.write_str("Failed to downcast registration"),
+            RegistrationError::FrozenRegistry => f.write_str("Registry is frozen"),
             RegistrationError::Custom(msg) => write!(f, "{}", msg),
         }
     }

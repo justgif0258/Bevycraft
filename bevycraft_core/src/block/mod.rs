@@ -4,7 +4,7 @@ pub mod block;
 pub mod block_behaviour;
 pub mod block_flags;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum BlockType {
     Air,
     Id(NonZeroU32),
@@ -38,21 +38,5 @@ impl Hash for BlockType {
     #[inline(always)]
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         state.write_u64(self.raw() as u64);
-    }
-}
-
-impl From<BlockType> for usize {
-    #[inline(always)]
-    fn from(value: BlockType) -> Self {
-        value.raw() as usize
-    }
-}
-
-impl From<usize> for BlockType {
-    #[inline(always)]
-    fn from(value: usize) -> Self {
-        debug_assert!(value <= u32::MAX as usize);
-
-        Self::new(value as u32)
     }
 }

@@ -1,6 +1,6 @@
 use bevycraft_core::prelude::AssetLocation;
 
-use crate::prelude::*;
+use crate::{prelude::*, textures::array_texture::NULL_TEXTURE_LOCATION};
 
 pub struct BlockModel {
     outer_quads: [Box<[Quad]>; 6],
@@ -9,7 +9,7 @@ pub struct BlockModel {
 }
 
 impl BlockModel {
-    pub fn bake(value: &RModel, array: &ArrayTexture) -> Result<Self, String> {
+    pub fn bake(model: &RModel, array: &ArrayTexture) -> Result<Self, String> {
         let mut outer_quads = [
             Vec::new(),
             Vec::new(),
@@ -21,14 +21,12 @@ impl BlockModel {
         let mut inner_quads = Vec::new();
         let mut masks = [OcclusionMask::EMPTY; 6];
 
-        value.elements.iter().for_each(|element| {
+        model.elements.iter().for_each(|element| {
             let [x0, y0, z0] = element.from;
             let [x1, y1, z1] = element.to;
 
             element.faces.iter().for_each(|(direction, face)| {
-                let texture_loc = get_texture_location(&face.texture, value).unwrap();
-
-                let texture = array.get_texture_id(&texture_loc).unwrap();
+                let texture = get_texture_id(&face.texture, model, array);
 
                 let (from, to) = match direction {
                     Direction::PosX | Direction::NegX => ([z0, y0], [z1, y1]),
@@ -106,9 +104,13 @@ impl BlockModel {
 }
 
 #[inline(always)]
-fn get_texture_location(texture: &str, model: &RModel) -> Option<AssetLocation> {
+fn get_texture_id(texture: &str, model: &RModel, array: &ArrayTexture) -> TextureId {
     match texture.strip_prefix('#') {
-        Some(t) => model.textures.get(t).cloned(),
-        None => AssetLocation::try_parsing(texture).ok(),
+        Some(t) => array.get_texture_id(model.textures.get(t).unwrap_or(&NULL_TEXTURE_LOCATION)),
+        None => {
+            let loc = AssetLocation::parse(texture);
+
+            array.get_texture_id(&loc)
+        }
     }
 }

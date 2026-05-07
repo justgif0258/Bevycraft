@@ -11,6 +11,7 @@ pub struct DefaultedRegistry<T: Registrable> {
     key_to_idx: HashMap<AssetLocation, usize, RandomState>,
     idx_to_key: Vec<AssetLocation>,
     values: Vec<T>,
+    frozen: bool,
 }
 
 impl<T: Registrable> DefaultedRegistry<T> {
@@ -28,6 +29,7 @@ impl<T: Registrable> DefaultedRegistry<T> {
             key_to_idx,
             idx_to_key,
             values,
+            frozen: false,
         }
     }
 
@@ -65,7 +67,7 @@ impl<T: Registrable> DefaultedRegistry<T> {
 impl DefaultedRegistry<Block> {
     #[inline]
     pub fn get_by_type(&self, block_type: BlockType) -> Option<&Block> {
-        self.values.get::<usize>(block_type.into())
+        self.values.get(block_type.raw() as usize)
     }
 
     #[inline]
@@ -73,12 +75,12 @@ impl DefaultedRegistry<Block> {
         self.key_to_idx
             .get(location)
             .copied()
-            .map(|idx| BlockType::from(idx))
+            .map(|idx| BlockType::new(idx as u32))
     }
 
     #[inline]
     pub fn type_to_key(&self, block_type: BlockType) -> Option<&AssetLocation> {
-        self.idx_to_key.get::<usize>(block_type.into())
+        self.idx_to_key.get(block_type.raw() as usize)
     }
 
     #[inline]
@@ -142,6 +144,11 @@ impl<T: Registrable> Registry for DefaultedRegistry<T> {
     }
 
     #[inline]
+    fn frozen(&self) -> bool {
+        self.frozen
+    }
+
+    #[inline]
     fn len(&self) -> usize {
         self.values.len()
     }
@@ -152,6 +159,10 @@ impl<T: Registrable> Registry for DefaultedRegistry<T> {
         location: AssetLocation,
         value: Self::Item,
     ) -> Result<(), RegistrationError> {
+        if self.frozen {
+            return Err(RegistrationError::FrozenRegistry);
+        }
+
         if self.contains_key(&location) {
             return Err(RegistrationError::DuplicateKey);
         }
@@ -162,5 +173,10 @@ impl<T: Registrable> Registry for DefaultedRegistry<T> {
         self.values.push(value);
 
         Ok(())
+    }
+
+    #[inline]
+    fn freeze(&mut self) {
+        self.frozen = true;
     }
 }

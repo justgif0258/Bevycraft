@@ -1,3 +1,5 @@
+use std::sync::LazyLock;
+
 use bevy::{
     asset::{Assets, Handle, RenderAssetUsages},
     ecs::resource::Resource,
@@ -14,7 +16,10 @@ use rapidhash::fast::RandomState;
 
 use crate::prelude::{RenderMode, VertexMaterial};
 
-pub static NULL_TEXTURE: LazyLock<AssetLocation> = LazyLock::new(|| AssetLocation::new_unchecked("", ""));
+pub static NULL_TEXTURE_LOCATION: LazyLock<AssetLocation> =
+    LazyLock::new(|| AssetLocation::new_unchecked("", ""));
+
+pub const NULL_TEXTURE_ID: TextureId = TextureId(0);
 
 #[derive(Resource)]
 pub struct ArrayTexture {
@@ -34,12 +39,12 @@ impl ArrayTexture {
     pub fn new_uninit(width: u32, height: u32) -> Self {
         let mut texture_lut = HashMap::with_hasher(RandomState::new());
 
-        texture_lut.insert(NULL_TEXTURE.clone(), TextureId(0));
-        
+        texture_lut.insert(NULL_TEXTURE_LOCATION.clone(), NULL_TEXTURE_ID);
+
         Self {
             texture_lut: HashMap::with_hasher(RandomState::new()),
             materials: None,
-            storage: Some(Vec::new()),
+            storage: Some(generate_missing_texture(width, height)),
             width,
             height,
             init: false,
@@ -163,8 +168,11 @@ impl ArrayTexture {
 
     #[inline(always)]
     #[must_use]
-    pub fn get_texture_id(&self, location: &AssetLocation) -> Option<TextureId> {
-        self.texture_lut.get(location).copied()
+    pub fn get_texture_id(&self, location: &AssetLocation) -> TextureId {
+        self.texture_lut
+            .get(location)
+            .copied()
+            .unwrap_or(NULL_TEXTURE_ID)
     }
 
     #[inline(always)]
@@ -185,3 +193,23 @@ impl ArrayTexture {
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TextureId(pub(crate) u32);
+
+fn generate_missing_texture(width: u32, height: u32) -> Vec<u8> {
+    let mut bytes = Vec::with_capacity((width * height * 4) as usize);
+
+    let checker_size = (width / 2).max(1);
+
+    for y in 0..height {
+        for x in 0..width {
+            let is_magenta = ((x / checker_size) % 2) == ((y / checker_size) % 2);
+
+            if is_magenta {
+                bytes.extend_from_slice(&[255, 0, 255, 255]);
+            } else {
+                bytes.extend_from_slice(&[0, 0, 0, 255]);
+            }
+        }
+    }
+
+    bytes
+}
