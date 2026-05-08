@@ -1,4 +1,4 @@
-use std::{f32::consts::FRAC_PI_8, sync::LazyLock};
+use std::f32::consts::FRAC_PI_8;
 
 use bevy::{
     anti_alias::fxaa::Fxaa,
@@ -9,45 +9,22 @@ use bevy::{
         AtmosphereEnvironmentMapLight, CascadeShadowConfigBuilder, VolumetricFog, VolumetricLight,
         light_consts::lux,
     },
-    math::bounding::Aabb3d,
     pbr::{Atmosphere, AtmosphereMode, AtmosphereSettings, ScatteringMedium},
     post_process::bloom::Bloom,
     prelude::*,
 };
 use bevycraft_app::{AppState, Player};
-use bevycraft_core::prelude::{
-    AssetLocation, Block, BlockBehaviour, BlockFlags, DefaultedRegistry, GameRegistries, Registry,
-};
-use bevycraft_render::prelude::{ArrayTexture, BlockModel, RModel, RModelPlugin, VertexMaterial};
-
-const FULL_SHAPE: Aabb3d = Aabb3d {
-    min: Vec3A::new(0.0, 0.0, 0.0),
-    max: Vec3A::new(1.0, 1.0, 1.0),
-};
-
-const HALF_SHAPE: Aabb3d = Aabb3d {
-    min: Vec3A::new(0.0, 0.0, 0.0),
-    max: Vec3A::new(1.0, 0.5, 1.0),
-};
-
-const FULL_BLOCK: LazyLock<BlockFlags> = LazyLock::new(|| {
-    BlockFlags::OCCLUDABLE
-        | BlockFlags::COLLIDABLE
-        | BlockFlags::DOES_SPAWN
-        | BlockFlags::CAN_SUPPORT
-});
+use bevycraft_core::prelude::{AssetLocation, Block, Registrar, Registry};
+use bevycraft_render::prelude::{ArrayTexture, RModel, RModelPlugin, VertexMaterial};
 
 const BLOCK_RES: u32 = 8;
 
 fn main() -> AppExit {
-    let mut blocks = DefaultedRegistry::<Block>::new(
-        AssetLocation::with_default_namespace("air"),
-        Block::default(),
-    );
+    let blocks = Block::read_from_registry();
 
-    bootstrap_blocks(&mut blocks);
-
-    GameRegistries::init_blocks(blocks);
+    blocks.iter().for_each(|(loc, _)| {
+        println!("Registered {}", loc);
+    });
 
     App::new()
         .add_plugins((
@@ -79,7 +56,7 @@ fn discover_models(
 ) {
     info!("Discovering models...");
 
-    GameRegistries::blocks()
+    Block::read_from_registry()
         .iter()
         .for_each(|(block_key, block)| {
             if block.air() {
@@ -143,7 +120,7 @@ fn cache_meshes(
     models: Res<Assets<RModel>>,
     textures: Res<ArrayTexture>,
 ) {
-    GameRegistries::blocks().iter().for_each(|(key, block)| {
+    Block::read_from_registry().iter().for_each(|(key, block)| {
         if block.air() {
             return;
         }
@@ -218,177 +195,4 @@ impl<T: Asset> Default for AssetsLoading<T> {
     fn default() -> Self {
         Self(Vec::new())
     }
-}
-
-fn bootstrap_blocks(registry: &mut impl Registry<Item = Block>) {
-    register_block(
-        registry,
-        "grass",
-        BlockBehaviour::new()
-            .hardness(0.0)
-            .toughness(0.0)
-            .flags(BlockFlags::empty())
-            .build(),
-        [],
-    );
-
-    register_block(
-        registry,
-        "poppy",
-        BlockBehaviour::new()
-            .hardness(0.0)
-            .toughness(0.0)
-            .flags(BlockFlags::empty())
-            .build(),
-        [],
-    );
-
-    register_block(
-        registry,
-        "grass_block",
-        BlockBehaviour::new()
-            .hardness(0.65)
-            .toughness(0.65)
-            .flags(*FULL_BLOCK)
-            .build(),
-        [FULL_SHAPE],
-    );
-
-    register_block(
-        registry,
-        "dirt",
-        BlockBehaviour::new()
-            .hardness(0.5)
-            .toughness(0.5)
-            .flags(*FULL_BLOCK)
-            .build(),
-        [FULL_SHAPE],
-    );
-
-    register_block(
-        registry,
-        "sand",
-        BlockBehaviour::new()
-            .hardness(0.5)
-            .toughness(0.5)
-            .flags(*FULL_BLOCK)
-            .build(),
-        [FULL_SHAPE],
-    );
-
-    register_block(
-        registry,
-        "stone",
-        BlockBehaviour::new()
-            .hardness(2.0)
-            .toughness(6.0)
-            .flags(*FULL_BLOCK)
-            .build(),
-        [FULL_SHAPE],
-    );
-
-    register_block(
-        registry,
-        "bedrock",
-        BlockBehaviour::new()
-            .hardness(f32::INFINITY)
-            .toughness(f32::INFINITY)
-            .flags(BlockFlags::COLLIDABLE | BlockFlags::OCCLUDABLE | BlockFlags::CAN_SUPPORT)
-            .build(),
-        [FULL_SHAPE],
-    );
-
-    register_block(
-        registry,
-        "oak_log",
-        BlockBehaviour::new()
-            .hardness(2.0)
-            .toughness(2.0)
-            .flags(*FULL_BLOCK)
-            .build(),
-        [FULL_SHAPE],
-    );
-
-    register_block(
-        registry,
-        "oak_planks",
-        BlockBehaviour::new()
-            .hardness(2.0)
-            .toughness(3.0)
-            .flags(*FULL_BLOCK)
-            .build(),
-        [FULL_SHAPE],
-    );
-
-    register_block(
-        registry,
-        "oak_planks_slab",
-        BlockBehaviour::new()
-            .hardness(2.0)
-            .toughness(3.0)
-            .flags(BlockFlags::COLLIDABLE | BlockFlags::OCCLUDABLE | BlockFlags::CAN_SUPPORT)
-            .build(),
-        [HALF_SHAPE],
-    );
-
-    register_block(
-        registry,
-        "oak_planks_stair",
-        BlockBehaviour::new()
-            .hardness(2.0)
-            .toughness(3.0)
-            .flags(BlockFlags::COLLIDABLE | BlockFlags::OCCLUDABLE | BlockFlags::CAN_SUPPORT)
-            .build(),
-        [
-            HALF_SHAPE,
-            Aabb3d::from_min_max([0.0, 4.0, 0.0], [8.0, 8.0, 4.0]),
-        ],
-    );
-
-    register_block(
-        registry,
-        "oak_trapdoor",
-        BlockBehaviour::new()
-            .hardness(2.0)
-            .toughness(3.0)
-            .flags(BlockFlags::COLLIDABLE | BlockFlags::OCCLUDABLE | BlockFlags::CAN_SUPPORT)
-            .build(),
-        [Aabb3d::from_min_max([0.0, 0.0, 0.0], [8.0, 2.0, 8.0])],
-    );
-
-    register_block(
-        registry,
-        "oak_leaves",
-        BlockBehaviour::new()
-            .hardness(0.2)
-            .toughness(0.2)
-            .flags(BlockFlags::COLLIDABLE | BlockFlags::CAN_SUPPORT)
-            .build(),
-        [FULL_SHAPE],
-    );
-
-    register_block(
-        registry,
-        "snow_block",
-        BlockBehaviour::new()
-            .hardness(0.2)
-            .toughness(0.2)
-            .flags(*FULL_BLOCK)
-            .build(),
-        [FULL_SHAPE],
-    );
-}
-
-fn register_block(
-    registry: &mut impl Registry<Item = Block>,
-    name: &'static str,
-    behaviour: BlockBehaviour,
-    shapes: impl Into<Box<[Aabb3d]>>,
-) {
-    registry
-        .register(
-            AssetLocation::with_default_namespace(name),
-            Block::new().behaviour(behaviour).shapes(shapes).build(),
-        )
-        .expect("Registration failed");
 }

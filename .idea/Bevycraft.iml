@@ -7,6 +7,7 @@
       <sourceFolder url="file://$MODULE_DIR$/bevycraft_core/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/bevycraft_render/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/bevycraft_world/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/bevycraft_macros/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

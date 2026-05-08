@@ -5,6 +5,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+# Macros
+bevycraft_macros.workspace = true
+
 # Bevy
 bevy.workspace = true
 bevy_dylib.workspace = true
@@ -12,6 +15,7 @@ bevy_dylib.workspace = true
 #Hashing
 rapidhash.workspace = true
 hashbrown.workspace = true
+dashmap.workspace = true
 
 # Utilities
 serde.workspace = true
@@ -19,3 +23,7 @@ bitcode.workspace = true
 bitflags.workspace = true
 builder-pattern.workspace = true
 bitvec.workspace = true
+parking_lot.workspace = true
+ctor.workspace = true
+syn.workspace = true
+quote.workspace = true

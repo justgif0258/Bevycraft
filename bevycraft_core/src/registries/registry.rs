@@ -5,7 +5,17 @@ use std::{
     sync::Arc,
 };
 
+use parking_lot::{RwLockReadGuard, RwLockWriteGuard};
+
 use crate::prelude::AssetLocation;
+
+pub trait Registrar: Registrable + Sized {
+    type Registry: Registry<Item = Self>;
+
+    fn read_from_registry() -> RwLockReadGuard<'static, Self::Registry>;
+
+    fn write_to_registry() -> RwLockWriteGuard<'static, Self::Registry>;
+}
 
 pub trait Registry: Send + Sync + 'static {
     type Item: Registrable;
@@ -32,7 +42,7 @@ pub trait Registry: Send + Sync + 'static {
         &mut self,
         location: AssetLocation,
         value: Self::Item,
-    ) -> Result<(), RegistrationError>;
+    ) -> Result<&Self::Item, RegistrationError>;
 
     fn freeze(&mut self);
 }
@@ -146,6 +156,7 @@ impl Hash for dyn Registrable {
 pub enum RegistrationError {
     DuplicateKey,
     DowncastingFailure,
+    HolderAlreadyRegistered,
     FrozenRegistry,
     Custom(String),
 }
@@ -157,6 +168,9 @@ impl std::fmt::Display for RegistrationError {
         match self {
             RegistrationError::DuplicateKey => f.write_str("Attempted to write on duplicated key"),
             RegistrationError::DowncastingFailure => f.write_str("Failed to downcast registration"),
+            RegistrationError::HolderAlreadyRegistered => {
+                f.write_str("Holder is already registered")
+            }
             RegistrationError::FrozenRegistry => f.write_str("Registry is frozen"),
             RegistrationError::Custom(msg) => write!(f, "{}", msg),
         }

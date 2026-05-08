@@ -25,7 +25,7 @@ pub trait ErasedRegistry: Send + Sync + 'static {
         &mut self,
         location: AssetLocation,
         value: Box<dyn Registrable>,
-    ) -> Result<(), RegistrationError>;
+    ) -> Result<&dyn Registrable, RegistrationError>;
 
     fn freeze_erased(&mut self);
 
@@ -102,9 +102,11 @@ impl<R: Registry> ErasedRegistry for R {
         &mut self,
         location: AssetLocation,
         value: Box<dyn Registrable>,
-    ) -> Result<(), RegistrationError> {
+    ) -> Result<&dyn Registrable, RegistrationError> {
         if let Ok(downcasted) = value.downcast::<R::Item>() {
-            return self.register(location, *downcasted);
+            return self
+                .register(location, *downcasted)
+                .map(|v| v.as_registrable());
         }
 
         Err(RegistrationError::DowncastingFailure)

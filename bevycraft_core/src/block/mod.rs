@@ -3,6 +3,7 @@ use std::{hash::Hash, mem::transmute, num::NonZeroU32};
 pub mod block;
 pub mod block_behaviour;
 pub mod block_flags;
+pub mod blocks;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum BlockType {

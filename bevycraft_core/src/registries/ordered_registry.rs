@@ -81,7 +81,11 @@ impl<T: Registrable> Registry for OrderedRegistry<T> {
     }
 
     #[inline]
-    fn register(&mut self, location: AssetLocation, value: T) -> Result<(), RegistrationError> {
+    fn register(
+        &mut self,
+        location: AssetLocation,
+        value: T,
+    ) -> Result<&Self::Item, RegistrationError> {
         if self.frozen {
             return Err(RegistrationError::FrozenRegistry);
         }
@@ -95,7 +99,7 @@ impl<T: Registrable> Registry for OrderedRegistry<T> {
         self.idx_to_key.push(location);
         self.values.push(value);
 
-        Ok(())
+        Ok(self.values.last().unwrap())
     }
 
     #[inline]

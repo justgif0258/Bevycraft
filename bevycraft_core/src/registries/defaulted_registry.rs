@@ -158,7 +158,7 @@ impl<T: Registrable> Registry for DefaultedRegistry<T> {
         &mut self,
         location: AssetLocation,
         value: Self::Item,
-    ) -> Result<(), RegistrationError> {
+    ) -> Result<&Self::Item, RegistrationError> {
         if self.frozen {
             return Err(RegistrationError::FrozenRegistry);
         }
@@ -172,7 +172,7 @@ impl<T: Registrable> Registry for DefaultedRegistry<T> {
         self.idx_to_key.push(location);
         self.values.push(value);
 
-        Ok(())
+        Ok(self.values.last().unwrap())
     }
 
     #[inline]

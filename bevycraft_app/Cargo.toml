@@ -9,6 +9,7 @@ edition = "2024"
 bevycraft_core.workspace = true
 bevycraft_world.workspace = true
 bevycraft_render.workspace = true
+bevycraft_macros.workspace = true
 
 # Bevy
 bevy.workspace = true

@@ -4,6 +4,7 @@ resolver = "3"
 members = [
     "bevycraft_app",
     "bevycraft_core",
+    "bevycraft_macros",
     "bevycraft_render",
     "bevycraft_world",
 ]
@@ -24,6 +25,7 @@ opt-level = 3
 bevycraft_core = { path = "bevycraft_core" }
 bevycraft_world = { path = "bevycraft_world" }
 bevycraft_render = { path = "bevycraft_render" }
+bevycraft_macros = { path = "bevycraft_macros" }
 
 # Bevy
 bevy = { version = "0.18.1", features = ["free_camera", "debug"] }
@@ -42,6 +44,13 @@ fastrand = { version = "2.4.1", features = [] }
 image = { version = "0.25.10", features = [] }
 geo = { version = "0.33.1", features = [] }
 bitvec = { version = "1.0.1", features = [] }
+parking_lot = { version = "0.12.5", features = [] }
+ctor = { version = "1.0.3", features = [] }
+syn = { version = "2.0.117", features = [] }
+quote = { version = "1.0.45", features = [] }
+proc-macro-crate = { version = "3.5.0" }
+proc-macro2 = { version = "1.0.106" }
+
 
 # Hashing
 rapidhash = { version = "4.4.1", features = ["default"] }

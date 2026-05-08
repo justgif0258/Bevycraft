@@ -1,8 +1,10 @@
 use crate::prelude::*;
 use bevy::math::bounding::Aabb3d;
+use bevycraft_macros::Registrar;
 use builder_pattern::Builder;
 
-#[derive(Builder, Debug, PartialEq)]
+#[derive(Registrar, Builder, Debug, PartialEq)]
+#[registrar(default = "air")]
 pub struct Block {
     #[into]
     #[public]

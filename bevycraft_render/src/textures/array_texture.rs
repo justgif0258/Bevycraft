@@ -42,7 +42,7 @@ impl ArrayTexture {
         texture_lut.insert(NULL_TEXTURE_LOCATION.clone(), NULL_TEXTURE_ID);
 
         Self {
-            texture_lut: HashMap::with_hasher(RandomState::new()),
+            texture_lut,
             materials: None,
             storage: Some(generate_missing_texture(width, height)),
             width,

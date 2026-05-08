@@ -1,0 +1,16 @@
+
+[package]
+name = "bevycraft_macros"
+authors.workspace = true
+version.workspace = true
+edition.workspace = true
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn.workspace = true
+quote.workspace = true
+proc-macro-crate.workspace = true
+proc-macro2.workspace = true
+ctor.workspace = true
