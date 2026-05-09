@@ -2,44 +2,47 @@ use std::iter::{Repeat, Take};
 
 use crate::prelude::{CHUNK_LEN, CHUNK_SIZE};
 use bevy::math::IVec3;
-use bevycraft_core::prelude::{BlockType, PatternContainer, PatternIter};
+use bevycraft_core::{
+    blocks::AIR,
+    prelude::{PatternContainer, PatternIter},
+};
 
 pub enum ChunkStorage {
     Empty,
-    Single(BlockType),
-    Pattern(PatternContainer<BlockType, CHUNK_LEN>),
+    Single(usize),
+    Pattern(PatternContainer<usize, CHUNK_LEN>),
 }
 
 impl ChunkStorage {
-    pub fn single(block: BlockType) -> Self {
+    pub fn single(block: usize) -> Self {
         Self::Single(block)
     }
 
     #[inline]
     pub fn empty_pattern() -> Self {
-        Self::Pattern(PatternContainer::new(BlockType::Air))
+        Self::Pattern(PatternContainer::new(*AIR))
     }
 
     #[inline]
-    pub fn get(&self, position: IVec3) -> BlockType {
+    pub fn get(&self, position: IVec3) -> usize {
         match self {
-            Self::Empty => BlockType::Air,
+            Self::Empty => *AIR,
             Self::Single(b) => *b,
             Self::Pattern(p) => {
                 let idx = linearize(position);
 
-                p.get(idx).copied().unwrap_or(BlockType::Air)
+                p.get(idx).copied().unwrap_or(*AIR)
             }
         }
     }
 
     #[inline]
-    pub fn set(&mut self, position: IVec3, block: BlockType) {
+    pub fn set(&mut self, position: IVec3, block: usize) {
         let idx = linearize(position);
 
         match self {
             Self::Empty => {
-                let mut container = PatternContainer::new(BlockType::Air);
+                let mut container = PatternContainer::new(*AIR);
 
                 container.set(idx, block);
 
@@ -57,7 +60,7 @@ impl ChunkStorage {
     }
 
     #[inline]
-    pub fn fill(&mut self, block: BlockType) {
+    pub fn fill(&mut self, block: usize) {
         *self = Self::Single(block);
     }
 
@@ -70,7 +73,7 @@ impl ChunkStorage {
         match self {
             Self::Pattern(p) => {
                 if let Some(single) = p.as_single().copied() {
-                    if single == BlockType::Air {
+                    if single == *AIR {
                         *self = Self::Empty;
                     } else {
                         *self = Self::Single(single);
@@ -88,7 +91,7 @@ impl ChunkStorage {
     #[inline]
     pub fn iter(&self) -> ChunkIter<'_> {
         match self {
-            Self::Empty => ChunkIter::Uniform(std::iter::repeat(BlockType::Air).take(CHUNK_LEN)),
+            Self::Empty => ChunkIter::Uniform(std::iter::repeat(*AIR).take(CHUNK_LEN)),
             Self::Single(b) => ChunkIter::Uniform(std::iter::repeat(*b).take(CHUNK_LEN)),
             Self::Pattern(p) => ChunkIter::Pattern(p.iter()),
         }
@@ -120,12 +123,12 @@ impl ChunkStorage {
 }
 
 pub enum ChunkIter<'a> {
-    Uniform(Take<Repeat<BlockType>>),
-    Pattern(PatternIter<'a, BlockType, CHUNK_LEN>),
+    Uniform(Take<Repeat<usize>>),
+    Pattern(PatternIter<'a, usize, CHUNK_LEN>),
 }
 
 impl Iterator for ChunkIter<'_> {
-    type Item = BlockType;
+    type Item = usize;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {

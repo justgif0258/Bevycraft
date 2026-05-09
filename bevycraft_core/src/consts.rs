@@ -2,7 +2,7 @@ use std::sync::LazyLock;
 
 use bevy::math::{Vec3A, bounding::Aabb3d};
 
-use crate::block::block_flags::BlockFlags;
+use crate::block::flags::BlockFlags;
 
 pub const FULL_SHAPE: [Aabb3d; 1] = [Aabb3d {
     min: Vec3A::new(0.0, 0.0, 0.0),

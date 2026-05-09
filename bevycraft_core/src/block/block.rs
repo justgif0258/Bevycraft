@@ -1,5 +1,4 @@
 use crate::prelude::*;
-use bevy::math::bounding::Aabb3d;
 use bevycraft_macros::Registrar;
 use builder_pattern::Builder;
 
@@ -13,8 +12,8 @@ pub struct Block {
 
     #[into]
     #[public]
-    #[default(Box::new([]))]
-    shapes: Box<[Aabb3d]>,
+    #[default(BlockShape::None)]
+    shape: BlockShape,
 }
 
 impl Default for Block {
@@ -22,7 +21,7 @@ impl Default for Block {
     fn default() -> Self {
         Self {
             behaviour: BlockBehaviour::default(),
-            shapes: Box::new([]),
+            shape: BlockShape::None,
         }
     }
 }
@@ -100,7 +99,7 @@ impl Block {
     }
 
     #[inline(always)]
-    pub const fn shapes(&self) -> &[Aabb3d] {
-        &self.shapes
+    pub const fn shapes(&self) -> &BlockShape {
+        &self.shape
     }
 }

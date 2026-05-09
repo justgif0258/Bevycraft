@@ -36,9 +36,9 @@ impl Parse for RegisterInput {
             };
 
             let name: Ident = input.parse()?;
-            input.parse::<syn::Token![:]>()?;
+            input.parse::<Token![:]>()?;
             let ty: Type = input.parse()?;
-            input.parse::<syn::Token![=]>()?;
+            input.parse::<Token![=]>()?;
 
             let kw: Ident = input.parse()?;
 
@@ -49,10 +49,10 @@ impl Parse for RegisterInput {
             let args;
             syn::parenthesized!(args in input);
             let key: Expr = args.parse()?;
-            args.parse::<syn::Token![,]>()?;
+            args.parse::<Token![,]>()?;
             let def: Expr = args.parse()?;
 
-            input.parse::<syn::Token![;]>()?;
+            input.parse::<Token![;]>()?;
 
             entries.push(Entry {
                 vis,
@@ -69,16 +69,16 @@ impl Parse for RegisterInput {
 }
 
 #[proc_macro]
-pub fn register(input: TokenStream) -> TokenStream {
+pub fn context(input: TokenStream) -> TokenStream {
     let RegisterInput(entries) = parse_macro_input!(input as RegisterInput);
     let bevycraft_core = bevycraft_core();
 
     let decls: Vec<proc_macro2::TokenStream> = entries
         .iter()
         .map(|e| {
-            let (vis, kind, name, ty) = (&e.vis, &e.kind, &e.name, &e.ty);
+            let (vis, kind, name, ty, key, def) = (&e.vis, &e.kind, &e.name, &e.ty, &e.key, &e.def);
             quote! {
-                #vis #kind #name: #bevycraft_core::prelude::Holder<#ty> = #bevycraft_core::prelude::Holder::new();
+                #vis #kind #name: #bevycraft_core::prelude::Holder<#ty> = #bevycraft_core::prelude::Holder::new(#key, #def);
             }
         })
         .collect();
@@ -98,18 +98,13 @@ pub fn register(input: TokenStream) -> TokenStream {
         .map(|(_, group)| {
             let ty = &group[0].ty;
             let ops = group.iter().map(|e| {
-                let (name, key, def) = (&e.name, &e.key, &e.def);
-                quote! {
-                    let location = #bevycraft_core::prelude::AssetLocation::parse(#key);
-                    reg.register(location.clone(), #def)
-                        .unwrap();
-                    let id = reg.key_to_idx(&location).unwrap();
-                    #name.set(id);
-                }
+                let name = &e.name;
+                quote! { #name.registrar(&mut registry); }
             });
             quote! {
                 {
-                    let mut reg = <#ty as #bevycraft_core::prelude::Registrar>::write_to_registry();
+                    let mut registry = <#ty as #bevycraft_core::prelude::Registrar>::write_to_registry();
+
                     #(#ops)*
                 }
             }
@@ -167,7 +162,11 @@ pub fn derive_registrar(input: TokenStream) -> TokenStream {
         ),
     };
 
+    let registrar: Ident = format_ident!("{}Registrar", name);
+
     quote! {
+        pub struct #registrar;
+
         const _: () = {
             static __REGISTRY: ::std::sync::LazyLock<
                 ::parking_lot::RwLock<#registry_type>
@@ -175,14 +174,38 @@ pub fn derive_registrar(input: TokenStream) -> TokenStream {
                 ::parking_lot::RwLock::new(#registry_init)
             });
 
-            impl #bevycraft_core::prelude::Registrar for #name #extra_where {
-                type Registry = #registry_type;
+            static __LOCK: ::std::sync::atomic::AtomicBool = ::std::sync::atomic::AtomicBool::new(false);
 
-                fn read_from_registry() -> ::parking_lot::RwLockReadGuard<'static, #registry_type> {
+            impl<'a> #bevycraft_core::prelude::Registrar<'a> for #registrar #extra_where {
+                type Item = #name;
+
+                #[inline]
+                fn read_from_registry() -> ::parking_lot::RwLockReadGuard<'a, #registry_type> {
                     __REGISTRY.read()
                 }
 
-                fn write_to_registry() -> ::parking_lot::RwLockWriteGuard<'static, #registry_type> {
+                fn write_to_registry() -> ::parking_lot::RwLockWriteGuard<'a, #registry_type> {
+                    if __LOCK.load(::std::sync::atomic::Ordering::Acquire) {
+                        panic!("Tried writing to {}'s registry while it was locked", stringify!(#name));
+                    }
+
+                    __REGISTRY.write()
+                }
+            }
+
+            impl<'a> #bevycraft_core::prelude::Registrar<'a> for #name #extra_where {
+                type Item = #name;
+
+                #[inline]
+                fn read_from_registry() -> ::parking_lot::RwLockReadGuard<'a, #registry_type> {
+                    __REGISTRY.read()
+                }
+
+                fn write_to_registry() -> ::parking_lot::RwLockWriteGuard<'a, #registry_type> {
+                    if __LOCK.load(::std::sync::atomic::Ordering::Acquire) {
+                        panic!("Tried writing to {}'s registry while it was locked", stringify!(#name));
+                    }
+
                     __REGISTRY.write()
                 }
             }

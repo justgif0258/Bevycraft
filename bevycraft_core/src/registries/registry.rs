@@ -5,17 +5,7 @@ use std::{
     sync::Arc,
 };
 
-use parking_lot::{RwLockReadGuard, RwLockWriteGuard};
-
 use crate::prelude::AssetLocation;
-
-pub trait Registrar: Registrable + Sized {
-    type Registry: Registry<Item = Self>;
-
-    fn read_from_registry() -> RwLockReadGuard<'static, Self::Registry>;
-
-    fn write_to_registry() -> RwLockWriteGuard<'static, Self::Registry>;
-}
 
 pub trait Registry: Send + Sync + 'static {
     type Item: Registrable;

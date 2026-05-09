@@ -9,7 +9,7 @@ use bevy::{
     ecs::component::Component,
     math::{IVec3, Vec3, bounding::Aabb3d},
 };
-use bevycraft_core::prelude::BlockType;
+use bevycraft_core::blocks::AIR;
 
 use crate::prelude::*;
 
@@ -34,7 +34,7 @@ impl Chunk {
     }
 
     #[inline]
-    pub fn uniform(block: BlockType) -> Self {
+    pub fn uniform(block: usize) -> Self {
         Self {
             storage: ChunkStorage::Single(block),
             dirty: false,
@@ -60,7 +60,7 @@ impl Chunk {
     }
 
     #[inline]
-    pub fn set(&mut self, position: impl Into<IVec3>, block: BlockType) {
+    pub fn set(&mut self, position: impl Into<IVec3>, block: usize) {
         let position = position.into();
 
         if position.cmplt(IVec3::ZERO).any() {
@@ -71,11 +71,11 @@ impl Chunk {
             return;
         }
 
-        self.storage.set(position, block);
+        self.storage.set(position, block.into());
     }
 
     #[inline]
-    pub fn remove(&mut self, position: impl Into<IVec3>) -> Option<BlockType> {
+    pub fn remove(&mut self, position: impl Into<IVec3>) -> Option<usize> {
         let position = position.into();
 
         if position.cmplt(IVec3::ZERO).any() {
@@ -88,13 +88,13 @@ impl Chunk {
 
         let removed = self.storage.get(position);
 
-        self.storage.set(position, BlockType::Air);
+        self.storage.set(position, *AIR);
 
         Some(removed)
     }
 
     #[inline]
-    pub fn get(&self, position: impl Into<IVec3>) -> Option<BlockType> {
+    pub fn get(&self, position: impl Into<IVec3>) -> Option<usize> {
         let position = position.into();
 
         if position.cmplt(IVec3::ZERO).any() {
@@ -109,12 +109,12 @@ impl Chunk {
     }
 
     #[inline]
-    pub fn iter(&self) -> impl Iterator<Item = BlockType> {
+    pub fn iter(&self) -> impl Iterator<Item = usize> {
         self.storage.iter()
     }
 
     #[inline]
-    pub fn iter_with_position(&self) -> impl Iterator<Item = (IVec3, BlockType)> {
+    pub fn iter_with_position(&self) -> impl Iterator<Item = (IVec3, usize)> {
         self.storage.iter().enumerate().map(|(i, block)| {
             let x = (i & 0xF) as i32;
             let z = ((i >> 4) & 0xF) as i32;

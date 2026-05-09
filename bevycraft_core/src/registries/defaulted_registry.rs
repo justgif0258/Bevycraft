@@ -1,10 +1,7 @@
 use bevy::{ecs::resource::Resource, platform::collections::HashMap};
 use rapidhash::fast::RandomState;
 
-use crate::{
-    block::BlockType,
-    prelude::{AssetLocation, Block, Registrable, RegistrationError, Registry},
-};
+use crate::prelude::{AssetLocation, Registrable, RegistrationError, Registry};
 
 #[derive(Resource)]
 pub struct DefaultedRegistry<T: Registrable> {
@@ -61,42 +58,6 @@ impl<T: Registrable> DefaultedRegistry<T> {
     #[inline]
     pub fn default_value(&self) -> &T {
         &self.values[0]
-    }
-}
-
-impl DefaultedRegistry<Block> {
-    #[inline]
-    pub fn get_by_type(&self, block_type: BlockType) -> Option<&Block> {
-        self.values.get(block_type.raw() as usize)
-    }
-
-    #[inline]
-    pub fn key_to_type(&self, location: &AssetLocation) -> Option<BlockType> {
-        self.key_to_idx
-            .get(location)
-            .copied()
-            .map(|idx| BlockType::new(idx as u32))
-    }
-
-    #[inline]
-    pub fn type_to_key(&self, block_type: BlockType) -> Option<&AssetLocation> {
-        self.idx_to_key.get(block_type.raw() as usize)
-    }
-
-    #[inline]
-    pub fn get_by_type_or_default(&self, block_type: BlockType) -> &Block {
-        self.get_by_type(block_type)
-            .unwrap_or(&self.default_value())
-    }
-
-    #[inline]
-    pub fn key_to_type_or_default(&self, location: &AssetLocation) -> BlockType {
-        self.key_to_type(location).unwrap_or(BlockType::Air)
-    }
-
-    #[inline]
-    pub fn type_to_key_or_default(&self, block_type: BlockType) -> &AssetLocation {
-        self.type_to_key(block_type).unwrap_or(&self.default_key())
     }
 }
 
@@ -164,6 +125,12 @@ impl<T: Registrable> Registry for DefaultedRegistry<T> {
         }
 
         if self.contains_key(&location) {
+            if &location == self.default_key() {
+                self.values[0] = value;
+
+                return Ok(self.default_value());
+            }
+
             return Err(RegistrationError::DuplicateKey);
         }
 

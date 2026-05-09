@@ -1,4 +1,4 @@
-use std::f32::consts::FRAC_PI_8;
+use std::{f32::consts::FRAC_PI_8, sync::atomic::AtomicPtr};
 
 use bevy::{
     anti_alias::fxaa::Fxaa,
@@ -14,13 +14,13 @@ use bevy::{
     prelude::*,
 };
 use bevycraft_app::{AppState, Player};
-use bevycraft_core::prelude::{AssetLocation, Block, Registrar, Registry};
+use bevycraft_core::prelude::{AssetLocation, Block, BlockRegistrar, Registrar, Registry};
 use bevycraft_render::prelude::{ArrayTexture, RModel, RModelPlugin, VertexMaterial};
 
 const BLOCK_RES: u32 = 8;
 
 fn main() -> AppExit {
-    let blocks = Block::read_from_registry();
+    let blocks = BlockRegistrar::read_from_registry();
 
     blocks.iter().for_each(|(loc, _)| {
         println!("Registered {}", loc);

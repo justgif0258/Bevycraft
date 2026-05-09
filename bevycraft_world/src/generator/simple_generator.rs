@@ -1,4 +1,4 @@
-use bevycraft_core::prelude::{AssetLocation, Block, BlockType, Registrar};
+use bevycraft_core::blocks::{DIRT, GRASS_BLOCK, STONE};
 use simdnoise::NoiseBuilder;
 
 use crate::prelude::{CHUNK_SIZE, Chunk, ChunkGenerator, ChunkPos};
@@ -36,12 +36,6 @@ impl ChunkGenerator for SimpleGenerator {
 
     #[inline]
     fn fill(&self, position: ChunkPos, chunk: &mut Chunk) {
-        let [grass, dirt, stone] = [
-            get_block_type("grass_block"),
-            get_block_type("dirt"),
-            get_block_type("stone"),
-        ];
-
         let world_pos = position.into_world_pos();
 
         let (noise_2d, _, _) = NoiseBuilder::fbm_2d_offset(
@@ -71,11 +65,11 @@ impl ChunkGenerator for SimpleGenerator {
                     let block = if y > surface_height {
                         continue;
                     } else if y == surface_height {
-                        grass
+                        *GRASS_BLOCK
                     } else if y > surface_height - 3 {
-                        dirt
+                        *DIRT
                     } else {
-                        stone
+                        *STONE
                     };
 
                     chunk.set([x, y.rem_euclid(CHUNK_SIZE), z], block);
@@ -83,11 +77,4 @@ impl ChunkGenerator for SimpleGenerator {
             }
         }
     }
-}
-
-#[inline(always)]
-fn get_block_type(name: &'static str) -> BlockType {
-    Block::read_from_registry()
-        .key_to_type(&AssetLocation::parse(name))
-        .unwrap_or(BlockType::Air)
 }

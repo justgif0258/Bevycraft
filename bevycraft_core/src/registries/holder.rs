@@ -1,31 +1,13 @@
-use std::{
-    marker::PhantomData,
-    ops::Deref,
-    sync::{LazyLock, OnceLock},
-};
+use std::{marker::PhantomData, ops::Deref, sync::OnceLock};
 
 use crate::prelude::*;
 
+#[derive(Debug, Clone)]
 pub struct Holder<'a, T> {
     id: OnceLock<usize>,
-    key: LazyLock<AssetLocation>,
+    key: &'a str,
     factory: fn() -> T,
     _marker: PhantomData<&'a T>,
-}
-
-impl<'a, T> AsRef<T> for Holder<'a, T>
-where
-    T: Registrar,
-{
-    #[inline(always)]
-    fn as_ref(&self) -> &T {
-        let reg = T::read_from_registry();
-
-        let t = reg.get_by_idx(self.id.get().copied().unwrap()).unwrap();
-
-        // SAFETY: It is garanteed that the value is still alive by the lifetime constraints
-        unsafe { &*(t as *const T) }
-    }
 }
 
 impl<'a, T> Deref for Holder<'a, T> {
@@ -33,34 +15,33 @@ impl<'a, T> Deref for Holder<'a, T> {
 
     #[inline(always)]
     fn deref(&self) -> &Self::Target {
-        self.id.get().unwrap()
-    }
-}
-
-impl<'a> Holder<'a, Block> {
-    #[inline(always)]
-    pub fn get_type(&self) -> BlockType {
-        BlockType::new(self.id.get().copied().unwrap() as u32)
+        self.id
+            .get()
+            .expect("Tried dereferencing unregistered holder")
     }
 }
 
 impl<'a, T> Holder<'a, T>
 where
-    T: Registrar,
+    T: Registrar<'a>,
 {
-    pub fn registrar(&self) {
-        let mut reg = T::write_to_registry();
+    pub fn registrar(&self, registry: &mut <T as Registrar<'a>>::Registry) {
+        let location = AssetLocation::parse(self.key);
 
-        reg.register(self.key.clone(), (self.factory)())
+        registry
+            .register(location.clone(), (self.factory)())
             .expect("Registration failed");
+
+        let id = registry.key_to_idx(&location).unwrap();
+        self.id.set(id).unwrap();
     }
 }
 
 impl<'a, T> Holder<'a, T> {
-    pub const fn new(location: fn() -> AssetLocation, factory: fn() -> T) -> Self {
+    pub const fn new(key: &'a str, factory: fn() -> T) -> Self {
         Self {
             id: OnceLock::new(),
-            key: LazyLock::new(location),
+            key,
             factory,
             _marker: PhantomData,
         }
