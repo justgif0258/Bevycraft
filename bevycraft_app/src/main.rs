@@ -1,4 +1,4 @@
-use std::{f32::consts::FRAC_PI_8, sync::atomic::AtomicPtr};
+use std::f32::consts::FRAC_PI_8;
 
 use bevy::{
     anti_alias::fxaa::Fxaa,
@@ -14,18 +14,15 @@ use bevy::{
     prelude::*,
 };
 use bevycraft_app::{AppState, Player};
-use bevycraft_core::prelude::{AssetLocation, Block, BlockRegistrar, Registrar, Registry};
+use bevycraft_core::{
+    blocks::STONE,
+    prelude::{AssetLocation, Block, Registrar, RegistrarOps, Registry},
+};
 use bevycraft_render::prelude::{ArrayTexture, RModel, RModelPlugin, VertexMaterial};
 
 const BLOCK_RES: u32 = 8;
 
 fn main() -> AppExit {
-    let blocks = BlockRegistrar::read_from_registry();
-
-    blocks.iter().for_each(|(loc, _)| {
-        println!("Registered {}", loc);
-    });
-
     App::new()
         .add_plugins((
             DefaultPlugins,
@@ -56,7 +53,7 @@ fn discover_models(
 ) {
     info!("Discovering models...");
 
-    Block::read_from_registry()
+    Registrar::<Block>::read_from_registry()
         .iter()
         .for_each(|(block_key, block)| {
             if block.air() {
@@ -120,17 +117,19 @@ fn cache_meshes(
     models: Res<Assets<RModel>>,
     textures: Res<ArrayTexture>,
 ) {
-    Block::read_from_registry().iter().for_each(|(key, block)| {
-        if block.air() {
-            return;
-        }
+    Registrar::<Block>::read_from_registry()
+        .iter()
+        .for_each(|(key, block)| {
+            if block.air() {
+                return;
+            }
 
-        let path = format!("{}/models/block/{}.ron", key.namespace(), key.path());
+            let path = format!("{}/models/block/{}.ron", key.namespace(), key.path());
 
-        let model_handle = server.load::<RModel>(path);
+            let model_handle = server.load::<RModel>(path);
 
-        let model = models.get(&model_handle).expect("Failed to load RModel");
-    });
+            let model = models.get(&model_handle).expect("Failed to load RModel");
+        });
 
     state.set(AppState::Finishing);
 }

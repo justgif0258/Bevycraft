@@ -7,18 +7,19 @@ use std::{
 
 use crate::prelude::AssetLocation;
 
-pub trait Registry: Send + Sync + 'static {
-    type Item: Registrable;
-
-    fn iter(&self) -> impl Iterator<Item = (&AssetLocation, &Self::Item)>;
+pub trait Registry<T>: Send + Sync + 'static
+where
+    T: Registrable,
+{
+    fn iter(&self) -> impl Iterator<Item = (&AssetLocation, &T)>;
 
     fn keys(&self) -> impl Iterator<Item = &AssetLocation>;
 
     fn contains_key(&self, location: &AssetLocation) -> bool;
 
-    fn get_by_key(&self, location: &AssetLocation) -> Option<&Self::Item>;
+    fn get_by_key(&self, location: &AssetLocation) -> Option<&T>;
 
-    fn get_by_idx(&self, index: usize) -> Option<&Self::Item>;
+    fn get_by_idx(&self, index: usize) -> Option<&T>;
 
     fn key_to_idx(&self, location: &AssetLocation) -> Option<usize>;
 
@@ -28,11 +29,7 @@ pub trait Registry: Send + Sync + 'static {
 
     fn len(&self) -> usize;
 
-    fn register(
-        &mut self,
-        location: AssetLocation,
-        value: Self::Item,
-    ) -> Result<&Self::Item, RegistrationError>;
+    fn register(&mut self, location: AssetLocation, value: T) -> Result<&T, RegistrationError>;
 
     fn freeze(&mut self);
 }

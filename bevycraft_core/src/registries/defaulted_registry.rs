@@ -61,11 +61,9 @@ impl<T: Registrable> DefaultedRegistry<T> {
     }
 }
 
-impl<T: Registrable> Registry for DefaultedRegistry<T> {
-    type Item = T;
-
+impl<T: Registrable> Registry<T> for DefaultedRegistry<T> {
     #[inline]
-    fn iter(&self) -> impl Iterator<Item = (&AssetLocation, &Self::Item)> {
+    fn iter(&self) -> impl Iterator<Item = (&AssetLocation, &T)> {
         self.key_to_idx
             .iter()
             .map(|(key, &idx)| (key, &self.values[idx]))
@@ -82,7 +80,7 @@ impl<T: Registrable> Registry for DefaultedRegistry<T> {
     }
 
     #[inline]
-    fn get_by_key(&self, location: &AssetLocation) -> Option<&Self::Item> {
+    fn get_by_key(&self, location: &AssetLocation) -> Option<&T> {
         self.key_to_idx
             .get(location)
             .copied()
@@ -90,7 +88,7 @@ impl<T: Registrable> Registry for DefaultedRegistry<T> {
     }
 
     #[inline]
-    fn get_by_idx(&self, index: usize) -> Option<&Self::Item> {
+    fn get_by_idx(&self, index: usize) -> Option<&T> {
         self.values.get(index)
     }
 
@@ -115,11 +113,7 @@ impl<T: Registrable> Registry for DefaultedRegistry<T> {
     }
 
     #[inline]
-    fn register(
-        &mut self,
-        location: AssetLocation,
-        value: Self::Item,
-    ) -> Result<&Self::Item, RegistrationError> {
+    fn register(&mut self, location: AssetLocation, value: T) -> Result<&T, RegistrationError> {
         if self.frozen {
             return Err(RegistrationError::FrozenRegistry);
         }

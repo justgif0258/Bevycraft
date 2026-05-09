@@ -27,11 +27,9 @@ impl<T: Registrable> OrderedRegistry<T> {
     }
 }
 
-impl<T: Registrable> Registry for OrderedRegistry<T> {
-    type Item = T;
-
+impl<T: Registrable> Registry<T> for OrderedRegistry<T> {
     #[inline]
-    fn iter(&self) -> impl Iterator<Item = (&AssetLocation, &Self::Item)> {
+    fn iter(&self) -> impl Iterator<Item = (&AssetLocation, &T)> {
         self.key_to_idx
             .iter()
             .map(|(key, &idx)| (key, &self.values[idx]))
@@ -81,11 +79,7 @@ impl<T: Registrable> Registry for OrderedRegistry<T> {
     }
 
     #[inline]
-    fn register(
-        &mut self,
-        location: AssetLocation,
-        value: T,
-    ) -> Result<&Self::Item, RegistrationError> {
+    fn register(&mut self, location: AssetLocation, value: T) -> Result<&T, RegistrationError> {
         if self.frozen {
             return Err(RegistrationError::FrozenRegistry);
         }

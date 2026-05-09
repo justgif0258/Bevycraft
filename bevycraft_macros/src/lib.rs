@@ -99,11 +99,11 @@ pub fn context(input: TokenStream) -> TokenStream {
             let ty = &group[0].ty;
             let ops = group.iter().map(|e| {
                 let name = &e.name;
-                quote! { #name.registrar(&mut registry); }
+                quote! { #name.registrar(registry); }
             });
             quote! {
                 {
-                    let mut registry = <#ty as #bevycraft_core::prelude::Registrar>::write_to_registry();
+                    let registry = &mut *#bevycraft_core::prelude::Registrar::<#ty>::write_to_registry();
 
                     #(#ops)*
                 }
@@ -162,11 +162,7 @@ pub fn derive_registrar(input: TokenStream) -> TokenStream {
         ),
     };
 
-    let registrar: Ident = format_ident!("{}Registrar", name);
-
     quote! {
-        pub struct #registrar;
-
         const _: () = {
             static __REGISTRY: ::std::sync::LazyLock<
                 ::parking_lot::RwLock<#registry_type>
@@ -176,32 +172,13 @@ pub fn derive_registrar(input: TokenStream) -> TokenStream {
 
             static __LOCK: ::std::sync::atomic::AtomicBool = ::std::sync::atomic::AtomicBool::new(false);
 
-            impl<'a> #bevycraft_core::prelude::Registrar<'a> for #registrar #extra_where {
-                type Item = #name;
-
+            impl #bevycraft_core::prelude::RegistrarOps<#name> for #bevycraft_core::prelude::Registrar<#name> #extra_where {
                 #[inline]
-                fn read_from_registry() -> ::parking_lot::RwLockReadGuard<'a, #registry_type> {
+                fn read_from_registry<'a>() -> ::parking_lot::RwLockReadGuard<'a, #registry_type> {
                     __REGISTRY.read()
                 }
 
-                fn write_to_registry() -> ::parking_lot::RwLockWriteGuard<'a, #registry_type> {
-                    if __LOCK.load(::std::sync::atomic::Ordering::Acquire) {
-                        panic!("Tried writing to {}'s registry while it was locked", stringify!(#name));
-                    }
-
-                    __REGISTRY.write()
-                }
-            }
-
-            impl<'a> #bevycraft_core::prelude::Registrar<'a> for #name #extra_where {
-                type Item = #name;
-
-                #[inline]
-                fn read_from_registry() -> ::parking_lot::RwLockReadGuard<'a, #registry_type> {
-                    __REGISTRY.read()
-                }
-
-                fn write_to_registry() -> ::parking_lot::RwLockWriteGuard<'a, #registry_type> {
+                fn write_to_registry<'a>() -> ::parking_lot::RwLockWriteGuard<'a, #registry_type> {
                     if __LOCK.load(::std::sync::atomic::Ordering::Acquire) {
                         panic!("Tried writing to {}'s registry while it was locked", stringify!(#name));
                     }

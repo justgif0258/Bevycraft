@@ -1,4 +1,4 @@
-use bevycraft_core::prelude::PatternContainer;
+use bevycraft_core::prelude::{Block, PatternContainer, Registrar, RegistrarOps, Registry};
 use criterion::{Criterion, criterion_group, criterion_main};
 use std::hint::black_box;
 
@@ -41,5 +41,20 @@ pub fn compression(c: &mut Criterion) {
     println!("  - Bit capacity: {}", container.bit_capacity());
 }
 
-criterion_group!(benches, compression);
+fn registry_access(c: &mut Criterion) {
+    let registry = &*Registrar::<Block>::read_from_registry();
+    let n = registry.len();
+
+    let mut rand = fastrand::Rng::new();
+
+    c.bench_function("Registry/RandomRead", |b| {
+        b.iter(|| {
+            let idx = rand.usize(..n);
+
+            black_box(registry.get_by_idx(idx));
+        })
+    });
+}
+
+criterion_group!(benches, registry_access);
 criterion_main!(benches);

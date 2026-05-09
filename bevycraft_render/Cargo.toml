@@ -5,6 +5,9 @@ authors.workspace = true
 version.workspace = true
 edition.workspace = true
 
+[lib]
+crate-type = ["dylib"]
+
 [dependencies]
 # Bevycraft API
 bevycraft_core.workspace = true
