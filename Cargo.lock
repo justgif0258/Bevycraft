@@ -1771,6 +1771,7 @@ dependencies = [
  "dashmap",
  "geo",
  "image",
+ "parking_lot",
  "rapidhash",
  "ron",
  "serde",

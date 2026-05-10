@@ -1,4 +1,7 @@
-use std::sync::LazyLock;
+use std::{
+    collections::BTreeMap,
+    sync::{Arc, LazyLock, Mutex},
+};
 
 use bevy::{
     app::{App, Plugin},
@@ -10,22 +13,31 @@ use bevycraft_core::prelude::AssetLocation;
 use ron::{Options, extensions::Extensions};
 use serde::Deserialize;
 
-use crate::prelude::{Direction, RenderMode};
+use crate::{
+    model::{Model, block_model::BlockModel},
+    prelude::{Direction, RenderMode},
+    textures::texture_registry::TextureRegistry,
+};
 
 pub struct RModelPlugin;
 
 impl Plugin for RModelPlugin {
     fn build(&self, app: &mut App) {
-        app.init_asset::<RModel>()
-            .init_asset_loader::<RModelLoader>();
+        let textures = TextureRegistry::default();
+
+        app.insert_resource(textures.clone())
+            .init_asset::<RModel>()
+            .register_asset_loader(RModelLoader { textures });
     }
 }
 
 #[derive(Default, TypePath)]
-pub struct RModelLoader;
+pub struct RModelLoader {
+    textures: TextureRegistry,
+}
 
 impl AssetLoader for RModelLoader {
-    type Asset = RModel;
+    type Asset = BlockModel;
     type Settings = ();
     type Error = std::io::Error;
 
@@ -43,14 +55,11 @@ impl AssetLoader for RModelLoader {
         static RON_READER: LazyLock<Options> =
             LazyLock::new(|| Options::default().with_default_extension(Extensions::IMPLICIT_SOME));
 
-        let unsolved_model: UnresolvedRModel = RON_READER
+        let mut r_model: RModel = RON_READER
             .from_bytes(&bytes)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
 
-        let mut elements = unsolved_model.elements.unwrap_or_default();
-        let mut textures = unsolved_model.textures.unwrap_or_default();
-
-        if let Some(parent) = unsolved_model.parent {
+        if let Some(parent) = &r_model.parent {
             let path = format!("{}/models/{}.ron", parent.namespace(), parent.path());
 
             let loaded = load_context
@@ -62,16 +71,16 @@ impl AssetLoader for RModelLoader {
 
             let parent = loaded.get();
 
-            if elements.is_empty() {
-                elements = parent.elements.clone();
+            if r_model.elements.is_empty() {
+                r_model.elements = parent.elements.clone();
             }
 
-            if textures.is_empty() {
-                textures = parent.textures.clone();
+            if r_model.textures.is_empty() {
+                r_model.textures = parent.textures.clone();
             }
         }
 
-        Ok(RModel { textures, elements })
+        Ok(BlockModel::resolve(r_model, &self.textures))
     }
 
     fn extensions(&self) -> &[&str] {
@@ -79,16 +88,14 @@ impl AssetLoader for RModelLoader {
     }
 }
 
-#[derive(Deserialize)]
-struct UnresolvedRModel {
-    parent: Option<AssetLocation>,
-    textures: Option<HashMap<Box<str>, AssetLocation>>,
-    elements: Option<Vec<Element>>,
-}
-
-#[derive(Asset, TypePath, Debug, Clone)]
+#[derive(Asset, TypePath, Deserialize, Debug, Clone)]
 pub struct RModel {
+    pub parent: Option<AssetLocation>,
+
+    #[serde(default)]
     pub textures: HashMap<Box<str>, AssetLocation>,
+
+    #[serde(default)]
     pub elements: Vec<Element>,
 }
 

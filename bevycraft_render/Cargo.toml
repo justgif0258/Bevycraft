@@ -32,3 +32,4 @@ ron.workspace = true
 image.workspace = true
 bitflags.workspace = true
 geo.workspace = true
+parking_lot.workspace = true

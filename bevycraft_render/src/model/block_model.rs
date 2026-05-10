@@ -1,15 +1,19 @@
+use bevy::{asset::Asset, reflect::TypePath};
 use bevycraft_core::prelude::AssetLocation;
 
-use crate::{prelude::*, textures::array_texture::NULL_TEXTURE_LOCATION};
+use crate::prelude::*;
 
+#[derive(Asset, TypePath, Debug, Clone)]
 pub struct BlockModel {
     outer_quads: [Box<[Quad]>; 6],
     inner_quads: Box<[Quad]>,
     masks: [OcclusionMask; 6],
 }
 
-impl BlockModel {
-    pub fn bake(model: &RModel, array: &ArrayTexture) -> Result<Self, String> {
+impl Model for BlockModel {
+    type Raw = RModel;
+
+    fn resolve(raw: Self::Raw, textures: &TextureRegistry) -> Self {
         let mut outer_quads = [
             Vec::new(),
             Vec::new(),
@@ -21,12 +25,21 @@ impl BlockModel {
         let mut inner_quads = Vec::new();
         let mut masks = [OcclusionMask::EMPTY; 6];
 
-        model.elements.iter().for_each(|element| {
+        raw.elements.iter().for_each(|element| {
             let [x0, y0, z0] = element.from;
             let [x1, y1, z1] = element.to;
 
             element.faces.iter().for_each(|(direction, face)| {
-                let texture = get_texture_id(&face.texture, model, array);
+                let texture = match face.texture.strip_prefix('#') {
+                    Some(t) => {
+                        if let Some(loc) = raw.textures.get(t) {
+                            textures.get_or_insert(loc)
+                        } else {
+                            NULL_TEXTURE_ID
+                        }
+                    }
+                    None => textures.get_or_insert(&AssetLocation::parse(&face.texture)),
+                };
 
                 let (from, to) = match direction {
                     Direction::PosX | Direction::NegX => ([z0, y0], [z1, y1]),
@@ -80,13 +93,15 @@ impl BlockModel {
         let outer_quads = outer_quads.map(|v| v.into_boxed_slice());
         let inner_quads = inner_quads.into_boxed_slice();
 
-        Ok(Self {
+        Self {
             outer_quads,
             inner_quads,
             masks,
-        })
+        }
     }
+}
 
+impl BlockModel {
     #[inline]
     pub fn iter_outer_quads_at(&self, dir: Direction) -> std::slice::Iter<'_, Quad> {
         self.outer_quads[dir as usize].iter()
@@ -100,17 +115,5 @@ impl BlockModel {
     #[inline]
     pub const fn mask(&self, dir: Direction) -> OcclusionMask {
         self.masks[dir as usize]
-    }
-}
-
-#[inline(always)]
-fn get_texture_id(texture: &str, model: &RModel, array: &ArrayTexture) -> TextureId {
-    match texture.strip_prefix('#') {
-        Some(t) => array.get_texture_id(model.textures.get(t).unwrap_or(&NULL_TEXTURE_LOCATION)),
-        None => {
-            let loc = AssetLocation::parse(texture);
-
-            array.get_texture_id(&loc)
-        }
     }
 }
