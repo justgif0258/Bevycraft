@@ -15,6 +15,9 @@ bevycraft_macros.workspace = true
 bevy.workspace = true
 bevy_dylib.workspace = true
 
+# Serialization
+ron.workspace = true
+
 [dev-dependencies]
 criterion.workspace = true
 fastrand.workspace = true

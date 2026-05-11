@@ -46,36 +46,28 @@ impl Model for BlockModel {
 
                 let texture = textures.get_or_insert(&face.texture);
 
-                match face.cullface {
-                    Some(cullface) => {
-                        let quad = Quad::with_occlusion_mask(
-                            *direction,
-                            from,
-                            to,
-                            depth,
-                            face.uv,
-                            texture,
-                            face.render_mode,
-                            face.tintable,
-                        );
+                let mut quad = Quad::build(
+                    *direction,
+                    from,
+                    to,
+                    depth,
+                    face.uv,
+                    texture,
+                    face.render_mode,
+                    face.tintable,
+                    face.cullface.is_some(),
+                );
 
-                        masks[cullface as usize].merge_assign(quad.mask());
+                if let Some(rot) = element.rotation.clone() {
+                    quad.rotate(rot.origin.into(), rot.x, rot.y, rot.z);
+                }
 
-                        outer_quads[cullface as usize].push(quad);
-                    }
-                    None => {
-                        let quad = Quad::new(
-                            *direction,
-                            from,
-                            to,
-                            depth,
-                            face.uv,
-                            texture,
-                            face.render_mode,
-                            face.tintable,
-                        );
-                        inner_quads.push(quad);
-                    }
+                if let Some(cullface) = face.cullface {
+                    masks[cullface as usize].merge_assign(quad.mask());
+
+                    outer_quads[cullface as usize].push(quad);
+                } else {
+                    inner_quads.push(quad);
                 }
             });
         });

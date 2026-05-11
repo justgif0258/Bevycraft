@@ -47,7 +47,7 @@ impl Serialize for AssetLocation {
 impl<'a> Into<AssetPath<'a>> for AssetLocation {
     #[inline(always)]
     fn into(self) -> AssetPath<'a> {
-        let path = format!("{}/{}", self.namespace, self.path);
+        let path = format!("{}\\{}", self.namespace, self.path).replace('/', "\\");
 
         AssetPath::from(path)
     }
@@ -193,7 +193,11 @@ impl AssetLocation {
 
     #[inline(always)]
     const fn is_valid_path_byte(byte: &u8) -> bool {
-        byte.is_ascii_alphanumeric() || *byte == b'_' || *byte == b'-' || *byte == b'/'
+        byte.is_ascii_alphanumeric()
+            || *byte == b'_'
+            || *byte == b'-'
+            || *byte == b'/'
+            || *byte == b'.'
     }
 }
 

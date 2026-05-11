@@ -14,10 +14,10 @@ use bevy::{
     prelude::*,
 };
 use bevycraft_app::{AppState, Player};
-use bevycraft_core::{
-    prelude::{AssetLocation, Block, Registrar, RegistrarOps, Registry},
-};
-use bevycraft_render::prelude::{BlockModel, RModelPlugin, TextureBakery, VertexMaterial};
+use bevycraft_core::prelude::{Block, Registrar, RegistrarOps, Registry};
+use bevycraft_render::prelude::{ArrayTexture, BlockModel, Direction, RModelPlugin, TextureBakery, VertexMaterial};
+use ron::Options;
+use ron::extensions::Extensions;
 
 const BLOCK_RES: u32 = 8;
 
@@ -31,6 +31,7 @@ fn main() -> AppExit {
         ))
         .init_state::<AppState>()
         .insert_resource(Time::<Fixed>::from_hz(64.0))
+        .insert_resource(AssetsLoading::<BlockModel>::default())
         .add_systems(OnEnter(AppState::ModelDiscovery), discover_models)
         .add_systems(OnEnter(AppState::BuildArrayTexture), build_array_texture)
         .add_systems(
@@ -57,15 +58,15 @@ fn discover_models(
                 return;
             }
 
-            let path = format!(
-                "{}/models/block/{}.ron",
-                block_key.namespace(),
-                block_key.path()
-            );
+            let location = block_key.prefix("models/block/").suffix(".ron");
 
-            let h = server.load::<BlockModel>(path);
+            let h = server.load_with_settings::<BlockModel, Options>(location, |options| {
+                options
+                    .default_extensions
+                    .set(Extensions::IMPLICIT_SOME, true);
+            });
 
-            loading.0.push((block_key.clone(), h));
+            loading.0.push(h);
         });
 
     state.set(AppState::AwaitModels);
@@ -79,7 +80,7 @@ fn await_models(
     let ready = loading
         .0
         .iter()
-        .all(|(_, h)| server.is_loaded_with_dependencies(h));
+        .all(|h| server.is_loaded_with_dependencies(h));
 
     if ready {
         state.set(AppState::BuildArrayTexture);
@@ -88,11 +89,11 @@ fn await_models(
 
 fn build_array_texture(
     mut state: ResMut<NextState<AppState>>,
-    mut baker: TextureBakery<BlockModel>
+    mut baker: TextureBakery<BlockModel>,
 ) {
     baker.bake(BLOCK_RES, BLOCK_RES);
 
-    state.set(AppState::CacheMeshes);
+    state.set(AppState::Finishing);
 }
 
 fn setup_world(mut commands: Commands, mut scattering: ResMut<Assets<ScatteringMedium>>) {
@@ -148,8 +149,23 @@ fn setup_world(mut commands: Commands, mut scattering: ResMut<Assets<ScatteringM
     ));
 }
 
+fn spawn_test_model(
+    mut commands: Commands,
+    loading: Res<AssetsLoading<BlockModel>>,
+    models: Res<Assets<BlockModel>>,
+    textures: Res<ArrayTexture>,
+) {
+    let model = models.get(&loading.0[0]).unwrap();
+    
+    for d in 0..6 {
+        let dir = Direction::from(d);
+        
+        let quad = model.iter_outer_quads_at(dir);
+    }
+}
+
 #[derive(Resource)]
-pub struct AssetsLoading<T: Asset>(Vec<(AssetLocation, Handle<T>)>);
+pub struct AssetsLoading<T: Asset>(Vec<Handle<T>>);
 
 impl<T: Asset> Default for AssetsLoading<T> {
     fn default() -> Self {

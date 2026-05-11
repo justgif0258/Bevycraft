@@ -8,13 +8,14 @@ use std::ops::Not;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Quad {
-    positions: [[f32; 3]; 4],
-    uvs: [[f32; 2]; 4],
-    normal: [f32; 3],
-    mask: OcclusionMask,
-    texture: TextureId,
-    render_mode: RenderMode,
-    tintable: bool,
+    positions   : [[f32; 3]; 4],
+    uvs         : [[f32; 2]; 4],
+    normal      : [f32; 3],
+    texture     : TextureId,
+    render_mode : RenderMode,
+    direction   : Direction,
+    mask        : OcclusionMask,
+    tintable    : bool,
 }
 
 impl Quad {
@@ -67,7 +68,7 @@ impl Quad {
     }
 
     pub(crate) fn build(
-        dir: Direction,
+        direction: Direction,
         from: [f32; 2],
         to: [f32; 2],
         depth: f32,
@@ -84,18 +85,18 @@ impl Quad {
 
         let mut uvs = [[u0, v1], [u1, v1], [u1, v0], [u0, v0]];
 
-        if matches!(dir, Direction::PosX | Direction::PosY | Direction::NegZ) {
+        if matches!(direction, Direction::PosX | Direction::PosY | Direction::NegZ) {
             corners.swap(1, 3);
             uvs.swap(1, 3);
         }
 
-        let positions = corners.map(|[x, y]| match dir {
+        let positions = corners.map(|[x, y]| match direction {
             Direction::PosX | Direction::NegX => [depth, y, x],
             Direction::PosY | Direction::NegY => [x, depth, y],
             Direction::PosZ | Direction::NegZ => [x, y, depth],
         });
 
-        let normal = dir.get_normal();
+        let normal = direction.get_normal();
 
         let mask = if compute_mask {
             OcclusionMask::for_corners(corners)
@@ -107,15 +108,16 @@ impl Quad {
             positions,
             uvs,
             normal,
-            mask,
             texture,
             render_mode,
+            direction,
+            mask,
             tintable,
         }
     }
 
     #[inline]
-    pub fn rotate(mut self, origin: Vec3, x: f32, y: f32, z: f32) -> Self {
+    pub fn rotate(&mut self, origin: Vec3, x: f32, y: f32, z: f32) {
         let rotation = Quat::from_euler(
             EulerRot::XYZ,
             x.to_radians(),
@@ -133,46 +135,16 @@ impl Quad {
         let n = Vec3::from(self.normal);
 
         self.normal = (rotation * n).into();
+        
+        if !self.mask.is_empty() {
+            let corners = match self.direction {
+                Direction::PosX | Direction::NegX => self.positions.map(|[_, y, z]| [z, y]),
+                Direction::PosY | Direction::NegY => self.positions.map(|[x, _, z]| [z, x]),
+                Direction::PosZ | Direction::NegZ => self.positions.map(|[x, y, _]| [x, y]),
+            };
 
-        self
-    }
-
-    #[inline]
-    pub fn rotate_and_recompute_mask(
-        mut self,
-        dir: Direction,
-        origin: Vec3,
-        x: f32,
-        y: f32,
-        z: f32,
-    ) -> Self {
-        let rotation = Quat::from_euler(
-            EulerRot::XYZ,
-            x.to_radians(),
-            y.to_radians(),
-            z.to_radians(),
-        );
-
-        for position in &mut self.positions {
-            let pos = Vec3::from(*position);
-            let rotated = rotation * (pos - origin) + origin;
-
-            *position = rotated.into();
+            self.mask = OcclusionMask::for_corners(corners);
         }
-
-        let n = Vec3::from(self.normal);
-
-        self.normal = (rotation * n).into();
-
-        let corners = match dir {
-            Direction::PosX | Direction::NegX => self.positions.map(|[_, y, z]| [z, y]),
-            Direction::PosY | Direction::NegY => self.positions.map(|[x, _, z]| [z, x]),
-            Direction::PosZ | Direction::NegZ => self.positions.map(|[x, y, _]| [x, y]),
-        };
-
-        self.mask = OcclusionMask::for_corners(corners);
-
-        self
     }
 
     #[inline(always)]
@@ -263,6 +235,21 @@ impl Display for Direction {
             Direction::NegY => f.write_str("down"),
             Direction::PosZ => f.write_str("south"),
             Direction::NegZ => f.write_str("north"),
+        }
+    }
+}
+
+impl From<usize> for Direction {
+    #[inline(always)]
+    fn from(value: usize) -> Self {
+        match value { 
+            0 => Direction::PosX,
+            1 => Direction::NegX,
+            2 => Direction::PosY,
+            3 => Direction::NegY,
+            4 => Direction::PosZ,
+            5 => Direction::NegZ,
+            _ => panic!("invalid direction value: {}", value),
         }
     }
 }

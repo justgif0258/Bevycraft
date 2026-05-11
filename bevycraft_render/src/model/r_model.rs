@@ -58,8 +58,10 @@ impl<M: Model> AssetLoader for RModelLoader<M> {
         let mut ron = settings.from_bytes::<UnresolvedRModel>(&bytes)?;
 
         if let Some(parent) = &ron.parent {
+            let parent = parent.prefix("models/").suffix(".ron");
+            
             let loaded = load_context
-                .read_asset_bytes(parent.clone())
+                .read_asset_bytes(parent)
                 .await
                 .map_err(ModelLoadError::ReadBytesError)?;
 
