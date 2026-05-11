@@ -10,7 +10,7 @@ pub mod prelude {
         textures::{
             array_texture::{ArrayTexture, NULL_TEXTURE_ID, NULL_TEXTURE_LOCATION, TextureId},
             material::{ATTRIBUTE_TEXTURE_LAYER, VertexMaterial},
-            texture_registry::TextureRegistry,
+            texture_manager::{TextureBakery, TextureManager},
         },
     };
 }

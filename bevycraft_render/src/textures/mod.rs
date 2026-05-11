@@ -1,3 +1,3 @@
 pub mod array_texture;
 pub mod material;
-pub mod texture_registry;
+pub mod texture_manager;

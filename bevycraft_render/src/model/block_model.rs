@@ -1,5 +1,4 @@
 use bevy::{asset::Asset, reflect::TypePath};
-use bevycraft_core::prelude::AssetLocation;
 
 use crate::prelude::*;
 
@@ -11,9 +10,9 @@ pub struct BlockModel {
 }
 
 impl Model for BlockModel {
-    type Raw = RModel;
+    type Error = std::io::Error;
 
-    fn resolve(raw: Self::Raw, textures: &TextureRegistry) -> Self {
+    async fn resolve(raw: RModel, textures: &TextureManager<Self>) -> Result<Self, Self::Error> {
         let mut outer_quads = [
             Vec::new(),
             Vec::new(),
@@ -30,17 +29,6 @@ impl Model for BlockModel {
             let [x1, y1, z1] = element.to;
 
             element.faces.iter().for_each(|(direction, face)| {
-                let texture = match face.texture.strip_prefix('#') {
-                    Some(t) => {
-                        if let Some(loc) = raw.textures.get(t) {
-                            textures.get_or_insert(loc)
-                        } else {
-                            NULL_TEXTURE_ID
-                        }
-                    }
-                    None => textures.get_or_insert(&AssetLocation::parse(&face.texture)),
-                };
-
                 let (from, to) = match direction {
                     Direction::PosX | Direction::NegX => ([z0, y0], [z1, y1]),
                     Direction::PosY | Direction::NegY => ([x0, z0], [x1, z1]),
@@ -55,6 +43,8 @@ impl Model for BlockModel {
                     Direction::PosZ => z1,
                     Direction::NegZ => z0,
                 };
+
+                let texture = textures.get_or_insert(&face.texture);
 
                 match face.cullface {
                     Some(cullface) => {
@@ -93,11 +83,11 @@ impl Model for BlockModel {
         let outer_quads = outer_quads.map(|v| v.into_boxed_slice());
         let inner_quads = inner_quads.into_boxed_slice();
 
-        Self {
+        Ok(Self {
             outer_quads,
             inner_quads,
             masks,
-        }
+        })
     }
 }
 

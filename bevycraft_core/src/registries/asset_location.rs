@@ -1,24 +1,26 @@
+use thiserror::Error;
 use {
+    bevy::asset::AssetPath,
     serde::*,
     std::{
-        error::Error,
         fmt::{Debug, Display, Formatter, Write},
         hash::Hash,
     },
 };
 
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct AssetLocation {
     namespace: Box<str>,
     path: Box<str>,
 }
 
-impl Debug for AssetLocation {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("AssetLocation")
-            .field("namespace", &self.namespace)
-            .field("path", &self.path)
-            .finish()
+impl Default for AssetLocation {
+    #[inline(always)]
+    fn default() -> Self {
+        Self {
+            namespace: Box::from(Self::DEFAULT_NAMESPACE),
+            path: Box::from("air"),
+        }
     }
 }
 
@@ -42,30 +44,12 @@ impl Serialize for AssetLocation {
     }
 }
 
-impl<'a> TryFrom<&'a str> for AssetLocation {
-    type Error = AssetLocationError<'a>;
-
+impl<'a> Into<AssetPath<'a>> for AssetLocation {
     #[inline(always)]
-    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
-        Self::try_parsing(value)
-    }
-}
+    fn into(self) -> AssetPath<'a> {
+        let path = format!("{}/{}", self.namespace, self.path);
 
-impl Display for AssetLocation {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.namespace)?;
-        f.write_char(':')?;
-        f.write_str(&self.path)
-    }
-}
-
-impl Default for AssetLocation {
-    #[inline(always)]
-    fn default() -> Self {
-        Self {
-            namespace: Box::from(Self::DEFAULT_NAMESPACE),
-            path: Box::from("air"),
-        }
+        AssetPath::from(path)
     }
 }
 
@@ -98,12 +82,12 @@ impl AssetLocation {
     }
 
     #[inline]
-    pub fn try_parsing(location: &str) -> Result<Self, AssetLocationError<'_>> {
+    pub fn try_parsing(location: &str) -> Result<Self, AssetLocationError> {
         match location.split_once(Self::SEPARATOR) {
             None => Self::try_with_default_namespace(location),
             Some((n, p)) => {
-                if p.contains(':') {
-                    return Err(AssetLocationError::IllegalFormat);
+                if p.contains(Self::SEPARATOR) {
+                    return Err(AssetLocationError::InvalidFormat);
                 }
 
                 Self::try_new(n, p)
@@ -112,23 +96,23 @@ impl AssetLocation {
     }
 
     #[inline]
-    pub fn try_with_custom_namespace<'a>(
-        namespace: &'a str,
-        path: &'a str,
-    ) -> Result<Self, AssetLocationError<'a>> {
+    pub fn try_with_custom_namespace(
+        namespace: &str,
+        path: &str,
+    ) -> Result<Self, AssetLocationError> {
         Self::try_new(namespace, path)
     }
 
     #[inline]
-    pub fn try_with_default_namespace(path: &str) -> Result<Self, AssetLocationError<'_>> {
+    pub fn try_with_default_namespace(path: &str) -> Result<Self, AssetLocationError> {
         Self::try_new(Self::DEFAULT_NAMESPACE, path)
     }
 
     #[inline]
-    fn try_new<'a>(namespace: &'a str, path: &'a str) -> Result<Self, AssetLocationError<'a>> {
+    fn try_new(namespace: &str, path: &str) -> Result<Self, AssetLocationError> {
         let namespace = {
             if !Self::can_use_namespace(namespace) {
-                return Err(AssetLocationError::IllegalNamespace(namespace));
+                return Err(AssetLocationError::IllegalNamespace(namespace.to_string()));
             }
 
             Box::from(namespace)
@@ -136,7 +120,7 @@ impl AssetLocation {
 
         let path = {
             if !Self::can_use_path(path) {
-                return Err(AssetLocationError::IllegalPath(path));
+                return Err(AssetLocationError::IllegalPath(path.to_string()));
             }
 
             Box::from(path)
@@ -156,9 +140,9 @@ impl AssetLocation {
     }
 
     #[inline]
-    pub fn try_suffixing<'a>(&self, suffix: &'a str) -> Result<Self, AssetLocationError<'a>> {
+    pub fn try_suffixing(&self, suffix: &str) -> Result<Self, AssetLocationError> {
         if !Self::can_use_path(suffix) {
-            return Err(AssetLocationError::IllegalSuffix(suffix));
+            return Err(AssetLocationError::IllegalSuffix(suffix.to_string()));
         }
 
         Ok(Self {
@@ -168,9 +152,9 @@ impl AssetLocation {
     }
 
     #[inline]
-    pub fn try_prefixing<'a>(&self, prefix: &'a str) -> Result<Self, AssetLocationError<'a>> {
+    pub fn try_prefixing(&self, prefix: &str) -> Result<Self, AssetLocationError> {
         if !Self::can_use_path(prefix) {
-            return Err(AssetLocationError::IllegalPrefix(prefix));
+            return Err(AssetLocationError::IllegalPrefix(prefix.to_string()));
         }
 
         Ok(Self {
@@ -213,13 +197,51 @@ impl AssetLocation {
     }
 }
 
+impl TryFrom<String> for AssetLocation {
+    type Error = AssetLocationError;
+
+    #[inline(always)]
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        match value.split_once(Self::SEPARATOR) {
+            None => {
+                if !Self::can_use_path(&value) {
+                    return Err(AssetLocationError::IllegalPath(value));
+                }
+
+                Ok(Self {
+                    namespace: Self::DEFAULT_NAMESPACE.into(),
+                    path: value.into_boxed_str(),
+                })
+            }
+            Some((n, p)) => Self::try_with_custom_namespace(n, p),
+        }
+    }
+}
+
+impl<'a> TryFrom<&'a str> for AssetLocation {
+    type Error = AssetLocationError;
+
+    #[inline(always)]
+    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
+        Self::try_parsing(value)
+    }
+}
+
+impl Display for AssetLocation {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.namespace)?;
+        f.write_char(':')?;
+        f.write_str(&self.path)
+    }
+}
+
 pub struct AssetLocationVisitor;
 
 impl<'de> de::Visitor<'de> for AssetLocationVisitor {
     type Value = AssetLocation;
 
     fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
-        formatter.write_str("A valid AssetLocation")
+        formatter.write_str("a valid AssetLocation")
     }
 
     #[inline(always)]
@@ -237,66 +259,33 @@ impl<'de> de::Visitor<'de> for AssetLocationVisitor {
     {
         AssetLocation::try_parsing(v).map_err(E::custom)
     }
-}
 
-pub enum AssetLocationError<'a> {
-    IllegalNamespace(&'a str),
-    IllegalPath(&'a str),
-    IllegalPrefix(&'a str),
-    IllegalSuffix(&'a str),
-    IllegalFormat,
-    Custom(String),
-}
-
-impl AssetLocationError<'_> {
-    fn format_error(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            AssetLocationError::IllegalNamespace(n) => {
-                f.write_str("Illegal namespace: ")?;
-                f.write_str(n)
-            }
-            AssetLocationError::IllegalPath(s) => {
-                f.write_str("Illegal path: ")?;
-                f.write_str(s)
-            }
-            AssetLocationError::IllegalPrefix(s) => {
-                f.write_str("Illegal prefix: ")?;
-                f.write_str(s)
-            }
-            AssetLocationError::IllegalSuffix(s) => {
-                f.write_str("Illegal suffix: ")?;
-                f.write_str(s)
-            }
-            AssetLocationError::IllegalFormat => {
-                f.write_str("Illegal AssetLocation format (expected 'namespace:path')")
-            }
-            AssetLocationError::Custom(msg) => {
-                f.write_str("Unexpected AssetLocation error: ")?;
-                f.write_str(msg)
-            }
-        }
-    }
-}
-
-impl de::Error for AssetLocationError<'_> {
-    fn custom<T>(msg: T) -> Self
+    #[inline(always)]
+    fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
     where
-        T: Display,
+        E: de::Error,
     {
-        Self::Custom(msg.to_string())
+        AssetLocation::try_from(v).map_err(E::custom)
     }
 }
 
-impl Error for AssetLocationError<'_> {}
+#[derive(Error, Debug)]
+pub enum AssetLocationError {
+    #[error("illegal namespace: `{0}`")]
+    IllegalNamespace(String),
 
-impl Debug for AssetLocationError<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        self.format_error(f)
-    }
-}
+    #[error("illegal path: `{0}`")]
+    IllegalPath(String),
 
-impl Display for AssetLocationError<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        self.format_error(f)
-    }
+    #[error("illegal prefix: `{0}`")]
+    IllegalPrefix(String),
+
+    #[error("illegal suffix: `{0}`")]
+    IllegalSuffix(String),
+
+    #[error("invalid format (expected `namespace:path`)")]
+    InvalidFormat,
+
+    #[error("unknown: {0}")]
+    Custom(String),
 }

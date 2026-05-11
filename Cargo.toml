@@ -34,7 +34,6 @@ bevy_dylib = { version = "0.18.1", features = [] }
 # Parallelism
 rayon = { version = "1.12.0" }
 crossbeam = { version = "0.8.4", features = [] }
-dashmap = { version = "7.0.0-rc2", features = ["inline-more", "rayon"] }
 
 # Utilities
 bitflags = { version = "2.11.1", features = [] }
@@ -45,12 +44,12 @@ image = { version = "0.25.10", features = [] }
 geo = { version = "0.33.1", features = [] }
 bitvec = { version = "1.0.1", features = [] }
 parking_lot = { version = "0.12.5", features = [] }
+thiserror = { version = "2.0.18", features = [] }
 ctor = { version = "1.0.4", features = [] }
 syn = { version = "2.0.117", features = [] }
 quote = { version = "1.0.45", features = [] }
 proc-macro-crate = { version = "3.5.0" }
 proc-macro2 = { version = "1.0.106" }
-
 
 # Hashing
 rapidhash = { version = "4.4.1", features = ["default"] }

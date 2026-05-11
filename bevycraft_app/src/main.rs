@@ -15,10 +15,9 @@ use bevy::{
 };
 use bevycraft_app::{AppState, Player};
 use bevycraft_core::{
-    blocks::STONE,
     prelude::{AssetLocation, Block, Registrar, RegistrarOps, Registry},
 };
-use bevycraft_render::prelude::{ArrayTexture, RModel, RModelPlugin, VertexMaterial};
+use bevycraft_render::prelude::{BlockModel, RModelPlugin, TextureBakery, VertexMaterial};
 
 const BLOCK_RES: u32 = 8;
 
@@ -27,15 +26,13 @@ fn main() -> AppExit {
         .add_plugins((
             DefaultPlugins,
             FreeCameraPlugin,
-            RModelPlugin,
+            RModelPlugin::<BlockModel>::default(),
             MaterialPlugin::<VertexMaterial>::default(),
         ))
         .init_state::<AppState>()
-        .init_resource::<AssetsLoading<RModel>>()
         .insert_resource(Time::<Fixed>::from_hz(64.0))
         .add_systems(OnEnter(AppState::ModelDiscovery), discover_models)
         .add_systems(OnEnter(AppState::BuildArrayTexture), build_array_texture)
-        .add_systems(OnEnter(AppState::CacheMeshes), cache_meshes)
         .add_systems(
             FixedPostUpdate,
             await_models.run_if(in_state(AppState::AwaitModels)),
@@ -48,7 +45,7 @@ fn main() -> AppExit {
 
 fn discover_models(
     mut state: ResMut<NextState<AppState>>,
-    mut loading: ResMut<AssetsLoading<RModel>>,
+    mut loading: ResMut<AssetsLoading<BlockModel>>,
     server: Res<AssetServer>,
 ) {
     info!("Discovering models...");
@@ -66,7 +63,7 @@ fn discover_models(
                 block_key.path()
             );
 
-            let h = server.load::<RModel>(path);
+            let h = server.load::<BlockModel>(path);
 
             loading.0.push((block_key.clone(), h));
         });
@@ -76,7 +73,7 @@ fn discover_models(
 
 fn await_models(
     mut state: ResMut<NextState<AppState>>,
-    loading: Res<AssetsLoading<RModel>>,
+    loading: Res<AssetsLoading<BlockModel>>,
     server: Res<AssetServer>,
 ) {
     let ready = loading
@@ -90,48 +87,12 @@ fn await_models(
 }
 
 fn build_array_texture(
-    mut commands: Commands,
     mut state: ResMut<NextState<AppState>>,
-    mut images: ResMut<Assets<Image>>,
-    mut mats: ResMut<Assets<VertexMaterial>>,
-    models: Res<Assets<RModel>>,
+    mut baker: TextureBakery<BlockModel>
 ) {
-    let mut array_texture = ArrayTexture::new_uninit(BLOCK_RES, BLOCK_RES);
-
-    for (_, model) in models.iter() {
-        model.textures().for_each(|location| {
-            array_texture.load_from_asset_location(location);
-        });
-    }
-
-    array_texture.init_array(&mut images, &mut mats);
-
-    commands.insert_resource(array_texture);
+    baker.bake(BLOCK_RES, BLOCK_RES);
 
     state.set(AppState::CacheMeshes);
-}
-
-fn cache_meshes(
-    mut state: ResMut<NextState<AppState>>,
-    server: Res<AssetServer>,
-    models: Res<Assets<RModel>>,
-    textures: Res<ArrayTexture>,
-) {
-    Registrar::<Block>::read_from_registry()
-        .iter()
-        .for_each(|(key, block)| {
-            if block.air() {
-                return;
-            }
-
-            let path = format!("{}/models/block/{}.ron", key.namespace(), key.path());
-
-            let model_handle = server.load::<RModel>(path);
-
-            let model = models.get(&model_handle).expect("Failed to load RModel");
-        });
-
-    state.set(AppState::Finishing);
 }
 
 fn setup_world(mut commands: Commands, mut scattering: ResMut<Assets<ScatteringMedium>>) {

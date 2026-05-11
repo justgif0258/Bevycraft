@@ -18,7 +18,6 @@ bevy_dylib.workspace = true
 #Hashing
 rapidhash.workspace = true
 hashbrown.workspace = true
-dashmap.workspace = true
 
 # Utilities
 serde.workspace = true
@@ -27,6 +26,5 @@ bitflags.workspace = true
 builder-pattern.workspace = true
 bitvec.workspace = true
 parking_lot.workspace = true
+thiserror.workspace = true
 ctor.workspace = true
-syn.workspace = true
-quote.workspace = true

@@ -1,86 +1,122 @@
-use std::{
-    collections::BTreeMap,
-    sync::{Arc, LazyLock, Mutex},
-};
+use std::marker::PhantomData;
 
 use bevy::{
     app::{App, Plugin},
-    asset::{Asset, AssetApp, AssetLoader, LoadContext, io::Reader},
+    asset::{AssetApp, AssetLoader, LoadContext, io::Reader},
     platform::collections::HashMap,
     reflect::TypePath,
 };
 use bevycraft_core::prelude::AssetLocation;
-use ron::{Options, extensions::Extensions};
+use ron::Options;
 use serde::Deserialize;
 
 use crate::{
-    model::{Model, block_model::BlockModel},
+    model::{Model, ModelLoadError},
     prelude::{Direction, RenderMode},
-    textures::texture_registry::TextureRegistry,
+    textures::texture_manager::TextureManager,
 };
 
-pub struct RModelPlugin;
+pub struct RModelPlugin<M: Model>(PhantomData<M>);
 
-impl Plugin for RModelPlugin {
-    fn build(&self, app: &mut App) {
-        let textures = TextureRegistry::default();
-
-        app.insert_resource(textures.clone())
-            .init_asset::<RModel>()
-            .register_asset_loader(RModelLoader { textures });
+impl<M: Model> Default for RModelPlugin<M> {
+    fn default() -> Self {
+        Self(PhantomData)
     }
 }
 
-#[derive(Default, TypePath)]
-pub struct RModelLoader {
-    textures: TextureRegistry,
+impl<M: Model> Plugin for RModelPlugin<M> {
+    fn build(&self, app: &mut App) {
+        let manager = TextureManager::<M>::default();
+
+        app.insert_resource(manager.clone())
+            .init_asset::<M>()
+            .register_asset_loader(RModelLoader::<M> { manager });
+    }
 }
 
-impl AssetLoader for RModelLoader {
-    type Asset = BlockModel;
-    type Settings = ();
-    type Error = std::io::Error;
+#[derive(TypePath)]
+pub struct RModelLoader<M: Model> {
+    manager: TextureManager<M>,
+}
+
+impl<M: Model> AssetLoader for RModelLoader<M> {
+    type Asset = M;
+    type Settings = Options;
+    type Error = ModelLoadError<M::Error>;
 
     #[inline]
     async fn load(
         &self,
         reader: &mut dyn Reader,
-        _settings: &Self::Settings,
+        settings: &Self::Settings,
         load_context: &mut LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
         let mut bytes = Vec::new();
 
         reader.read_to_end(&mut bytes).await?;
 
-        static RON_READER: LazyLock<Options> =
-            LazyLock::new(|| Options::default().with_default_extension(Extensions::IMPLICIT_SOME));
+        let mut ron = settings.from_bytes::<UnresolvedRModel>(&bytes)?;
 
-        let mut r_model: RModel = RON_READER
-            .from_bytes(&bytes)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
-
-        if let Some(parent) = &r_model.parent {
-            let path = format!("{}/models/{}.ron", parent.namespace(), parent.path());
-
+        if let Some(parent) = &ron.parent {
             let loaded = load_context
-                .loader()
-                .immediate()
-                .load::<RModel>(path)
+                .read_asset_bytes(parent.clone())
                 .await
-                .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+                .map_err(ModelLoadError::ReadBytesError)?;
 
-            let parent = loaded.get();
+            let parent = settings.from_bytes::<UnresolvedRModel>(&loaded)?;
 
-            if r_model.elements.is_empty() {
-                r_model.elements = parent.elements.clone();
+            if ron.elements.is_empty() {
+                ron.elements = parent.elements.clone();
             }
 
-            if r_model.textures.is_empty() {
-                r_model.textures = parent.textures.clone();
+            if ron.textures.is_empty() {
+                ron.textures = parent.textures.clone();
             }
         }
 
-        Ok(BlockModel::resolve(r_model, &self.textures))
+        let mut elements: Vec<Element> = Vec::with_capacity(ron.elements.len());
+
+        for element in ron.elements {
+            let mut faces: HashMap<Direction, Face> = HashMap::with_capacity(element.faces.len());
+
+            for (dir, face) in element.faces {
+                let texture = match face.texture.strip_prefix('#') {
+                    Some(k) => ron.textures.get(k).cloned(),
+                    None => Some(
+                        AssetLocation::try_parsing(&face.texture)
+                            .map_err(|e| ModelLoadError::InvalidLocation(e))?,
+                    ),
+                };
+
+                if texture.is_none() {
+                    return Err(ModelLoadError::UndefinedTexture(face.texture));
+                }
+
+                faces.insert(
+                    dir,
+                    Face {
+                        uv: face.uv,
+                        texture: texture.unwrap(),
+                        cullface: face.cullface,
+                        render_mode: face.render_mode,
+                        tintable: face.tintable,
+                    },
+                );
+            }
+
+            let resolved = Element {
+                from: element.from,
+                to: element.to,
+                rotation: element.rotation,
+                faces,
+            };
+
+            elements.push(resolved);
+        }
+
+        M::resolve(RModel { elements }, &self.manager)
+            .await
+            .map_err(ModelLoadError::Resolve)
     }
 
     fn extensions(&self) -> &[&str] {
@@ -88,25 +124,12 @@ impl AssetLoader for RModelLoader {
     }
 }
 
-#[derive(Asset, TypePath, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct RModel {
-    pub parent: Option<AssetLocation>,
-
-    #[serde(default)]
-    pub textures: HashMap<Box<str>, AssetLocation>,
-
-    #[serde(default)]
     pub elements: Vec<Element>,
 }
 
-impl RModel {
-    #[inline]
-    pub fn textures(&self) -> impl Iterator<Item = &AssetLocation> {
-        self.textures.values()
-    }
-}
-
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct Element {
     pub from: [f32; 3],
     pub to: [f32; 3],
@@ -114,8 +137,36 @@ pub struct Element {
     pub faces: HashMap<Direction, Face>,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct Face {
+    pub uv: [f32; 4],
+    pub texture: AssetLocation,
+    pub cullface: Option<Direction>,
+    pub render_mode: RenderMode,
+    pub tintable: bool,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+struct UnresolvedRModel {
+    pub parent: Option<AssetLocation>,
+
+    #[serde(default)]
+    pub textures: HashMap<Box<str>, AssetLocation>,
+
+    #[serde(default)]
+    pub elements: Vec<UnresolvedElement>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+struct UnresolvedElement {
+    pub from: [f32; 3],
+    pub to: [f32; 3],
+    pub rotation: Option<Rotation>,
+    pub faces: HashMap<Direction, UnresolvedFace>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+struct UnresolvedFace {
     pub uv: [f32; 4],
     pub texture: Box<str>,
     pub cullface: Option<Direction>,
