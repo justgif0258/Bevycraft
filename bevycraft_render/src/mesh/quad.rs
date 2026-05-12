@@ -8,14 +8,14 @@ use std::ops::Not;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Quad {
-    positions   : [[f32; 3]; 4],
-    uvs         : [[f32; 2]; 4],
-    normal      : [f32; 3],
-    texture     : TextureId,
-    render_mode : RenderMode,
-    direction   : Direction,
-    mask        : OcclusionMask,
-    tintable    : bool,
+    pub positions:  [[f32; 3]; 4],
+    pub uvs:        [[f32; 2]; 4],
+    pub normal:     [f32; 3],
+    pub texture:    TextureId,
+    pub render_mode: RenderMode,
+    pub direction:  Direction,
+    pub mask:       OcclusionMask,
+    pub tintable:   bool,
 }
 
 impl Quad {
@@ -85,7 +85,10 @@ impl Quad {
 
         let mut uvs = [[u0, v1], [u1, v1], [u1, v0], [u0, v0]];
 
-        if matches!(direction, Direction::PosX | Direction::PosY | Direction::NegZ) {
+        if matches!(
+            direction,
+            Direction::PosX | Direction::PosY | Direction::NegZ
+        ) {
             corners.swap(1, 3);
             uvs.swap(1, 3);
         }
@@ -135,7 +138,7 @@ impl Quad {
         let n = Vec3::from(self.normal);
 
         self.normal = (rotation * n).into();
-        
+
         if !self.mask.is_empty() {
             let corners = match self.direction {
                 Direction::PosX | Direction::NegX => self.positions.map(|[_, y, z]| [z, y]),
@@ -211,7 +214,31 @@ pub enum Direction {
     NegZ = 5,
 }
 
+impl From<usize> for Direction {
+    #[inline(always)]
+    fn from(value: usize) -> Self {
+        match value {
+            0 => Direction::PosX,
+            1 => Direction::NegX,
+            2 => Direction::PosY,
+            3 => Direction::NegY,
+            4 => Direction::PosZ,
+            5 => Direction::NegZ,
+            _ => panic!("invalid direction value: {}", value),
+        }
+    }
+}
+
 impl Direction {
+    pub const ALL: [Self; 6] = [
+        Self::PosX,
+        Self::NegX,
+        Self::PosY,
+        Self::NegY,
+        Self::PosZ,
+        Self::NegZ,
+    ];
+
     #[inline(always)]
     pub const fn get_normal(self) -> [f32; 3] {
         match self {
@@ -235,21 +262,6 @@ impl Display for Direction {
             Direction::NegY => f.write_str("down"),
             Direction::PosZ => f.write_str("south"),
             Direction::NegZ => f.write_str("north"),
-        }
-    }
-}
-
-impl From<usize> for Direction {
-    #[inline(always)]
-    fn from(value: usize) -> Self {
-        match value { 
-            0 => Direction::PosX,
-            1 => Direction::NegX,
-            2 => Direction::PosY,
-            3 => Direction::NegY,
-            4 => Direction::PosZ,
-            5 => Direction::NegZ,
-            _ => panic!("invalid direction value: {}", value),
         }
     }
 }

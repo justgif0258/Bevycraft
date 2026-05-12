@@ -5,14 +5,22 @@ use bevy::prelude::*;
 
 const DEFAULT_TINT: [[f32; 4]; 4] = [[0.2, 8.0, 0.2, 1.0]; 4];
 
+#[rustfmt::skip]
 pub struct MeshBuffer {
-    positions: Vec<[f32; 3]>,
-    normals: Vec<[f32; 3]>,
-    uvs: Vec<[f32; 2]>,
-    colors: Vec<[f32; 4]>,
-    textures: Vec<u32>,
-    indices: Vec<u32>,
-    next: u32,
+    positions:  Vec<[f32; 3]>,
+    normals:    Vec<[f32; 3]>,
+    uvs:        Vec<[f32; 2]>,
+    textures:   Vec<u32>,
+    colors:     Vec<[f32; 4]>,
+    indices:    Vec<u32>,
+    next:       u32,
+}
+
+impl Into<Mesh> for MeshBuffer {
+    #[inline(always)]
+    fn into(self) -> Mesh {
+        self.mesh()
+    }
 }
 
 impl MeshBuffer {
@@ -22,8 +30,8 @@ impl MeshBuffer {
             positions: Vec::new(),
             normals: Vec::new(),
             uvs: Vec::new(),
-            colors: Vec::new(),
             textures: Vec::new(),
+            colors: Vec::new(),
             indices: Vec::new(),
             next: 0,
         }
@@ -32,14 +40,14 @@ impl MeshBuffer {
     #[inline]
     pub fn push_quads_with_offset(
         &mut self,
-        quads: &[Quad],
-        tint: Option<[f32; 4]>,
+        quads: impl Iterator<Item = Quad>,
         offset: impl Into<[f32; 3]>,
+        tint: Option<[f32; 4]>,
     ) {
         let offset = offset.into();
 
-        quads.iter().for_each(|quad| {
-            self.push_quad_with_offset(*quad, tint, offset);
+        quads.for_each(|quad| {
+            self.push_quad_with_offset(quad, offset, tint);
         })
     }
 
@@ -47,47 +55,30 @@ impl MeshBuffer {
     pub fn push_quad_with_offset(
         &mut self,
         quad: Quad,
-        tint: Option<[f32; 4]>,
         offset: impl Into<[f32; 3]>,
+        tint: Option<[f32; 4]>,
     ) {
-        let pos = quad.positions();
         let offset = offset.into();
+        let positions = quad.positions.map(|mut pos| {
+            pos[0] += offset[0];
+            pos[1] += offset[1];
+            pos[2] += offset[2];
 
-        let actual_pos = [
-            [
-                pos[0][0] + offset[0],
-                pos[0][1] + offset[1],
-                pos[0][2] + offset[2],
-            ],
-            [
-                pos[1][0] + offset[0],
-                pos[1][1] + offset[1],
-                pos[1][2] + offset[2],
-            ],
-            [
-                pos[2][0] + offset[0],
-                pos[2][1] + offset[1],
-                pos[2][2] + offset[2],
-            ],
-            [
-                pos[3][0] + offset[0],
-                pos[3][1] + offset[1],
-                pos[3][2] + offset[2],
-            ],
-        ];
+            pos
+        });
 
-        self.positions.extend_from_slice(&actual_pos);
+        self.positions.extend_from_slice(&positions);
 
         self.normals
-            .extend([quad.normal(), quad.normal(), quad.normal(), quad.normal()]);
+            .extend_from_slice(&[quad.normal, quad.normal, quad.normal, quad.normal]);
 
-        self.uvs.extend_from_slice(&quad.uvs());
+        self.uvs.extend_from_slice(&quad.uvs);
 
-        self.textures.extend([
-            quad.texture_raw(),
-            quad.texture_raw(),
-            quad.texture_raw(),
-            quad.texture_raw(),
+        self.textures.extend_from_slice(&[
+            quad.texture.0,
+            quad.texture.0,
+            quad.texture.0,
+            quad.texture.0,
         ]);
 
         let tint = if let Some(tint) = tint
@@ -95,7 +86,7 @@ impl MeshBuffer {
         {
             [tint; 4]
         } else {
-            DEFAULT_TINT
+            [[1.0; 4]; 4]
         };
 
         self.colors.extend_from_slice(&tint);

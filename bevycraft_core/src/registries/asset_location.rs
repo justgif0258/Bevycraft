@@ -44,12 +44,33 @@ impl Serialize for AssetLocation {
     }
 }
 
-impl<'a> Into<AssetPath<'a>> for AssetLocation {
-    #[inline(always)]
-    fn into(self) -> AssetPath<'a> {
-        let path = format!("{}\\{}", self.namespace, self.path).replace('/', "\\");
+impl TryFrom<String> for AssetLocation {
+    type Error = AssetLocationError;
 
-        AssetPath::from(path)
+    #[inline(always)]
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        match value.split_once(Self::SEPARATOR) {
+            None => {
+                if !Self::can_use_path(&value) {
+                    return Err(AssetLocationError::IllegalPath(value));
+                }
+
+                Ok(Self {
+                    namespace: Self::DEFAULT_NAMESPACE.into(),
+                    path: value.into_boxed_str(),
+                })
+            }
+            Some((n, p)) => Self::try_with_custom_namespace(n, p),
+        }
+    }
+}
+
+impl<'a> TryFrom<&'a str> for AssetLocation {
+    type Error = AssetLocationError;
+
+    #[inline(always)]
+    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
+        Self::try_parsing(value)
     }
 }
 
@@ -201,33 +222,12 @@ impl AssetLocation {
     }
 }
 
-impl TryFrom<String> for AssetLocation {
-    type Error = AssetLocationError;
-
+impl<'a> Into<AssetPath<'a>> for AssetLocation {
     #[inline(always)]
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        match value.split_once(Self::SEPARATOR) {
-            None => {
-                if !Self::can_use_path(&value) {
-                    return Err(AssetLocationError::IllegalPath(value));
-                }
+    fn into(self) -> AssetPath<'a> {
+        let path = format!("{}\\{}", self.namespace, self.path).replace('/', "\\");
 
-                Ok(Self {
-                    namespace: Self::DEFAULT_NAMESPACE.into(),
-                    path: value.into_boxed_str(),
-                })
-            }
-            Some((n, p)) => Self::try_with_custom_namespace(n, p),
-        }
-    }
-}
-
-impl<'a> TryFrom<&'a str> for AssetLocation {
-    type Error = AssetLocationError;
-
-    #[inline(always)]
-    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
-        Self::try_parsing(value)
+        AssetPath::from(path)
     }
 }
 

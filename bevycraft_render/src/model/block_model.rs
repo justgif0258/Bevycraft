@@ -44,6 +44,8 @@ impl Model for BlockModel {
                     Direction::NegZ => z0,
                 };
 
+                let uv = face.uv.map(|v| v * 0.125);
+
                 let texture = textures.get_or_insert(&face.texture);
 
                 let mut quad = Quad::build(
@@ -51,7 +53,7 @@ impl Model for BlockModel {
                     from,
                     to,
                     depth,
-                    face.uv,
+                    uv,
                     texture,
                     face.render_mode,
                     face.tintable,
