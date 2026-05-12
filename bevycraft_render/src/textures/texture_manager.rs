@@ -1,11 +1,11 @@
-use crate::prelude::{ArrayTexture, Model, TextureId, VertexMaterial};
+use crate::prelude::{ArrayTexture, Model, TextureId, VertexMaterial, NULL_TEXTURE_ID, NULL_TEXTURE_LOCATION};
 use bevy::ecs::resource::Resource;
 use bevy::ecs::system::SystemParam;
-use bevy::prelude::{Asset, Assets, Commands, Image, Res, ResMut, TypePath};
+use bevy::prelude::{info, Asset, Assets, Commands, Image, Res, ResMut, TypePath};
 use bevycraft_core::prelude::AssetLocation;
 use parking_lot::RwLock;
 use std::marker::PhantomData;
-use std::{collections::BTreeMap, sync::Arc};
+use std::sync::Arc;
 
 #[derive(SystemParam)]
 pub struct TextureBakery<'w, 's, M: Model> {
@@ -21,7 +21,9 @@ impl<'w, 's, M: Model> TextureBakery<'w, 's, M> {
 
         let read = self.textures.0.read();
 
-        read.textures.iter().for_each(|(location, _)| {
+        read.textures.iter().for_each(|(location, id)| {
+            info!("Loading texture {} with ID {:?}", location, id);
+
             array_texture.load_from_asset_location(location);
         });
 
@@ -33,7 +35,7 @@ impl<'w, 's, M: Model> TextureBakery<'w, 's, M> {
 
 #[derive(Debug, Default)]
 struct TextureManagerInner {
-    textures: BTreeMap<AssetLocation, TextureId>,
+    textures: Vec<(AssetLocation, TextureId)>,
 
     dirty: bool,
 }
@@ -43,9 +45,13 @@ pub struct TextureManager<T: Asset + TypePath>(Arc<RwLock<TextureManagerInner>>,
 
 impl<T: Asset + TypePath> Default for TextureManager<T> {
     fn default() -> Self {
+        let mut textures = Vec::new();
+
+        textures.push((NULL_TEXTURE_LOCATION.clone(), NULL_TEXTURE_ID));
+
         Self(
             Arc::new(RwLock::new(TextureManagerInner {
-                textures: BTreeMap::new(),
+                textures,
                 dirty: false,
             })),
             PhantomData,
@@ -64,20 +70,20 @@ impl<T: Asset + TypePath> TextureManager<T> {
     pub fn get_or_insert(&self, location: &AssetLocation) -> TextureId {
         {
             let map = self.0.read();
-            if let Some(&id) = map.textures.get(location) {
+            if let Some(&(_, id)) = map.textures.iter().find(|&(loc, _)| loc == location) {
                 return id;
             }
         }
 
         let mut map = self.0.write();
 
-        if let Some(&id) = map.textures.get(location) {
+        if let Some(&(_, id)) = map.textures.iter().find(|&(loc, _)| loc == location) {
             return id;
         }
 
         let texture_id = TextureId(map.textures.len() as u32);
 
-        map.textures.insert(location.clone(), texture_id);
+        map.textures.push((location.clone(), texture_id));
 
         map.dirty = true;
 

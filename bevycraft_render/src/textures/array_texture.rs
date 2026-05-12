@@ -65,23 +65,23 @@ impl ArrayTexture {
             location.path()
         );
 
-        let reader = ImageReader::open(path).unwrap();
+        if let Ok(reader) = ImageReader::open(path) {
+            let img = reader.decode().unwrap().into_rgba8();
 
-        let img = reader.decode().unwrap().into_rgba8();
+            assert_eq!(
+                img.width(),
+                self.width,
+                "Texture width does not match array texture width"
+            );
 
-        assert_eq!(
-            img.width(),
-            self.width,
-            "Texture width does not match array texture width"
-        );
+            assert_eq!(
+                img.height(),
+                self.height,
+                "Texture height does not match array texture height"
+            );
 
-        assert_eq!(
-            img.height(),
-            self.height,
-            "Texture height does not match array texture height"
-        );
-
-        self.load_bytes_with_location(location.clone(), img.into_iter());
+            self.load_bytes_with_location(location.clone(), img.into_iter());
+        }
     }
 
     #[inline]

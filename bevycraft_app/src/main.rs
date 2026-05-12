@@ -162,15 +162,27 @@ fn spawn_test_model(
     textures: Res<ArrayTexture>,
 ) {
     let mut buf = MeshBuffer::new();
-    let model = models.get(&loading.get(2).unwrap()).unwrap();
+    let model = models.get(&loading.get(4).unwrap()).unwrap();
 
-    for dir in Direction::ALL {
+    models.iter()
+        .enumerate()
+        .for_each(|(i, (_, model))| {
+        let offset = [i as f32, 0.0, 0.0];
+
+        for dir in Direction::ALL {
+            buf.push_quads_with_offset(
+                model.iter_outer_quads_at(dir).copied(),
+                offset,
+                Some([0.2, 0.8, 0.2, 1.0]),
+            )
+        }
+
         buf.push_quads_with_offset(
-            model.iter_outer_quads_at(dir).copied(),
-            [0.0, 0.0, 0.0],
+            model.iter_inner_quads().copied(),
+            offset,
             Some([0.2, 0.8, 0.2, 1.0]),
-        )
-    }
+        );
+    });
 
     commands.spawn((
         Mesh3d(meshes.add(buf)),

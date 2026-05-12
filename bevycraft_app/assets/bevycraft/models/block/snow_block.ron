@@ -1,6 +1,6 @@
 (
     parent: "bevycraft:block/cube_all",
     textures: {
-        "all": "bevycraft:block/snow_block"
+        "all": "bevycraft:block/snow"
     },
 )

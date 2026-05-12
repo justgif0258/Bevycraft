@@ -16,6 +16,8 @@ use crate::{
     textures::texture_manager::TextureManager,
 };
 
+const RMODEL_SCALE: f32 = 0.125;
+
 pub struct RModelPlugin<M: Model>(PhantomData<M>);
 
 impl<M: Model> Default for RModelPlugin<M> {
@@ -106,10 +108,24 @@ impl<M: Model> AssetLoader for RModelLoader<M> {
                 );
             }
 
+            let from = element.from.map(|v| v * RMODEL_SCALE);
+            let to = element.to.map(|v| v * RMODEL_SCALE);
+
+            let rotation = element.rotation.map(|rot| {
+                let origin = rot.origin.map(|v| v * RMODEL_SCALE);
+
+                Rotation {
+                    origin,
+                    x: rot.x,
+                    y: rot.y,
+                    z: rot.z,
+                }
+            });
+
             let resolved = Element {
-                from: element.from,
-                to: element.to,
-                rotation: element.rotation,
+                from,
+                to,
+                rotation,
                 faces,
             };
 

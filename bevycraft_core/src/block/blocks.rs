@@ -44,6 +44,18 @@ context! {
         .build()
     );
 
+    pub static SNOW_BLOCK: Block = register("snow_block", || Block::new()
+        .behaviour(
+            BlockBehaviour::new()
+                .hardness(0.2)
+                .toughness(0.2)
+                .flags(*FULL_BLOCK)
+                .build()
+        )
+        .shape(FULL_SHAPE)
+        .build()
+    );
+
     pub static STONE: Block = register("stone", || Block::new()
         .behaviour(
             BlockBehaviour::new()
