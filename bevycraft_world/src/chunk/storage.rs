@@ -7,6 +7,7 @@ use bevycraft_core::{
     prelude::{PatternContainer, PatternIter},
 };
 
+#[derive(Debug)]
 pub enum ChunkStorage {
     Empty,
     Single(usize),
@@ -14,10 +15,6 @@ pub enum ChunkStorage {
 }
 
 impl ChunkStorage {
-    pub fn single(block: usize) -> Self {
-        Self::Single(block)
-    }
-
     #[inline]
     pub fn empty_pattern() -> Self {
         Self::Pattern(PatternContainer::new(*AIR))
@@ -114,7 +111,7 @@ impl ChunkStorage {
     }
 
     #[inline]
-    pub const fn is_pattern(&self) -> bool {
+    pub const fn has_pattern(&self) -> bool {
         match self {
             Self::Pattern(_) => true,
             _ => false,

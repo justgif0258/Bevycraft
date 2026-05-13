@@ -3,10 +3,10 @@ use bevy::asset::RenderAssetUsages;
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
 
-const DEFAULT_TINT: [[f32; 4]; 4] = [[0.2, 8.0, 0.2, 1.0]; 4];
+const NEUTRAL_TINT: [[f32; 4]; 4] = [[1.0, 1.0, 1.0, 1.0]; 4];
 
 #[rustfmt::skip]
-pub struct MeshBuffer {
+pub struct VertexBuffer {
     positions:  Vec<[f32; 3]>,
     normals:    Vec<[f32; 3]>,
     uvs:        Vec<[f32; 2]>,
@@ -16,14 +16,14 @@ pub struct MeshBuffer {
     next:       u32,
 }
 
-impl Into<Mesh> for MeshBuffer {
+impl Into<Mesh> for VertexBuffer {
     #[inline(always)]
     fn into(self) -> Mesh {
         self.mesh()
     }
 }
 
-impl MeshBuffer {
+impl VertexBuffer {
     #[inline]
     pub fn new() -> Self {
         Self {
@@ -38,11 +38,11 @@ impl MeshBuffer {
     }
 
     #[inline]
-    pub fn push_quads_with_offset(
+    pub fn push_quads_with_offset<'a>(
         &mut self,
-        quads: impl Iterator<Item = Quad>,
+        quads: impl Iterator<Item = &'a Quad>,
         offset: impl Into<[f32; 3]>,
-        tint: Option<[f32; 4]>,
+        tint: Option<[f32; 3]>,
     ) {
         let offset = offset.into();
 
@@ -54,9 +54,9 @@ impl MeshBuffer {
     #[inline]
     pub fn push_quad_with_offset(
         &mut self,
-        quad: Quad,
+        quad: &Quad,
         offset: impl Into<[f32; 3]>,
-        tint: Option<[f32; 4]>,
+        tint: Option<[f32; 3]>,
     ) {
         let offset = offset.into();
         let positions = quad.positions.map(|mut pos| {
@@ -84,16 +84,17 @@ impl MeshBuffer {
         let tint = if let Some(tint) = tint
             && quad.tintable()
         {
-            [tint; 4]
+            [[tint[0], tint[1], tint[2], 1.0]; 4]
         } else {
-            [[1.0; 4]; 4]
+            NEUTRAL_TINT
         };
 
         self.colors.extend_from_slice(&tint);
 
         let i = self.next;
 
-        self.indices.extend([i, i + 1, i + 2, i + 2, i + 3, i]);
+        self.indices
+            .extend_from_slice(&[i, i + 1, i + 2, i + 2, i + 3, i]);
 
         self.next += 4;
     }
@@ -141,7 +142,7 @@ impl MeshBuffer {
     }
 
     #[inline(always)]
-    pub const fn len(&self) -> usize {
+    pub const fn vertices_count(&self) -> usize {
         self.indices.len()
     }
 }

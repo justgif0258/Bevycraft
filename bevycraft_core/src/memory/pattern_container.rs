@@ -3,13 +3,15 @@ use std::{
     mem::{ManuallyDrop, transmute},
     num::NonZeroUsize,
 };
-
+use std::cmp::Ordering;
+use std::fmt::{Debug, Formatter};
 use bitvec::{field::BitField, vec::BitVec};
 use hashbrown::{Equivalent, HashTable};
 use rapidhash::fast::RandomState;
 
 const SENTINEL: usize = usize::MAX;
 
+#[derive(Debug)]
 pub struct PatternContainer<T, const N: usize, S = RandomState> {
     hasher: S,
     entries: HashTable<Pattern>,
@@ -516,7 +518,37 @@ impl BitCapacity {
     }
 }
 
+#[derive(Copy, Clone)]
 union Slot<T> {
-    value: std::mem::ManuallyDrop<T>,
+    value: ManuallyDrop<T>,
     next: usize,
+}
+
+impl<T> Ord for Slot<T> where T: Ord {
+    #[inline(always)]
+    fn cmp(&self, other: &Self) -> Ordering {
+        unsafe { self.value.cmp(&other.value) }
+    }
+}
+
+impl<T> PartialOrd for Slot<T> where T: PartialOrd {
+    #[inline(always)]
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        unsafe { self.value.partial_cmp(&other.value) }
+    }
+}
+
+impl<T> Eq for Slot<T> where T: Eq {}
+
+impl<T> PartialEq for Slot<T> where T: PartialEq {
+    #[inline(always)]
+    fn eq(&self, other: &Self) -> bool {
+        unsafe { self.value.eq(&other.value) }
+    }
+}
+
+impl<T> Debug for Slot<T> where T: Debug {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        unsafe { write!(f, "Slot({:?})", &self.value) }
+    }
 }

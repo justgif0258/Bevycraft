@@ -15,10 +15,7 @@ use bevy::{
 };
 use bevycraft_app::{AppState, AssetsLoading, Player};
 use bevycraft_core::prelude::{Block, Registrar, RegistrarOps, Registry};
-use bevycraft_render::prelude::{
-    ArrayTexture, BlockModel, Direction, MeshBuffer, RModelPlugin, RenderMode, TextureBakery,
-    VertexMaterial,
-};
+use bevycraft_render::prelude::{ArrayTexture, BlockModel, Direction, VertexBuffer, RModelPlugin, RenderMode, TextureBakery, VertexMaterial, Quad};
 use ron::Options;
 use ron::extensions::Extensions;
 
@@ -43,7 +40,7 @@ fn main() -> AppExit {
         )
         .add_systems(
             OnEnter(AppState::Finishing),
-            (setup_world, spawn_test_model),
+            (setup_world, view_loaded_models),
         )
         // .add_systems(FixedUpdate, (
         // ).run_if(in_state(AppState::InGame)))
@@ -154,38 +151,61 @@ fn setup_world(mut commands: Commands, mut scattering: ResMut<Assets<ScatteringM
     ));
 }
 
-fn spawn_test_model(
+fn view_loaded_models(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    loading: Res<AssetsLoading>,
     models: Res<Assets<BlockModel>>,
     textures: Res<ArrayTexture>,
 ) {
-    let mut buf = MeshBuffer::new();
-    let model = models.get(&loading.get(4).unwrap()).unwrap();
+    let mut opaque_buf = VertexBuffer::new();
+    let mut cutout_buf = VertexBuffer::new();
+    let mut translucent_buf = VertexBuffer::new();
+
+    let models = models.iter().map(|(_, m)| m).collect::<Vec<_>>();
+
+    let tint = Some([0.2, 0.8, 0.2]);
+
+    for face in Direction::ALL {
+        models.iter()
+            .enumerate()
+            .rev()
+            .for_each(|(i, &model)| {
+
+                let offset = [i as f32, 0.0, 0.0];
+
+                model.iter_outer_quads_at(face)
+                    .for_each(|quad| {
+                        match quad.render_mode {
+                            RenderMode::Opaque => opaque_buf.push_quad_with_offset(quad, offset, tint),
+                            RenderMode::Cutout => cutout_buf.push_quad_with_offset(quad, offset, tint),
+                            RenderMode::Translucent => translucent_buf.push_quad_with_offset(quad, offset, tint),
+                        }
+                    });
+            });
+    }
 
     models.iter()
         .enumerate()
-        .for_each(|(i, (_, model))| {
-        let offset = [i as f32, 0.0, 0.0];
+        .for_each(|(i, &model)| {
+            let offset = [i as f32, 0.0, 0.0];
 
-        for dir in Direction::ALL {
-            buf.push_quads_with_offset(
-                model.iter_outer_quads_at(dir).copied(),
-                offset,
-                Some([0.2, 0.8, 0.2, 1.0]),
-            )
-        }
-
-        buf.push_quads_with_offset(
-            model.iter_inner_quads().copied(),
-            offset,
-            Some([0.2, 0.8, 0.2, 1.0]),
-        );
-    });
+            model.iter_inner_quads()
+                .for_each(|quad| {
+                    match quad.render_mode {
+                        RenderMode::Opaque => opaque_buf.push_quad_with_offset(quad, offset, tint),
+                        RenderMode::Cutout => cutout_buf.push_quad_with_offset(quad, offset, tint),
+                        RenderMode::Translucent => translucent_buf.push_quad_with_offset(quad, offset, tint),
+                    }
+                });
+        });
 
     commands.spawn((
-        Mesh3d(meshes.add(buf)),
+        Mesh3d(meshes.add(opaque_buf)),
         MeshMaterial3d(textures.get_vertex_material(RenderMode::Opaque)),
+    ));
+
+    commands.spawn((
+        Mesh3d(meshes.add(cutout_buf)),
+        MeshMaterial3d(textures.get_vertex_material(RenderMode::Cutout)),
     ));
 }

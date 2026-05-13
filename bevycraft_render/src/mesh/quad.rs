@@ -135,9 +135,9 @@ impl Quad {
             *position = rotated.into();
         }
 
-        let n = Vec3::from(self.normal);
+        let normal = Vec3::from(self.normal);
 
-        self.normal = (rotation * n).into();
+        self.normal = (rotation * normal).into();
 
         if !self.mask.is_empty() {
             let corners = match self.direction {
@@ -253,7 +253,6 @@ impl Direction {
 }
 
 impl Display for Direction {
-    #[inline(always)]
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Direction::PosX => f.write_str("east"),
@@ -282,7 +281,7 @@ impl Not for Direction {
     }
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Deserialize, Serialize, Debug, Clone, Copy, Eq, PartialEq, Hash)]
 #[serde(rename_all = "lowercase")]
 pub enum RenderMode {
     Opaque = 0,
@@ -291,7 +290,6 @@ pub enum RenderMode {
 }
 
 impl Display for RenderMode {
-    #[inline(always)]
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             RenderMode::Opaque => f.write_str("opaque"),

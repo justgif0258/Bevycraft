@@ -13,9 +13,9 @@ use bevycraft_core::blocks::AIR;
 
 use crate::prelude::*;
 
-pub const CHUNK_LEN: usize = (CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) as usize;
-
 pub const CHUNK_SIZE: i32 = 16;
+
+pub const CHUNK_LEN: usize = (CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) as usize;
 
 #[derive(Component)]
 pub struct Chunk {
@@ -212,7 +212,7 @@ impl Hash for ChunkPos {
 
 impl Display for ChunkPos {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        write!(f, "({}; {}; {})", self.x, self.y, self.z)
+        write!(f, "({}, {}, {})", self.x, self.y, self.z)
     }
 }
 

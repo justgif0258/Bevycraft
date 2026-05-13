@@ -5,6 +5,7 @@ use bevy::prelude::*;
 use bevy::render::render_resource::*;
 use bevy::shader::{ShaderDefVal, ShaderRef};
 
+
 pub const ATTRIBUTE_TEXTURE_LAYER: MeshVertexAttribute = MeshVertexAttribute::new(
     "Vertex_Layer",
     Mesh::FIRST_AVAILABLE_CUSTOM_ATTRIBUTE,
@@ -13,7 +14,10 @@ pub const ATTRIBUTE_TEXTURE_LAYER: MeshVertexAttribute = MeshVertexAttribute::ne
 
 const SHADER_PATH: &'static str = "bevycraft/shaders/material.wgsl";
 
+const CUTOUT_THRESHOLD: f32 = 0.5;
+
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
+#[bind_group_data(VertexMaterialKey)]
 pub struct VertexMaterial {
     #[texture(0, dimension = "2d_array")]
     #[sampler(1)]
@@ -37,7 +41,7 @@ impl Material for VertexMaterial {
     fn alpha_mode(&self) -> AlphaMode {
         match self.render_mode {
             RenderMode::Opaque => AlphaMode::Opaque,
-            RenderMode::Cutout => AlphaMode::Mask(0.5),
+            RenderMode::Cutout => AlphaMode::Mask(CUTOUT_THRESHOLD),
             RenderMode::Translucent => AlphaMode::Blend,
         }
     }
@@ -57,7 +61,7 @@ impl Material for VertexMaterial {
         _pipeline: &MaterialPipeline,
         descriptor: &mut RenderPipelineDescriptor,
         layout: &MeshVertexBufferLayoutRef,
-        _key: MaterialPipelineKey<Self>,
+        key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         let mut shader_defs: Vec<ShaderDefVal> = vec![];
 
@@ -80,6 +84,11 @@ impl Material for VertexMaterial {
             vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(7));
         }
 
+        match key.bind_group_data.render_mode {
+            RenderMode::Cutout => shader_defs.push("VERTEX_CUTOUT".into()),
+            _ => {}
+        }
+
         let vertex_layout = layout.0.get_layout(&vertex_attributes)?;
 
         descriptor.vertex.buffers = vec![vertex_layout];
@@ -91,5 +100,16 @@ impl Material for VertexMaterial {
         }
 
         Ok(())
+    }
+}
+
+#[derive(Clone, Eq, PartialEq, Hash)]
+pub struct VertexMaterialKey {
+    pub render_mode: RenderMode
+}
+
+impl From<&VertexMaterial> for VertexMaterialKey {
+    fn from(value: &VertexMaterial) -> Self {
+        Self { render_mode: value.render_mode }
     }
 }

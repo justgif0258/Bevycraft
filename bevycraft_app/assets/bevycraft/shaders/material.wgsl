@@ -99,9 +99,12 @@ fn fs_main(
         pbr_input.material.base_color = pbr_input.material.base_color * mesh.color;
     #endif
 
-    if pbr_input.material.base_color.a < 0.5 {
-        discard;
-    }
+    #ifdef VERTEX_CUTOUT
+        if pbr_input.material.base_color.a < 0.5 {
+            discard;
+        }
+    #endif
+
 
     let double_sided = (pbr_input.material.flags & STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u;
 
