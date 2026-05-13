@@ -7,7 +7,7 @@
 }
 #import bevy_core_pipeline::tonemapping::tone_mapping
 
-struct LayeredVertexInput {
+struct VertexInput {
     @builtin(instance_index) instance_index: u32,
 
     @location(0) position: vec3<f32>,
@@ -25,7 +25,7 @@ struct LayeredVertexInput {
     @location(8) layer: u32,
 }
 
-struct LayeredVertexOutput {
+struct VertexOutput {
     @builtin(position) position: vec4<f32>,
     @location(0) world_position: vec4<f32>,
     @location(1) world_normal: vec3<f32>,
@@ -45,21 +45,21 @@ struct LayeredVertexOutput {
 }
 
 @vertex
-fn vs_main(in: LayeredVertexInput) -> LayeredVertexOutput {
-        var out: LayeredVertexOutput;
+fn vertex(in: VertexInput) -> VertexOutput {
+        var out: VertexOutput;
 
-        var model = mesh_functions::get_world_from_local(in.instance_index);
+        var world_pos = mesh_functions::get_world_from_local(in.instance_index);
 
-        out.world_position = mesh_functions::mesh_position_local_to_world(model, vec4<f32>(in.position, 1.0));
+        out.world_position = mesh_functions::mesh_position_local_to_world(world_pos, vec4<f32>(in.position, 1.0));
 
-        out.position = mesh_functions::mesh_position_local_to_clip(model, vec4<f32>(in.position, 1.0));
+        out.position = mesh_functions::mesh_position_local_to_clip(world_pos, vec4<f32>(in.position, 1.0));
 
         out.world_normal = mesh_functions::mesh_normal_local_to_world(in.normal, in.instance_index);
 
         out.instance_index = in.instance_index;
 
         #ifdef VERTEX_TANGENTS
-            out.world_tangent = mesh_functions::mesh_tangent_local_to_world(model, in.tangent, in.instance_index);
+            out.world_tangent = mesh_functions::mesh_tangent_local_to_world(world_pos, in.tangent, in.instance_index);
         #endif
 
         #ifdef VERTEX_COLORS
@@ -72,32 +72,17 @@ fn vs_main(in: LayeredVertexInput) -> LayeredVertexOutput {
         return out;
 }
 
-@group(#{MATERIAL_BIND_GROUP}) @binding(0) var block_texture: texture_2d_array<f32>;
-@group(#{MATERIAL_BIND_GROUP}) @binding(1) var block_sampler: sampler;
+@group(#{MATERIAL_BIND_GROUP}) @binding(0) var texture: texture_2d_array<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(1) var texture_sampler: sampler;
 
 @fragment
-fn fs_main(
+fn fragment(
     @builtin(front_facing) is_front: bool,
-    mesh: LayeredVertexOutput,
+    mesh: VertexOutput,
 ) -> @location(0) vec4<f32> {
-    let layer = mesh.layer;
-
     var pbr_input: PbrInput = pbr_input_new();
 
-    pbr_input.material.base_color = textureSample(block_texture, block_sampler, mesh.uv, layer);
-
-    let luminance = dot(pbr_input.material.base_color.rgb, vec3(0.299, 0.587, 0.114));
-
-    // Specular map automático — derivado directamente da luminância
-    let specular_strength = pow(luminance, 0.5); // expoente controla o contraste
-
-    pbr_input.material.perceptual_roughness = mix(0.95, 0.55, specular_strength);
-    pbr_input.material.metallic             = 0.0;
-    pbr_input.material.reflectance          = vec3(specular_strength * 0.4);
-
-    #ifdef VERTEX_COLORS
-        pbr_input.material.base_color = pbr_input.material.base_color * mesh.color;
-    #endif
+    pbr_input.material.base_color = textureSample(texture, texture_sampler, mesh.uv, mesh.layer);
 
     #ifdef VERTEX_CUTOUT
         if pbr_input.material.base_color.a < 0.5 {
@@ -105,6 +90,9 @@ fn fs_main(
         }
     #endif
 
+    #ifdef VERTEX_COLORS
+        pbr_input.material.base_color = pbr_input.material.base_color * mesh.color;
+    #endif
 
     let double_sided = (pbr_input.material.flags & STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u;
 
@@ -121,7 +109,7 @@ fn fs_main(
     pbr_input.N = normalize(pbr_input.world_normal);
 
     #ifdef VERTEX_TANGENTS
-        let Nt = textureSampleBias(pbr_bindings::normal_map_texture, pbr_bindings::normal_map_sampler, quantized_uv, view.mip_bias).rgb;
+        let Nt = textureSampleBias(pbr_bindings::normal_map_texture, pbr_bindings::normal_map_sampler, mesh.uv, view.mip_bias).rgb;
         let TBN = fns::calculate_tbn_mikktspace(mesh.world_normal, mesh.world_tangent);
         pbr_input.N = fns::apply_normal_mapping(
             pbr_input.material.flags,

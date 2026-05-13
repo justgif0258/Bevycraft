@@ -42,24 +42,6 @@ impl Chunk {
     }
 
     #[inline]
-    pub fn new_from_source(source: ChunkSource, position: ChunkPos) -> Self {
-        let mut chunk = Chunk {
-            storage: ChunkStorage::empty_pattern(),
-            dirty: false,
-        };
-
-        source.fill(position, &mut chunk);
-        source.carve(position, &mut chunk);
-        source.place_features(position, &mut chunk);
-
-        // We wanna make sure that the delivered Chunk is fully compressed
-        // Generators tend to be messy sometimes
-        chunk.storage.optimize();
-
-        chunk
-    }
-
-    #[inline]
     pub fn set(&mut self, position: impl Into<IVec3>, block: usize) {
         let position = position.into();
 
@@ -234,6 +216,19 @@ impl Sub for ChunkPos {
 
     #[inline(always)]
     fn sub(self, rhs: Self) -> Self::Output {
+        Self {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+            z: self.z - rhs.z,
+        }
+    }
+}
+
+impl Sub<IVec3> for ChunkPos {
+    type Output = Self;
+
+    #[inline(always)]
+    fn sub(self, rhs: IVec3) -> Self::Output {
         Self {
             x: self.x - rhs.x,
             y: self.y - rhs.y,

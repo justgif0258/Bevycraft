@@ -29,14 +29,10 @@ impl Default for SimpleGenerator {
 }
 
 impl ChunkGenerator for SimpleGenerator {
-    #[inline]
-    fn seed(&self) -> i32 {
-        self.seed
-    }
+    fn generate(&self, chunk_pos: ChunkPos) -> Chunk {
+        let mut chunk = Chunk::empty();
 
-    #[inline]
-    fn fill(&self, position: ChunkPos, chunk: &mut Chunk) {
-        let world_pos = position.into_world_pos();
+        let world_pos = chunk_pos.into_world_pos();
 
         let (noise_2d, _, _) = NoiseBuilder::fbm_2d_offset(
             world_pos.x,
@@ -44,12 +40,12 @@ impl ChunkGenerator for SimpleGenerator {
             world_pos.z,
             CHUNK_SIZE as usize,
         )
-        .with_seed(self.seed)
-        .with_octaves(self.octaves)
-        .with_freq(self.frequency)
-        .with_gain(self.gain)
-        .with_lacunarity(self.lacunarity)
-        .generate();
+            .with_seed(self.seed)
+            .with_octaves(self.octaves)
+            .with_freq(self.frequency)
+            .with_gain(self.gain)
+            .with_lacunarity(self.lacunarity)
+            .generate();
 
         let world_height = world_pos.y as i32;
 
@@ -76,5 +72,7 @@ impl ChunkGenerator for SimpleGenerator {
                 }
             }
         }
+
+        chunk
     }
 }

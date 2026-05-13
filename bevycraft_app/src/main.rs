@@ -18,6 +18,7 @@ use bevycraft_core::prelude::{Block, Registrar, RegistrarOps, Registry};
 use bevycraft_render::prelude::{ArrayTexture, BlockModel, Direction, VertexBuffer, RModelPlugin, RenderMode, TextureBakery, VertexMaterial, Quad};
 use ron::Options;
 use ron::extensions::Extensions;
+use bevycraft_world::prelude::ChunkPlugin;
 
 const BLOCK_RES: u32 = 8;
 
@@ -28,6 +29,7 @@ fn main() -> AppExit {
             FreeCameraPlugin,
             RModelPlugin::<BlockModel>::default(),
             MaterialPlugin::<VertexMaterial>::default(),
+            ChunkPlugin::new(12, 64)
         ))
         .init_state::<AppState>()
         .insert_resource(Time::<Fixed>::from_hz(64.0))
