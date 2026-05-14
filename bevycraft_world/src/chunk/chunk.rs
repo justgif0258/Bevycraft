@@ -4,7 +4,8 @@ use std::{
     mem::transmute,
     ops::Sub,
 };
-
+use std::fmt::Debug;
+use std::ops::{Add, Div, Mul};
 use bevy::{
     ecs::component::Component,
     math::{IVec3, Vec3, bounding::Aabb3d},
@@ -107,11 +108,32 @@ impl Chunk {
     }
 }
 
-#[derive(Component, Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Component, Copy, Clone, Eq, PartialEq)]
 pub struct ChunkPos {
     pub x: i32,
     pub y: i32,
     pub z: i32,
+}
+
+impl From<IVec3> for ChunkPos {
+    fn from(value: IVec3) -> Self {
+        Self {
+            x: value.x,
+            y: value.y,
+            z: value.z,
+        }
+    }
+}
+
+impl From<Vec3> for ChunkPos {
+    #[inline(always)]
+    fn from(value: Vec3) -> Self {
+        Self {
+            x: value.x.floor() as i32,
+            y: value.y.floor() as i32,
+            z: value.z.floor() as i32,
+        }
+    }
 }
 
 impl ChunkPos {
@@ -128,7 +150,7 @@ impl ChunkPos {
     }
 
     #[inline]
-    pub fn into_world_pos(self) -> Vec3 {
+    pub const fn into_world_pos(self) -> Vec3 {
         Vec3::new(
             (self.x * CHUNK_SIZE) as f32,
             (self.y * CHUNK_SIZE) as f32,
@@ -162,43 +184,38 @@ impl ChunkPos {
     }
 }
 
-impl From<IVec3> for ChunkPos {
-    fn from(value: IVec3) -> Self {
-        Self {
-            x: value.x,
-            y: value.y,
-            z: value.z,
-        }
-    }
-}
-
-impl From<Vec3> for ChunkPos {
-    #[inline(always)]
-    fn from(value: Vec3) -> Self {
-        Self {
-            x: value.x.floor() as i32,
-            y: value.y.floor() as i32,
-            z: value.z.floor() as i32,
-        }
-    }
-}
-
-impl Hash for ChunkPos {
-    #[inline(always)]
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write_i32(self.x);
-        state.write_i32(self.y);
-        state.write_i32(self.z);
-    }
-}
-
 impl Display for ChunkPos {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "({}, {}, {})", self.x, self.y, self.z)
     }
 }
 
-impl core::ops::Add for ChunkPos {
+impl Debug for ChunkPos {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        f.debug_tuple("ChunkPos")
+            .field(&self.x)
+            .field(&self.y)
+            .field(&self.z)
+            .finish()
+    }
+}
+
+impl Hash for ChunkPos {
+    #[inline(always)]
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        const MASK: u64 = 0x1FFFFF;
+        const Y_SHIFT: u64 = 21;
+        const Z_SHIFT: u64 = 42;
+
+        let hash = (self.x as u64 & MASK)
+            | ((self.y as u64 & MASK) << Y_SHIFT)
+            | ((self.z as u64 & MASK) << Z_SHIFT);
+
+        state.write_u64(hash);
+    }
+}
+
+impl Add for ChunkPos {
     type Output = Self;
 
     #[inline(always)]
@@ -207,6 +224,32 @@ impl core::ops::Add for ChunkPos {
             x: self.x + rhs.x,
             y: self.y + rhs.y,
             z: self.z + rhs.z,
+        }
+    }
+}
+
+impl Add<IVec3> for ChunkPos {
+    type Output = Self;
+
+    #[inline(always)]
+    fn add(self, rhs: IVec3) -> Self::Output {
+        Self {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+            z: self.z + rhs.z,
+        }
+    }
+}
+
+impl Add<i32> for ChunkPos {
+    type Output = Self;
+
+    #[inline(always)]
+    fn add(self, rhs: i32) -> Self::Output {
+        Self {
+            x: self.x + rhs,
+            y: self.y + rhs,
+            z: self.z + rhs,
         }
     }
 }
@@ -233,6 +276,97 @@ impl Sub<IVec3> for ChunkPos {
             x: self.x - rhs.x,
             y: self.y - rhs.y,
             z: self.z - rhs.z,
+        }
+    }
+}
+
+impl Sub<i32> for ChunkPos {
+    type Output = Self;
+
+    #[inline(always)]
+    fn sub(self, rhs: i32) -> Self::Output {
+        Self {
+            x: self.x - rhs,
+            y: self.y - rhs,
+            z: self.z - rhs,
+        }
+    }
+}
+
+impl Div for ChunkPos {
+    type Output = Self;
+
+    #[inline(always)]
+    fn div(self, rhs: Self) -> Self::Output {
+        Self {
+            x: self.x / rhs.x,
+            y: self.y / rhs.y,
+            z: self.z / rhs.z,
+        }
+    }
+}
+
+impl Div<IVec3> for ChunkPos {
+    type Output = Self;
+
+    #[inline(always)]
+    fn div(self, rhs: IVec3) -> Self::Output {
+        Self {
+            x: self.x / rhs.x,
+            y: self.y / rhs.y,
+            z: self.z / rhs.z,
+        }
+    }
+}
+
+impl Div<i32> for ChunkPos {
+    type Output = Self;
+
+    #[inline(always)]
+    fn div(self, rhs: i32) -> Self::Output {
+        Self {
+            x: self.x / rhs,
+            y: self.y / rhs,
+            z: self.z / rhs,
+        }
+    }
+}
+
+impl Mul for ChunkPos {
+    type Output = Self;
+
+    #[inline(always)]
+    fn mul(self, rhs: Self) -> Self::Output {
+        Self {
+            x: self.x * rhs.x,
+            y: self.y * rhs.y,
+            z: self.z * rhs.z,
+        }
+    }
+}
+
+impl Mul<IVec3> for ChunkPos {
+    type Output = Self;
+
+    #[inline(always)]
+    fn mul(self, rhs: IVec3) -> Self::Output {
+        Self {
+            x: self.x * rhs.x,
+            y: self.y * rhs.y,
+            z: self.z * rhs.z,
+        }
+    }
+}
+
+impl Mul<i32> for ChunkPos {
+    type Output = Self;
+
+    #[inline(always)]
+    fn mul(self, rhs: i32) -> Self::Output {
+        Self {
+            x: self.x * rhs,
+            y: self.y * rhs,
+            z: self.z * rhs,
         }
     }
 }

@@ -1,20 +1,23 @@
+use crate::prelude::{Chunk, ChunkPos};
+use bevy::platform::collections::{HashMap, HashSet};
+use bevy::platform::hash::NoOpHash;
+use bevy::prelude::Resource;
+use bevy::tasks::Task;
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, VecDeque};
 use std::sync::Arc;
-use bevy::platform::collections::{HashMap, HashSet};
-use bevy::prelude::Resource;
-use bevy::tasks::Task;
-use crate::prelude::{Chunk, ChunkPos};
 
 #[derive(Resource)]
 pub struct ChunkMap {
-    pub(crate) chunks: HashMap<ChunkPos, Chunk>,
+    pub(crate) chunks: HashMap<ChunkPos, Chunk, NoOpHash>,
 
-    pub(crate) pending: HashMap<ChunkPos, Task<Chunk>>,
+    pub(crate) pending_load: HashMap<ChunkPos, Task<Chunk>, NoOpHash>,
 
     pub(crate) load_queue: BinaryHeap<LoadRequest>,
 
-    pub(crate) inflight: HashSet<ChunkPos>,
+    pub(crate) inflight: HashSet<ChunkPos, NoOpHash>,
+
+    pub(crate) pending_unload: HashSet<ChunkPos, NoOpHash>,
 
     pub(crate) unload_queue: VecDeque<ChunkPos>,
 
@@ -25,10 +28,11 @@ impl ChunkMap {
     #[inline]
     pub const fn new(max_concurrent: usize) -> Self {
         Self {
-            chunks: HashMap::new(),
-            pending: HashMap::new(),
+            chunks: HashMap::with_hasher(NoOpHash),
+            pending_load: HashMap::with_hasher(NoOpHash),
             load_queue: BinaryHeap::new(),
-            inflight: HashSet::new(),
+            inflight: HashSet::with_hasher(NoOpHash),
+            pending_unload: HashSet::with_hasher(NoOpHash),
             unload_queue: VecDeque::new(),
             max_concurrent,
         }
@@ -61,7 +65,7 @@ impl ChunkMap {
 
     #[inline]
     pub fn pending_count(&self) -> usize {
-        self.pending.len()
+        self.pending_load.len()
     }
 
     #[inline]
@@ -75,7 +79,7 @@ impl ChunkMap {
 
     #[inline]
     pub fn enqueue_unload(&mut self, pos: ChunkPos) {
-        if self.chunks.contains_key(&pos) {
+        if self.chunks.contains_key(&pos) && self.pending_unload.insert(pos) {
             self.unload_queue.push_back(pos);
         }
     }
@@ -83,6 +87,7 @@ impl ChunkMap {
     #[inline]
     pub fn remove(&mut self, pos: &ChunkPos) -> Option<Chunk> {
         self.inflight.remove(pos);
+        self.pending_unload.remove(pos);
         self.chunks.remove(pos)
     }
 }
@@ -128,6 +133,9 @@ pub struct ChunkLoaderConfig {
 
 impl Default for ChunkLoaderConfig {
     fn default() -> Self {
-        Self { view_distance: 8, unload_margin: 2 }
+        Self {
+            view_distance: 8,
+            unload_margin: 2,
+        }
     }
 }

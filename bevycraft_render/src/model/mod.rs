@@ -1,6 +1,7 @@
 pub mod block_model;
-pub mod model_cache;
+pub mod manager;
 pub mod r_model;
+pub mod cache;
 
 pub trait Model: bevy::asset::Asset + bevy::reflect::TypePath + Sized {
     type Error: std::error::Error + Send + Sync + 'static;

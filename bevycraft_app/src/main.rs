@@ -13,12 +13,12 @@ use bevy::{
     post_process::bloom::Bloom,
     prelude::*,
 };
-use bevycraft_app::{AppState, AssetsLoading, Player};
-use bevycraft_core::prelude::{Block, Registrar, RegistrarOps, Registry};
-use bevycraft_render::prelude::{ArrayTexture, BlockModel, Direction, VertexBuffer, RModelPlugin, RenderMode, TextureBakery, VertexMaterial, Quad};
+use bevycraft_app::*;
+use bevycraft_core::prelude::*;
+use bevycraft_render::prelude::*;
+use bevycraft_world::prelude::*;
 use ron::Options;
 use ron::extensions::Extensions;
-use bevycraft_world::prelude::ChunkPlugin;
 
 const BLOCK_RES: u32 = 8;
 
@@ -29,7 +29,7 @@ fn main() -> AppExit {
             FreeCameraPlugin,
             RModelPlugin::<BlockModel>::default(),
             MaterialPlugin::<VertexMaterial>::default(),
-            ChunkPlugin::new(12, 64)
+            ChunkPlugin::new(12, 64, AppState::InGame),
         ))
         .init_state::<AppState>()
         .insert_resource(Time::<Fixed>::from_hz(64.0))
@@ -40,55 +40,73 @@ fn main() -> AppExit {
             FixedPostUpdate,
             await_models.run_if(in_state(AppState::AwaitModels)),
         )
-        .add_systems(
-            OnEnter(AppState::Finishing),
-            (setup_world, view_loaded_models),
-        )
+        .add_systems(OnEnter(AppState::Finishing), setup_world)
         // .add_systems(FixedUpdate, (
         // ).run_if(in_state(AppState::InGame)))
         .run()
 }
 
 fn discover_models(
+    mut commands: Commands,
     mut state: ResMut<NextState<AppState>>,
-    mut loading: ResMut<AssetsLoading>,
     server: Res<AssetServer>,
 ) {
     info!("Discovering models...");
 
-    Registrar::<Block>::read_from_registry()
-        .iter()
-        .for_each(|(block_key, block)| {
-            if block.air() {
-                return;
-            }
+    let blocks = Registrar::<Block>::read_from_registry();
 
-            let location = block_key.prefix("models/block/").suffix(".ron");
+    let mut manager = ModelManager::<Block, BlockModel>::with_capacity(blocks.len());
 
-            let h = server.load_with_settings::<BlockModel, Options>(location, |options| {
-                options
-                    .default_extensions
-                    .set(Extensions::IMPLICIT_SOME, true);
-            });
+    blocks.iter().for_each(|(block_key, block)| {
+        if block.air() {
+            return;
+        }
 
-            loading.add(h);
+        let location = block_key.prefix("models/block/").suffix(".ron");
+
+        let h = server.load_with_settings::<BlockModel, Options>(location, |options| {
+            options
+                .default_extensions
+                .set(Extensions::IMPLICIT_SOME, true);
         });
+
+        manager.set(blocks.key_to_idx(block_key).unwrap(), h);
+    });
+
+    commands.insert_resource(manager);
 
     state.set(AppState::AwaitModels);
 }
 
 fn await_models(
+    mut commands: Commands,
     mut state: ResMut<NextState<AppState>>,
-    loading: Res<AssetsLoading>,
+    manager: If<Res<ModelManager<Block, BlockModel>>>,
     server: Res<AssetServer>,
 ) {
-    let ready = loading
-        .iter::<BlockModel>()
-        .all(|h| server.is_loaded_with_dependencies(&h));
+    if manager.is_all_loaded(&server) {
+        let id = commands.register_system(build_cache);
 
-    if ready {
+        commands.run_system(id);
+
+        commands.unregister_system(id);
+
         state.set(AppState::BuildArrayTexture);
     }
+}
+
+fn build_cache(world: &mut World) {
+    let manager = world
+        .remove_resource::<ModelManager<Block, BlockModel>>()
+        .unwrap();
+
+    let mut assets = world.get_resource_mut::<Assets<BlockModel>>().unwrap();
+
+    let cache = manager.build_cache(&mut assets);
+
+    world.insert_resource(cache);
+
+    info!("Successfully built model cache");
 }
 
 fn build_array_texture(
@@ -100,7 +118,11 @@ fn build_array_texture(
     state.set(AppState::Finishing);
 }
 
-fn setup_world(mut commands: Commands, mut scattering: ResMut<Assets<ScatteringMedium>>) {
+fn setup_world(
+    mut commands: Commands,
+    mut scattering: ResMut<Assets<ScatteringMedium>>,
+    mut state: ResMut<NextState<AppState>>,
+) {
     let medium = scattering.add(ScatteringMedium::earthlike(256, 256));
 
     commands.insert_resource(GlobalAmbientLight {
@@ -117,12 +139,7 @@ fn setup_world(mut commands: Commands, mut scattering: ResMut<Assets<ScatteringM
         },
         Transform::from_rotation(Quat::from_rotation_x(-FRAC_PI_8 / 2.0)),
         VolumetricLight,
-        CascadeShadowConfigBuilder {
-            num_cascades: 4,
-            maximum_distance: 384.0,
-            ..default()
-        }
-        .build(),
+        CascadeShadowConfigBuilder { num_cascades: 4, maximum_distance: 384.0, ..default() }.build(),
     ));
 
     commands.spawn((
@@ -137,10 +154,7 @@ fn setup_world(mut commands: Commands, mut scattering: ResMut<Assets<ScatteringM
         Exposure { ev100: 13.0 },
         Tonemapping::AcesFitted,
         Bloom::NATURAL,
-        VolumetricFog {
-            ambient_intensity: 1.0,
-            ..default()
-        },
+        VolumetricFog { ambient_intensity: 1.0, ..default() },
         Fxaa::default(),
         FreeCamera {
             sensitivity: 0.2,
@@ -149,65 +163,20 @@ fn setup_world(mut commands: Commands, mut scattering: ResMut<Assets<ScatteringM
             run_speed: 9.0,
             ..default()
         },
-        Player,
-    ));
-}
-
-fn view_loaded_models(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    models: Res<Assets<BlockModel>>,
-    textures: Res<ArrayTexture>,
-) {
-    let mut opaque_buf = VertexBuffer::new();
-    let mut cutout_buf = VertexBuffer::new();
-    let mut translucent_buf = VertexBuffer::new();
-
-    let models = models.iter().map(|(_, m)| m).collect::<Vec<_>>();
-
-    let tint = Some([0.2, 0.8, 0.2]);
-
-    for face in Direction::ALL {
-        models.iter()
-            .enumerate()
-            .rev()
-            .for_each(|(i, &model)| {
-
-                let offset = [i as f32, 0.0, 0.0];
-
-                model.iter_outer_quads_at(face)
-                    .for_each(|quad| {
-                        match quad.render_mode {
-                            RenderMode::Opaque => opaque_buf.push_quad_with_offset(quad, offset, tint),
-                            RenderMode::Cutout => cutout_buf.push_quad_with_offset(quad, offset, tint),
-                            RenderMode::Translucent => translucent_buf.push_quad_with_offset(quad, offset, tint),
-                        }
-                    });
-            });
-    }
-
-    models.iter()
-        .enumerate()
-        .for_each(|(i, &model)| {
-            let offset = [i as f32, 0.0, 0.0];
-
-            model.iter_inner_quads()
-                .for_each(|quad| {
-                    match quad.render_mode {
-                        RenderMode::Opaque => opaque_buf.push_quad_with_offset(quad, offset, tint),
-                        RenderMode::Cutout => cutout_buf.push_quad_with_offset(quad, offset, tint),
-                        RenderMode::Translucent => translucent_buf.push_quad_with_offset(quad, offset, tint),
-                    }
-                });
-        });
-
-    commands.spawn((
-        Mesh3d(meshes.add(opaque_buf)),
-        MeshMaterial3d(textures.get_vertex_material(RenderMode::Opaque)),
+        ChunkLoader,
     ));
 
-    commands.spawn((
-        Mesh3d(meshes.add(cutout_buf)),
-        MeshMaterial3d(textures.get_vertex_material(RenderMode::Cutout)),
-    ));
+    let generator = SimpleGenerator {
+        seed: 0,
+        amplitude_min: 0.0,
+        amplitude_max: 192.0,
+        octaves: 7,
+        frequency: 0.03,
+        gain: 1.0,
+        lacunarity: 0.5,
+    };
+
+    commands.insert_resource(GeneratorResource::new(generator));
+
+    state.set(AppState::InGame);
 }

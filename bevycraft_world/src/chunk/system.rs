@@ -1,27 +1,29 @@
-use crate::prelude::{CHUNK_SIZE, Chunk, ChunkLoaderConfig, ChunkMap, ChunkPos, GeneratorResource};
-use bevy::math::{IVec3, Vec3};
-use bevy::prelude::{Component, Message, MessageWriter, Query, Res, ResMut, Transform, With};
+use crate::prelude::{Chunk, ChunkLoaderConfig, ChunkMap, ChunkPos, GeneratorResource};
+use bevy::prelude::{Component, Message, MessageWriter, Query, Res, ResMut, Transform, With, info};
 use bevy::tasks::AsyncComputeTaskPool;
 use bevy::tasks::futures::check_ready;
 
 #[derive(Message, Debug, Copy, Clone)]
-pub struct ChunkReadyEvent(pub ChunkPos);
+pub struct ChunkReady(pub ChunkPos);
 
 #[derive(Message, Debug, Copy, Clone)]
-pub struct ChunkUnloadedEvent(pub ChunkPos);
+pub struct ChunkUnloaded(pub ChunkPos);
 
-pub fn update_load_queue(
+#[derive(Component, Default)]
+pub struct ChunkLoader;
+
+pub fn update_queue(
     loaders: Query<&Transform, With<ChunkLoader>>,
     config: Res<ChunkLoaderConfig>,
     mut chunk_map: ResMut<ChunkMap>,
 ) {
     let view = config.view_distance;
     let view_sq = view * view;
-    let unload_sq = (view + config.unload_margin) * (view_sq + config.unload_margin);
+    let unload_sq = (view + config.unload_margin) * (view + config.unload_margin);
 
-    let origins: Vec<IVec3> = loaders
+    let origins: Vec<ChunkPos> = loaders
         .iter()
-        .map(|t| world_to_chunk(t.translation))
+        .map(|t| ChunkPos::from_world_pos(t.translation))
         .collect();
 
     if origins.is_empty() {
@@ -35,7 +37,8 @@ pub fn update_load_queue(
                     let dist_sq = dx * dx + dy * dy + dz * dz;
 
                     if dist_sq <= view_sq {
-                        chunk_map.enqueue(ChunkPos::from(origin + IVec3::new(dx, dy, dz)), dist_sq);
+                        chunk_map
+                            .enqueue(ChunkPos::from(origin + ChunkPos::new(dx, dy, dz)), dist_sq);
                     }
                 }
             }
@@ -85,22 +88,22 @@ pub fn spawn_chunk_tasks(mut chunk_map: ResMut<ChunkMap>, generator: Res<Generat
         let pos = req.pos;
 
         let task = pool.spawn(async move { generator.generate(pos) });
-        chunk_map.pending.insert(pos, task);
+        chunk_map.pending_load.insert(pos, task);
     }
 }
 
-pub fn poll_chunk_tasks(
-    mut chunk_map: ResMut<ChunkMap>,
-    mut ready_msg: MessageWriter<ChunkReadyEvent>,
-) {
+pub fn poll_chunk_tasks(mut chunk_map: ResMut<ChunkMap>, mut ready_msg: MessageWriter<ChunkReady>) {
     let mut completed: Vec<(ChunkPos, Chunk)> = Vec::new();
 
     chunk_map
-        .pending
+        .pending_load
         .retain(|&pos, task| match check_ready(task) {
             None => true,
             Some(chunk) => {
                 completed.push((pos, chunk));
+
+                info!("Loaded chunk at: {}", pos);
+
                 false
             }
         });
@@ -108,13 +111,13 @@ pub fn poll_chunk_tasks(
     for (pos, chunk) in completed {
         chunk_map.inflight.remove(&pos);
         chunk_map.chunks.insert(pos, chunk);
-        ready_msg.write(ChunkReadyEvent(pos));
+        ready_msg.write(ChunkReady(pos));
     }
 }
 
 pub fn process_unload_queue(
     mut chunk_map: ResMut<ChunkMap>,
-    mut unload_msg: MessageWriter<ChunkUnloadedEvent>,
+    mut unload_msg: MessageWriter<ChunkUnloaded>,
 ) {
     const MAX_PER_FRAME: usize = 8;
 
@@ -123,16 +126,10 @@ pub fn process_unload_queue(
             break;
         };
 
+        info!("Unloaded chunk at: {}", pos);
+
         if chunk_map.remove(&pos).is_some() {
-            unload_msg.write(ChunkUnloadedEvent(pos));
+            unload_msg.write(ChunkUnloaded(pos));
         }
     }
-}
-
-#[derive(Component, Default)]
-pub struct ChunkLoader;
-
-#[inline(always)]
-fn world_to_chunk(world: Vec3) -> IVec3 {
-    (world / CHUNK_SIZE as f32).floor().as_ivec3()
 }
