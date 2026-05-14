@@ -1,6 +1,4 @@
-use crate::prelude::*;
-use bevycraft_macros::Registrar;
-use builder_pattern::Builder;
+use {crate::prelude::*, bevycraft_macros::Registrar, builder_pattern::Builder};
 
 #[derive(Registrar, Builder, Debug, PartialEq)]
 #[registrar(default = "air")]

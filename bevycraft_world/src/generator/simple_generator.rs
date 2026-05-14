@@ -1,7 +1,8 @@
-use bevycraft_core::blocks::{DIRT, GRASS_BLOCK, STONE};
-use simdnoise::NoiseBuilder;
-
-use crate::prelude::{CHUNK_SIZE, Chunk, ChunkGenerator, ChunkPos};
+use {
+    crate::prelude::{Chunk, ChunkGenerator, ChunkPos, CHUNK_SIZE},
+    bevycraft_core::blocks::{DIRT, GRASS_BLOCK, STONE},
+    simdnoise::NoiseBuilder,
+};
 
 pub struct SimpleGenerator {
     pub seed: i32,
@@ -40,12 +41,12 @@ impl ChunkGenerator for SimpleGenerator {
             world_pos.z,
             CHUNK_SIZE as usize,
         )
-            .with_seed(self.seed)
-            .with_octaves(self.octaves)
-            .with_freq(self.frequency)
-            .with_gain(self.gain)
-            .with_lacunarity(self.lacunarity)
-            .generate();
+        .with_seed(self.seed)
+        .with_octaves(self.octaves)
+        .with_freq(self.frequency)
+        .with_gain(self.gain)
+        .with_lacunarity(self.lacunarity)
+        .generate();
 
         let world_height = world_pos.y as i32;
 

@@ -7,7 +7,7 @@
 }
 #import bevy_core_pipeline::tonemapping::tone_mapping
 
-struct VertexInput {
+struct Vertex {
     @builtin(instance_index) instance_index: u32,
 
     @location(0) position: vec3<f32>,
@@ -45,21 +45,21 @@ struct VertexOutput {
 }
 
 @vertex
-fn vertex(in: VertexInput) -> VertexOutput {
+fn vertex(in: Vertex) -> VertexOutput {
         var out: VertexOutput;
 
-        var world_pos = mesh_functions::get_world_from_local(in.instance_index);
+        var world_from_local = mesh_functions::get_world_from_local(in.instance_index);
 
-        out.world_position = mesh_functions::mesh_position_local_to_world(world_pos, vec4<f32>(in.position, 1.0));
+        out.world_position = world_from_local * vec4<f32>(in.position, 1.0);
 
-        out.position = mesh_functions::mesh_position_local_to_clip(world_pos, vec4<f32>(in.position, 1.0));
+        out.position = mesh_functions::mesh_position_local_to_clip(world_from_local, vec4<f32>(in.position, 1.0));
 
         out.world_normal = mesh_functions::mesh_normal_local_to_world(in.normal, in.instance_index);
 
         out.instance_index = in.instance_index;
 
         #ifdef VERTEX_TANGENTS
-            out.world_tangent = mesh_functions::mesh_tangent_local_to_world(world_pos, in.tangent, in.instance_index);
+            out.world_tangent = mesh_functions::mesh_tangent_local_to_world(world_from_local, in.tangent, in.instance_index);
         #endif
 
         #ifdef VERTEX_COLORS

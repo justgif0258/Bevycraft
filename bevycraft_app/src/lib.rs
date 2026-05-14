@@ -1,6 +1,10 @@
-use bevy::prelude::{Asset, Component, Handle, Resource, States, UntypedHandle};
-use bevy::utils::TypeIdMap;
-use std::any::TypeId;
+use {
+    bevy::{
+        prelude::{Asset, Component, Handle, Resource, States, UntypedHandle},
+        utils::TypeIdMap,
+    },
+    std::any::TypeId,
+};
 
 pub mod systems;
 

@@ -1,7 +1,11 @@
-use bevy::math::*;
-use std::arch::x86_64::{_pdep_u64, _pext_u64};
-use std::hash::{Hash, Hasher};
-use std::ops::{BitAnd, Shl, Shr};
+use {
+    bevy::math::*,
+    std::{
+        arch::x86_64::{_pdep_u64, _pext_u64},
+        hash::{Hash, Hasher},
+        ops::{BitAnd, Shl, Shr},
+    },
+};
 
 const MASK_X: u64 = 0x1249249249249249;
 const MASK_Y: u64 = MASK_X << 1;

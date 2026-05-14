@@ -1,5 +1,4 @@
-use crate::prelude::BlockFlags;
-use builder_pattern::Builder;
+use {crate::prelude::BlockFlags, builder_pattern::Builder};
 
 #[derive(Builder, Debug, Clone, PartialEq)]
 pub struct BlockBehaviour {

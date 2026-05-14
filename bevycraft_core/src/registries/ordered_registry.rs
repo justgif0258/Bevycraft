@@ -1,9 +1,10 @@
-use bevy::{ecs::resource::Resource, platform::collections::HashMap};
-use rapidhash::fast::RandomState;
-
-use crate::{
-    prelude::{AssetLocation, Registrable, RegistrationError},
-    registries::registry::Registry,
+use {
+    crate::{
+        prelude::{AssetLocation, Registrable, RegistrationError},
+        registries::registry::Registry,
+    },
+    bevy::{ecs::resource::Resource, platform::collections::HashMap},
+    rapidhash::fast::RandomState,
 };
 
 #[derive(Resource)]

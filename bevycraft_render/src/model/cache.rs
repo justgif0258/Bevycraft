@@ -1,8 +1,9 @@
-use crate::prelude::{Model, ModelManager};
-use bevy::prelude::{AssetServer, Resource};
-use bevycraft_core::prelude::Registrable;
-use std::marker::PhantomData;
-use std::sync::Arc;
+use {
+    crate::prelude::Model,
+    bevy::prelude::Resource,
+    bevycraft_core::prelude::Registrable,
+    std::{marker::PhantomData, sync::Arc},
+};
 
 #[derive(Resource)]
 pub struct ModelCache<T: Registrable, M: Model> {
@@ -24,5 +25,10 @@ impl<T: Registrable, M: Model> ModelCache<T, M> {
     #[inline]
     pub fn get(&self, index: usize) -> Option<&M> {
         self.cache[index].as_ref()
+    }
+
+    #[inline]
+    pub fn iter(&self) -> impl Iterator<Item = Option<&M>> {
+        self.cache.iter().map(Option::as_ref)
     }
 }

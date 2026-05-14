@@ -1,7 +1,10 @@
-use crate::prelude::{Chunk, ChunkLoaderConfig, ChunkMap, ChunkPos, GeneratorResource};
-use bevy::prelude::{Component, Message, MessageWriter, Query, Res, ResMut, Transform, With, info};
-use bevy::tasks::AsyncComputeTaskPool;
-use bevy::tasks::futures::check_ready;
+use {
+    crate::prelude::{Chunk, ChunkLoaderConfig, ChunkMap, ChunkPos, GeneratorResource},
+    bevy::{
+        prelude::{Component, Message, MessageWriter, Query, Res, ResMut, Transform, With},
+        tasks::{futures::check_ready, AsyncComputeTaskPool},
+    },
+};
 
 #[derive(Message, Debug, Copy, Clone)]
 pub struct ChunkReady(pub ChunkPos);
@@ -102,8 +105,6 @@ pub fn poll_chunk_tasks(mut chunk_map: ResMut<ChunkMap>, mut ready_msg: MessageW
             Some(chunk) => {
                 completed.push((pos, chunk));
 
-                info!("Loaded chunk at: {}", pos);
-
                 false
             }
         });
@@ -125,8 +126,6 @@ pub fn process_unload_queue(
         let Some(pos) = chunk_map.unload_queue.pop_front() else {
             break;
         };
-
-        info!("Unloaded chunk at: {}", pos);
 
         if chunk_map.remove(&pos).is_some() {
             unload_msg.write(ChunkUnloaded(pos));

@@ -1,8 +1,8 @@
-use std::marker::PhantomData;
-
-use parking_lot::{RwLockReadGuard, RwLockWriteGuard};
-
-use crate::prelude::*;
+use {
+    crate::prelude::*,
+    parking_lot::{RwLockReadGuard, RwLockWriteGuard},
+    std::marker::PhantomData,
+};
 
 pub trait RegistrarOps<T: Registrable> {
     fn read_from_registry<'a>() -> RwLockReadGuard<'a, impl Registry<T>>;

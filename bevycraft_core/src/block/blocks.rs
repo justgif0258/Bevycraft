@@ -1,8 +1,9 @@
-use bevycraft_macros::context;
-
-use crate::{
-    consts::{FULL_BLOCK, FULL_SHAPE, SLAB_SHAPE, STAIR_SHAPE, TRAPDOOR_SHAPE},
-    prelude::*,
+use {
+    crate::{
+        consts::{FULL_BLOCK, FULL_SHAPE, SLAB_SHAPE, STAIR_SHAPE, TRAPDOOR_SHAPE},
+        prelude::*,
+    },
+    bevycraft_macros::context,
 };
 
 context! {

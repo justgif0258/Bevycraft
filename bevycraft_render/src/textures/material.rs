@@ -1,10 +1,13 @@
-use crate::prelude::RenderMode;
-use bevy::mesh::*;
-use bevy::pbr::*;
-use bevy::prelude::*;
-use bevy::render::render_resource::*;
-use bevy::shader::{ShaderDefVal, ShaderRef};
-
+use {
+    crate::prelude::RenderMode,
+    bevy::{
+        mesh::*,
+        pbr::*,
+        prelude::*,
+        render::render_resource::*,
+        shader::{ShaderDefVal, ShaderRef},
+    },
+};
 
 pub const ATTRIBUTE_TEXTURE_LAYER: MeshVertexAttribute = MeshVertexAttribute::new(
     "Vertex_Layer",
@@ -12,7 +15,9 @@ pub const ATTRIBUTE_TEXTURE_LAYER: MeshVertexAttribute = MeshVertexAttribute::ne
     VertexFormat::Uint32,
 );
 
-const SHADER_PATH: &'static str = "bevycraft/shaders/material.wgsl";
+const MATERIAL_SHADER_PATH: &'static str = "bevycraft/shaders/material.wgsl";
+
+const PREPASS_SHADER_PATH: &'static str = "bevycraft/shaders/prepass.wgsl";
 
 const CUTOUT_THRESHOLD: f32 = 0.5;
 
@@ -29,12 +34,12 @@ pub struct VertexMaterial {
 impl Material for VertexMaterial {
     #[inline]
     fn vertex_shader() -> ShaderRef {
-        SHADER_PATH.into()
+        MATERIAL_SHADER_PATH.into()
     }
 
     #[inline]
     fn fragment_shader() -> ShaderRef {
-        SHADER_PATH.into()
+        MATERIAL_SHADER_PATH.into()
     }
 
     #[inline]
@@ -54,6 +59,11 @@ impl Material for VertexMaterial {
     #[inline]
     fn enable_shadows() -> bool {
         true
+    }
+
+    #[inline]
+    fn prepass_vertex_shader() -> ShaderRef {
+        PREPASS_SHADER_PATH.into()
     }
 
     #[inline]
@@ -105,11 +115,13 @@ impl Material for VertexMaterial {
 
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub struct VertexMaterialKey {
-    pub render_mode: RenderMode
+    pub render_mode: RenderMode,
 }
 
 impl From<&VertexMaterial> for VertexMaterialKey {
     fn from(value: &VertexMaterial) -> Self {
-        Self { render_mode: value.render_mode }
+        Self {
+            render_mode: value.render_mode,
+        }
     }
 }

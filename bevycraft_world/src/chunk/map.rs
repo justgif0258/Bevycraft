@@ -1,11 +1,19 @@
-use crate::prelude::{Chunk, ChunkPos};
-use bevy::platform::collections::{HashMap, HashSet};
-use bevy::platform::hash::NoOpHash;
-use bevy::prelude::Resource;
-use bevy::tasks::Task;
-use std::cmp::Ordering;
-use std::collections::{BinaryHeap, VecDeque};
-use std::sync::Arc;
+use {
+    crate::prelude::{Chunk, ChunkPos},
+    bevy::{
+        platform::{
+            collections::{HashMap, HashSet},
+            hash::NoOpHash,
+        },
+        prelude::Resource,
+        tasks::Task,
+    },
+    std::{
+        cmp::Ordering,
+        collections::{BinaryHeap, VecDeque},
+        sync::Arc,
+    },
+};
 
 #[derive(Resource)]
 pub struct ChunkMap {

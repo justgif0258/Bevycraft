@@ -1,11 +1,12 @@
-use std::{
-    any::TypeId,
-    fmt::{Debug, Formatter},
-    hash::{Hash, Hasher},
-    sync::Arc,
+use {
+    crate::prelude::AssetLocation,
+    std::{
+        any::TypeId,
+        fmt::{Debug, Formatter},
+        hash::{Hash, Hasher},
+        sync::Arc,
+    },
 };
-
-use crate::prelude::AssetLocation;
 
 pub trait Registry<T>: Send + Sync + 'static
 where

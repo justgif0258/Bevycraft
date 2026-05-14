@@ -1,24 +1,25 @@
-use std::f32::consts::FRAC_PI_8;
-
-use bevy::{
-    anti_alias::fxaa::Fxaa,
-    camera::Exposure,
-    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
-    core_pipeline::tonemapping::Tonemapping,
-    light::{
-        AtmosphereEnvironmentMapLight, CascadeShadowConfigBuilder, VolumetricFog, VolumetricLight,
-        light_consts::lux,
+use {
+    bevy::{
+        anti_alias::fxaa::Fxaa,
+        camera::Exposure,
+        camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
+        core_pipeline::tonemapping::Tonemapping,
+        light::{
+            light_consts::lux, AtmosphereEnvironmentMapLight, CascadeShadowConfigBuilder,
+            VolumetricFog, VolumetricLight,
+        },
+        pbr::{Atmosphere, AtmosphereMode, AtmosphereSettings, ScatteringMedium},
+        post_process::bloom::Bloom,
+        prelude::*,
+        tasks::available_parallelism,
     },
-    pbr::{Atmosphere, AtmosphereMode, AtmosphereSettings, ScatteringMedium},
-    post_process::bloom::Bloom,
-    prelude::*,
+    bevycraft_app::*,
+    bevycraft_core::prelude::*,
+    bevycraft_render::prelude::*,
+    bevycraft_world::prelude::*,
+    ron::{extensions::Extensions, Options},
+    std::f32::consts::FRAC_PI_8,
 };
-use bevycraft_app::*;
-use bevycraft_core::prelude::*;
-use bevycraft_render::prelude::*;
-use bevycraft_world::prelude::*;
-use ron::Options;
-use ron::extensions::Extensions;
 
 const BLOCK_RES: u32 = 8;
 
@@ -29,7 +30,7 @@ fn main() -> AppExit {
             FreeCameraPlugin,
             RModelPlugin::<BlockModel>::default(),
             MaterialPlugin::<VertexMaterial>::default(),
-            ChunkPlugin::new(12, 64, AppState::InGame),
+            ChunkPlugin::new(12, available_parallelism(), AppState::InGame),
         ))
         .init_state::<AppState>()
         .insert_resource(Time::<Fixed>::from_hz(64.0))
@@ -40,7 +41,10 @@ fn main() -> AppExit {
             FixedPostUpdate,
             await_models.run_if(in_state(AppState::AwaitModels)),
         )
-        .add_systems(OnEnter(AppState::Finishing), setup_world)
+        .add_systems(
+            OnEnter(AppState::Finishing),
+            (setup_world, view_loaded_models),
+        )
         // .add_systems(FixedUpdate, (
         // ).run_if(in_state(AppState::InGame)))
         .run()
@@ -139,7 +143,12 @@ fn setup_world(
         },
         Transform::from_rotation(Quat::from_rotation_x(-FRAC_PI_8 / 2.0)),
         VolumetricLight,
-        CascadeShadowConfigBuilder { num_cascades: 4, maximum_distance: 384.0, ..default() }.build(),
+        CascadeShadowConfigBuilder {
+            num_cascades: 4,
+            maximum_distance: 256.0,
+            ..default()
+        }
+        .build(),
     ));
 
     commands.spawn((
@@ -154,7 +163,10 @@ fn setup_world(
         Exposure { ev100: 13.0 },
         Tonemapping::AcesFitted,
         Bloom::NATURAL,
-        VolumetricFog { ambient_intensity: 1.0, ..default() },
+        VolumetricFog {
+            ambient_intensity: 1.0,
+            ..default()
+        },
         Fxaa::default(),
         FreeCamera {
             sensitivity: 0.2,
@@ -179,4 +191,30 @@ fn setup_world(
     commands.insert_resource(GeneratorResource::new(generator));
 
     state.set(AppState::InGame);
+}
+
+fn view_loaded_models(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    cache: Res<ModelCache<Block, BlockModel>>,
+    mats: Res<ArrayTexture>,
+) {
+    let mut buf = VertexBuffer::new();
+
+    cache.iter().enumerate().for_each(|(i, model)| {
+        if let Some(model) = model {
+            let offset = [i as f32, 0.0, 0.0];
+
+            for face in Direction::ALL {
+                buf.push_quads_with_offset(model.iter_outer_quads_at(face), offset, None);
+            }
+
+            buf.push_quads_with_offset(model.iter_inner_quads(), offset, None);
+        }
+    });
+
+    commands.spawn((
+        Mesh3d(meshes.add(buf)),
+        MeshMaterial3d(mats.get_vertex_material(RenderMode::Cutout)),
+    ));
 }

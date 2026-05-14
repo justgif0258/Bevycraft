@@ -1,8 +1,8 @@
-use std::{marker::PhantomData, mem::transmute, ops::Deref, sync::OnceLock};
-
-use parking_lot::{MappedRwLockReadGuard, RwLockReadGuard};
-
-use crate::prelude::*;
+use {
+    crate::prelude::*,
+    parking_lot::{MappedRwLockReadGuard, RwLockReadGuard},
+    std::{marker::PhantomData, mem::transmute, ops::Deref, sync::OnceLock},
+};
 
 #[derive(Debug, Clone)]
 pub struct Holder<'a, T> {

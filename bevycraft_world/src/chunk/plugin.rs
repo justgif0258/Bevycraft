@@ -1,10 +1,16 @@
-use crate::chunk::system::{
-    ChunkReady, ChunkUnloaded, poll_chunk_tasks, process_unload_queue, spawn_chunk_tasks,
-    update_queue,
+use {
+    crate::{
+        chunk::system::{
+            poll_chunk_tasks, process_unload_queue, spawn_chunk_tasks, update_queue, ChunkReady,
+            ChunkUnloaded,
+        },
+        prelude::{ChunkGenerator, ChunkLoaderConfig, ChunkMap, GeneratorResource},
+    },
+    bevy::{
+        app::{App, Plugin},
+        prelude::{in_state, FixedUpdate, IntoScheduleConfigs, States, SystemSet},
+    },
 };
-use crate::prelude::{ChunkGenerator, ChunkLoaderConfig, ChunkMap, GeneratorResource};
-use bevy::app::{App, Plugin};
-use bevy::prelude::{FixedUpdate, IntoScheduleConfigs, States, SystemSet, in_state};
 
 #[derive(SystemSet, Debug, Clone, Eq, PartialEq, Hash)]
 pub enum ChunkSet {

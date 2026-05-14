@@ -1,18 +1,17 @@
-use std::{
-    fmt::{Display, Formatter, Result},
-    hash::{Hash, Hasher},
-    mem::transmute,
-    ops::Sub,
+use {
+    crate::prelude::*,
+    bevy::{
+        ecs::component::Component,
+        math::{bounding::Aabb3d, IVec3, Vec3},
+    },
+    bevycraft_core::blocks::AIR,
+    std::{
+        fmt::{Debug, Display, Formatter, Result},
+        hash::{Hash, Hasher},
+        mem::transmute,
+        ops::{Add, Div, Mul, Sub},
+    },
 };
-use std::fmt::Debug;
-use std::ops::{Add, Div, Mul};
-use bevy::{
-    ecs::component::Component,
-    math::{IVec3, Vec3, bounding::Aabb3d},
-};
-use bevycraft_core::blocks::AIR;
-
-use crate::prelude::*;
 
 pub const CHUNK_SIZE: i32 = 16;
 

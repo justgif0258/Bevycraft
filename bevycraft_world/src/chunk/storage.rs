@@ -1,10 +1,11 @@
-use std::iter::{Repeat, Take};
-
-use crate::prelude::{CHUNK_LEN, CHUNK_SIZE};
-use bevy::math::IVec3;
-use bevycraft_core::{
-    blocks::AIR,
-    prelude::{PatternContainer, PatternIter},
+use {
+    crate::prelude::{CHUNK_LEN, CHUNK_SIZE},
+    bevy::math::IVec3,
+    bevycraft_core::{
+        blocks::AIR,
+        prelude::{PatternContainer, PatternIter},
+    },
+    std::iter::{Repeat, Take},
 };
 
 #[derive(Debug)]

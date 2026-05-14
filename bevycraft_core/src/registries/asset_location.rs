@@ -1,4 +1,3 @@
-use thiserror::Error;
 use {
     bevy::asset::AssetPath,
     serde::*,
@@ -6,6 +5,7 @@ use {
         fmt::{Debug, Display, Formatter, Write},
         hash::Hash,
     },
+    thiserror::Error,
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
