@@ -1,17 +1,17 @@
+use bitvec::{field::BitField, vec::BitVec};
+use hashbrown::{Equivalent, HashTable};
+use rapidhash::fast::RandomState;
+use std::cmp::Ordering;
+use std::fmt::{Debug, Formatter};
+use std::ops::Neg;
 use std::{
     hash::{BuildHasher, Hash, Hasher},
     mem::{ManuallyDrop, transmute},
     num::NonZeroUsize,
 };
-use std::cmp::Ordering;
-use std::fmt::{Debug, Formatter};
-use bitvec::{field::BitField, vec::BitVec};
-use hashbrown::{Equivalent, HashTable};
-use rapidhash::fast::RandomState;
 
 const SENTINEL: usize = usize::MAX;
 
-#[derive(Debug)]
 pub struct PatternContainer<T, const N: usize, S = RandomState> {
     hasher: S,
     entries: HashTable<Pattern>,
@@ -19,6 +19,20 @@ pub struct PatternContainer<T, const N: usize, S = RandomState> {
     next_free: Option<usize>,
     container: BitVec,
     bit_cap: BitCapacity,
+}
+
+impl<T, const N: usize, S> Debug for PatternContainer<T, N, S>
+where
+    T: Debug,
+    S: Debug,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PatternContainer")
+            .field("hasher", &self.hasher)
+            .field("patterns", &self.entries)
+            .field("bit_cap", &self.bit_cap)
+            .finish()
+    }
 }
 
 impl<T, const N: usize> PatternContainer<T, N, RandomState>
@@ -284,41 +298,21 @@ impl<T, const N: usize, S> PatternContainer<T, N, S> {
 
     #[inline]
     fn grow_bit_capacity(&mut self, amount: usize) {
-        if amount == 0 {
-            return;
-        }
-
-        let new_cap = self.bit_cap.checked_add(amount).unwrap();
-
-        let src_cap = self.bit_cap.get();
-        let dst_cap = new_cap.get();
-
-        let mut new_container = BitVec::repeat(false, N * dst_cap);
-
-        let mut src_next = 0usize;
-        let mut dst_next = 0usize;
-
-        for _ in 0..N {
-            let extracted = self.container[src_next..src_next + src_cap].load::<usize>();
-
-            new_container[dst_next..dst_next + dst_cap].store(extracted);
-
-            src_next += src_cap;
-            dst_next += dst_cap;
-        }
-
-        self.container = new_container;
-        self.bit_cap = new_cap;
+        self.resize_bit_capacity(amount as isize)
     }
 
     #[inline]
     #[allow(dead_code)]
     fn shrink_bit_capacity(&mut self, amount: usize) {
-        if amount == 0 {
+        self.resize_bit_capacity((amount as isize).neg());
+    }
+
+    fn resize_bit_capacity(&mut self, factor: isize) {
+        if factor == 0 {
             return;
         }
 
-        let new_cap = self.bit_cap.checked_sub(amount).unwrap();
+        let new_cap = self.bit_cap.factor_by(factor).unwrap();
 
         let src_cap = self.bit_cap.get();
         let dst_cap = new_cap.get();
@@ -343,11 +337,11 @@ impl<T, const N: usize, S> PatternContainer<T, N, S> {
 
     #[inline]
     pub fn as_single(&self) -> Option<&T> {
-        if self.entries.len() != 0 {
+        if self.entries.len() > 1 {
             return None;
         }
 
-        let pattern = self.entries.iter().next().unwrap();
+        let pattern = self.entries.iter().next()?;
 
         unsafe { Some(&self.patterns[pattern.index].value) }
     }
@@ -391,9 +385,10 @@ impl<'a, T, const N: usize, S> Iterator for PatternIter<'a, T, N, S> {
         }
 
         let bit_cap = self.container.bit_cap.get();
-        let tail = self.cursor + bit_cap;
+        let cursor = self.cursor;
+        let tail = cursor + bit_cap;
 
-        let idx = self.container.container[self.cursor..tail].load::<usize>();
+        let idx = self.container.container[cursor..tail].load::<usize>();
 
         self.index += 1;
         self.cursor = tail;
@@ -491,6 +486,18 @@ impl BitCapacity {
     }
 
     #[inline]
+    pub(crate) fn factor_by(self, factor: isize) -> Option<Self> {
+        let new = self.get() as isize + factor;
+
+        if new < 1 || new > Self::MAX as isize {
+            return None;
+        }
+
+        unsafe { transmute(new) }
+    }
+
+    #[inline]
+    #[allow(unused)]
     pub(crate) const fn checked_add(self, amount: usize) -> Option<Self> {
         let new = self.get() + amount;
 
@@ -502,6 +509,7 @@ impl BitCapacity {
     }
 
     #[inline]
+    #[allow(unused)]
     pub(crate) const fn checked_sub(self, amount: usize) -> Option<Self> {
         let current = self.get();
 
@@ -524,14 +532,20 @@ union Slot<T> {
     next: usize,
 }
 
-impl<T> Ord for Slot<T> where T: Ord {
+impl<T> Ord for Slot<T>
+where
+    T: Ord,
+{
     #[inline(always)]
     fn cmp(&self, other: &Self) -> Ordering {
         unsafe { self.value.cmp(&other.value) }
     }
 }
 
-impl<T> PartialOrd for Slot<T> where T: PartialOrd {
+impl<T> PartialOrd for Slot<T>
+where
+    T: PartialOrd,
+{
     #[inline(always)]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         unsafe { self.value.partial_cmp(&other.value) }
@@ -540,15 +554,12 @@ impl<T> PartialOrd for Slot<T> where T: PartialOrd {
 
 impl<T> Eq for Slot<T> where T: Eq {}
 
-impl<T> PartialEq for Slot<T> where T: PartialEq {
+impl<T> PartialEq for Slot<T>
+where
+    T: PartialEq,
+{
     #[inline(always)]
     fn eq(&self, other: &Self) -> bool {
         unsafe { self.value.eq(&other.value) }
-    }
-}
-
-impl<T> Debug for Slot<T> where T: Debug {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        unsafe { write!(f, "Slot({:?})", &self.value) }
     }
 }
