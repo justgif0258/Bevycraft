@@ -7,7 +7,7 @@
 }
 #import bevy_core_pipeline::tonemapping::tone_mapping
 
-struct VertexInput {
+struct Vertex {
     @builtin(instance_index) instance_index: u32,
 
     @location(0) position: vec3<f32>,
@@ -45,7 +45,7 @@ struct VertexOutput {
 }
 
 @vertex
-fn vertex(in: VertexInput) -> VertexOutput {
+fn vertex(in: Vertex) -> VertexOutput {
         var out: VertexOutput;
 
         var world_pos = mesh_functions::get_world_from_local(in.instance_index);
