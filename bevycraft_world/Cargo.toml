@@ -5,21 +5,31 @@ authors.workspace = true
 version.workspace = true
 edition.workspace = true
 
+[features]
+profile = [
+    "bevy/trace_tracy",
+    "dep:tracy-client"
+]
+
 [dependencies]
 # Bevycraft API
 bevycraft_core.workspace = true
 
 # Bevy
 bevy.workspace = true
+
 # Parallelism
 rayon.workspace = true
 crossbeam.workspace = true
+parking_lot.workspace = true
 
 # Hashing
 rapidhash.workspace = true
 
 # Utilities
-bitflags.workspace = true
-builder-pattern.workspace = true
 simdnoise.workspace = true
 fastrand.workspace = true
+
+# Debug/Tracing
+tracy-client = { version = "0.18.4", optional = true, default-features = false, features = ["enable"] }
+tracing.workspace = true

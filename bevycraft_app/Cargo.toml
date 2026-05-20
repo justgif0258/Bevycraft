@@ -4,15 +4,23 @@ name = "bevycraft_app"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+profile = [
+    "bevy/trace_tracy",
+    "dep:tracy-client"
+]
+
 [dependencies]
 # Bevycraft API
 bevycraft_core.workspace = true
 bevycraft_world.workspace = true
 bevycraft_render.workspace = true
-bevycraft_macros.workspace = true
 
 # Bevy
 bevy.workspace = true
+bevy_egui.workspace = true
+bevy_perf_ui.workspace = true
+bevy_dylib.workspace = true
 
 # Memory
 mimalloc.workspace = true
@@ -20,9 +28,10 @@ mimalloc.workspace = true
 # Serialization
 ron.workspace = true
 
-[dev-dependencies]
-bevy_dylib.workspace = true
+# Debug/Tracing
+tracy-client = { version = "0.18.4", optional = true, default-features = false, features = ["enable"] }
 
+[dev-dependencies]
 criterion.workspace = true
 fastrand.workspace = true
 

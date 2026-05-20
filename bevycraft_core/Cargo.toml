@@ -4,6 +4,12 @@ name = "bevycraft_core"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+profile = [
+    "bevy/trace_tracy",
+    "dep:tracy-client"
+]
+
 [dependencies]
 # Macros
 bevycraft_macros.workspace = true
@@ -24,3 +30,7 @@ bitvec.workspace = true
 parking_lot.workspace = true
 thiserror.workspace = true
 ctor.workspace = true
+
+# Debug/Tracing
+tracy-client = { version = "0.18.4", optional = true, default-features = false, features = ["enable"] }
+tracing.workspace = true

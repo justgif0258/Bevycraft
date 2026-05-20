@@ -8,15 +8,15 @@ use {
         camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
         core_pipeline::tonemapping::Tonemapping,
         light::{
-            light_consts::lux, AtmosphereEnvironmentMapLight, CascadeShadowConfigBuilder,
-            DirectionalLightShadowMap, VolumetricFog, VolumetricLight,
+            AtmosphereEnvironmentMapLight, CascadeShadowConfigBuilder, DirectionalLightShadowMap,
+            VolumetricFog, VolumetricLight, light_consts::lux,
         },
         pbr::{Atmosphere, AtmosphereMode, AtmosphereSettings, ScatteringMedium},
         post_process::bloom::Bloom,
         prelude::*,
         render::{
-            settings::{Backends, RenderCreation, WgpuSettings},
             RenderPlugin,
+            settings::{Backends, RenderCreation, WgpuSettings},
         },
         tasks::available_parallelism,
     },
@@ -24,9 +24,10 @@ use {
     bevycraft_core::prelude::*,
     bevycraft_render::prelude::*,
     bevycraft_world::prelude::*,
-    ron::{extensions::Extensions, Options},
+    ron::{Options, extensions::Extensions},
     std::f32::consts::FRAC_PI_8,
 };
+use bevycraft_core::profile_frame;
 
 #[cfg(not(debug_assertions))]
 #[global_allocator]
@@ -62,8 +63,7 @@ fn main() -> AppExit {
             OnEnter(AppState::Finishing),
             (setup_world, view_loaded_models),
         )
-        // .add_systems(FixedUpdate, (
-        // ).run_if(in_state(AppState::InGame)))
+        .add_systems(Last, frame_mark)
         .run()
 }
 
@@ -216,7 +216,6 @@ fn setup_world(
 fn view_loaded_models(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
     cache: Res<ModelCache<Block, BlockModel>>,
     mats: Res<ArrayTexture>,
 ) {
@@ -240,20 +239,6 @@ fn view_loaded_models(
         Mesh3d(meshes.add(buf)),
         MeshMaterial3d(mats.get_vertex_material(RenderMode::Cutout)),
     ));
-
-    let cube = meshes.add(Cuboid::new(2.0, 2.0, 2.0));
-
-    let material = materials.add(StandardMaterial::default());
-
-    commands.spawn((
-        Mesh3d(cube.clone()),
-        MeshMaterial3d(material.clone()),
-        Transform::from_xyz(4.0, 1.0, 5.0)
-    ));
-
-    commands.spawn((
-        Mesh3d(cube),
-        MeshMaterial3d(material),
-        Transform::from_xyz(4.5, 1.0, 7.5)
-    ));
 }
+
+fn frame_mark() { profile_frame!(); }

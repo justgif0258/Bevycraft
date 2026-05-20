@@ -2,7 +2,7 @@ use {
     crate::prelude::{Chunk, ChunkLoaderConfig, ChunkMap, ChunkPos, GeneratorResource},
     bevy::{
         prelude::{Component, Message, MessageWriter, Query, Res, ResMut, Transform, With},
-        tasks::{futures::check_ready, AsyncComputeTaskPool},
+        tasks::{AsyncComputeTaskPool, futures::check_ready},
     },
 };
 
@@ -90,7 +90,9 @@ pub fn spawn_chunk_tasks(mut chunk_map: ResMut<ChunkMap>, generator: Res<Generat
         let generator = generator.0.clone();
         let pos = req.pos;
 
-        let task = pool.spawn(async move { generator.generate(pos) });
+        let task = pool.spawn(async move {
+            generator.generate(pos)
+        });
         chunk_map.pending_load.insert(pos, task);
     }
 }

@@ -96,6 +96,7 @@ impl ChunkMap {
     pub fn remove(&mut self, pos: &ChunkPos) -> Option<Chunk> {
         self.inflight.remove(pos);
         self.pending_unload.remove(pos);
+        self.pending_load.remove(pos);
         self.chunks.remove(pos)
     }
 }
