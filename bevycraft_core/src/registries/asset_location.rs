@@ -222,6 +222,15 @@ impl AssetLocation {
     }
 }
 
+impl<'a> Into<AssetPath<'a>> for &'a AssetLocation {
+    #[inline(always)]
+    fn into(self) -> AssetPath<'a> {
+        let path = format!("{}\\{}", self.namespace, self.path).replace('/', "\\");
+
+        AssetPath::from(path)
+    }
+}
+
 impl<'a> Into<AssetPath<'a>> for AssetLocation {
     #[inline(always)]
     fn into(self) -> AssetPath<'a> {

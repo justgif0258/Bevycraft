@@ -4,16 +4,12 @@ name = "bevycraft_core"
 version = "0.1.0"
 edition = "2024"
 
-[lib]
-crate-type = ["dylib"]
-
 [dependencies]
 # Macros
 bevycraft_macros.workspace = true
 
 # Bevy
 bevy.workspace = true
-bevy_dylib.workspace = true
 
 #Hashing
 rapidhash.workspace = true

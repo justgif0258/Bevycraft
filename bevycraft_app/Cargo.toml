@@ -13,12 +13,16 @@ bevycraft_macros.workspace = true
 
 # Bevy
 bevy.workspace = true
-bevy_dylib.workspace = true
+
+# Memory
+mimalloc.workspace = true
 
 # Serialization
 ron.workspace = true
 
 [dev-dependencies]
+bevy_dylib.workspace = true
+
 criterion.workspace = true
 fastrand.workspace = true
 

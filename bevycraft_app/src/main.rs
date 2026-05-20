@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+#[cfg(debug_assertions)]
+use bevy_dylib;
 use {
     bevy::{
         anti_alias::fxaa::Fxaa,
@@ -6,11 +9,15 @@ use {
         core_pipeline::tonemapping::Tonemapping,
         light::{
             light_consts::lux, AtmosphereEnvironmentMapLight, CascadeShadowConfigBuilder,
-            VolumetricFog, VolumetricLight,
+            DirectionalLightShadowMap, VolumetricFog, VolumetricLight,
         },
         pbr::{Atmosphere, AtmosphereMode, AtmosphereSettings, ScatteringMedium},
         post_process::bloom::Bloom,
         prelude::*,
+        render::{
+            settings::{Backends, RenderCreation, WgpuSettings},
+            RenderPlugin,
+        },
         tasks::available_parallelism,
     },
     bevycraft_app::*,
@@ -21,12 +28,22 @@ use {
     std::f32::consts::FRAC_PI_8,
 };
 
+#[cfg(not(debug_assertions))]
+#[global_allocator]
+static ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 const BLOCK_RES: u32 = 8;
 
 fn main() -> AppExit {
     App::new()
         .add_plugins((
-            DefaultPlugins,
+            DefaultPlugins.set(RenderPlugin {
+                render_creation: RenderCreation::Automatic(WgpuSettings {
+                    backends: Some(Backends::VULKAN),
+                    ..default()
+                }),
+                ..default()
+            }),
             FreeCameraPlugin,
             RModelPlugin::<BlockModel>::default(),
             MaterialPlugin::<VertexMaterial>::default(),
@@ -129,6 +146,8 @@ fn setup_world(
 ) {
     let medium = scattering.add(ScatteringMedium::earthlike(256, 256));
 
+    commands.insert_resource(DirectionalLightShadowMap { size: 1024 });
+
     commands.insert_resource(GlobalAmbientLight {
         color: Color::WHITE,
         brightness: 1.0,
@@ -144,8 +163,8 @@ fn setup_world(
         Transform::from_rotation(Quat::from_rotation_x(-FRAC_PI_8 / 2.0)),
         VolumetricLight,
         CascadeShadowConfigBuilder {
-            num_cascades: 4,
-            maximum_distance: 256.0,
+            num_cascades: 3,
+            maximum_distance: 128.0,
             ..default()
         }
         .build(),
@@ -178,17 +197,18 @@ fn setup_world(
         ChunkLoader,
     ));
 
-    let generator = SimpleGenerator {
-        seed: 0,
-        amplitude_min: 0.0,
-        amplitude_max: 192.0,
-        octaves: 7,
-        frequency: 0.03,
-        gain: 1.0,
-        lacunarity: 0.5,
-    };
-
-    commands.insert_resource(GeneratorResource::new(generator));
+    commands.insert_resource::<GeneratorResource>(
+        SimpleGenerator {
+            seed: 0,
+            amplitude_min: 0.0,
+            amplitude_max: 192.0,
+            octaves: 7,
+            frequency: 0.03,
+            gain: 1.0,
+            lacunarity: 0.5,
+        }
+        .into(),
+    );
 
     state.set(AppState::InGame);
 }
@@ -196,25 +216,44 @@ fn setup_world(
 fn view_loaded_models(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
     cache: Res<ModelCache<Block, BlockModel>>,
     mats: Res<ArrayTexture>,
 ) {
     let mut buf = VertexBuffer::new();
+
+    let tint = Some([0.2, 0.8, 0.2]);
 
     cache.iter().enumerate().for_each(|(i, model)| {
         if let Some(model) = model {
             let offset = [i as f32, 0.0, 0.0];
 
             for face in Direction::ALL {
-                buf.push_quads_with_offset(model.iter_outer_quads_at(face), offset, None);
+                buf.push_quads_with_offset(model.iter_outer_quads_at(face), offset, tint);
             }
 
-            buf.push_quads_with_offset(model.iter_inner_quads(), offset, None);
+            buf.push_quads_with_offset(model.iter_inner_quads(), offset, tint);
         }
     });
 
     commands.spawn((
         Mesh3d(meshes.add(buf)),
         MeshMaterial3d(mats.get_vertex_material(RenderMode::Cutout)),
+    ));
+
+    let cube = meshes.add(Cuboid::new(2.0, 2.0, 2.0));
+
+    let material = materials.add(StandardMaterial::default());
+
+    commands.spawn((
+        Mesh3d(cube.clone()),
+        MeshMaterial3d(material.clone()),
+        Transform::from_xyz(4.0, 1.0, 5.0)
+    ));
+
+    commands.spawn((
+        Mesh3d(cube),
+        MeshMaterial3d(material),
+        Transform::from_xyz(4.5, 1.0, 7.5)
     ));
 }

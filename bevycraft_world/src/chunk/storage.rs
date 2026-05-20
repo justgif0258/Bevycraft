@@ -8,7 +8,7 @@ use {
     std::iter::{Repeat, Take},
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ChunkStorage {
     Empty,
     Single(usize),

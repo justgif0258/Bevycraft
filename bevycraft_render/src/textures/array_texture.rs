@@ -1,20 +1,20 @@
-use std::sync::LazyLock;
-
-use bevy::{
-    asset::{Assets, Handle, RenderAssetUsages},
-    ecs::resource::Resource,
-    image::{Image, ImageFilterMode, ImageSampler, ImageSamplerDescriptor},
-    platform::collections::HashMap,
-    render::render_resource::{
-        Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor, TextureViewDimension,
+use {
+    crate::prelude::{RenderMode, VertexMaterial},
+    bevy::{
+        asset::{Assets, Handle, RenderAssetUsages},
+        ecs::resource::Resource,
+        image::{Image, ImageFilterMode, ImageSampler, ImageSamplerDescriptor},
+        platform::collections::HashMap,
+        render::render_resource::{
+            Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor, TextureViewDimension,
+        },
+        utils::default,
     },
-    utils::default,
+    bevycraft_core::prelude::AssetLocation,
+    image::{EncodableLayout, ImageReader},
+    rapidhash::fast::RandomState,
+    std::sync::LazyLock,
 };
-use bevycraft_core::prelude::AssetLocation;
-use image::ImageReader;
-use rapidhash::fast::RandomState;
-
-use crate::prelude::{RenderMode, VertexMaterial};
 
 pub static NULL_TEXTURE_LOCATION: LazyLock<AssetLocation> =
     LazyLock::new(|| AssetLocation::new_unchecked("", ""));
@@ -80,16 +80,12 @@ impl ArrayTexture {
                 "Texture height does not match array texture height"
             );
 
-            self.load_bytes_with_location(location.clone(), img.into_iter());
+            self.load_bytes_with_location(location.clone(), img.as_bytes());
         }
     }
 
     #[inline]
-    pub fn load_bytes_with_location<'a>(
-        &mut self,
-        location: AssetLocation,
-        bytes: impl Iterator<Item = &'a u8>,
-    ) {
+    pub fn load_bytes_with_location<'a>(&mut self, location: AssetLocation, bytes: &[u8]) {
         assert!(!self.init, "Cannot modify an initialized array texture");
         assert!(
             !self.texture_lut.contains_key(&location),
@@ -99,7 +95,7 @@ impl ArrayTexture {
 
         let storage = self.storage.as_mut().unwrap();
 
-        storage.extend(bytes);
+        storage.extend_from_slice(bytes);
 
         self.texture_lut
             .insert(location, TextureId(self.texture_lut.len() as u32));

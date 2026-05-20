@@ -120,9 +120,9 @@ pub fn process_unload_queue(
     mut chunk_map: ResMut<ChunkMap>,
     mut unload_msg: MessageWriter<ChunkUnloaded>,
 ) {
-    const MAX_PER_FRAME: usize = 8;
+    const MAX_PER_TICK: usize = 12;
 
-    for _ in 0..MAX_PER_FRAME {
+    for _ in 0..MAX_PER_TICK {
         let Some(pos) = chunk_map.unload_queue.pop_front() else {
             break;
         };

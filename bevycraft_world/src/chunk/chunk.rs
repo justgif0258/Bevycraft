@@ -10,6 +10,7 @@ use {
         hash::{Hash, Hasher},
         mem::transmute,
         ops::{Add, Div, Mul, Sub},
+        sync::Arc,
     },
 };
 
@@ -19,7 +20,7 @@ pub const CHUNK_LEN: usize = (CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) as usize;
 
 #[derive(Component)]
 pub struct Chunk {
-    storage: ChunkStorage,
+    pub storage: Arc<ChunkStorage>,
 
     pub dirty: bool,
 }
@@ -28,7 +29,7 @@ impl Chunk {
     #[inline]
     pub fn empty() -> Self {
         Self {
-            storage: ChunkStorage::Empty,
+            storage: Arc::new(ChunkStorage::Empty),
             dirty: false,
         }
     }
@@ -36,7 +37,7 @@ impl Chunk {
     #[inline]
     pub fn uniform(block: usize) -> Self {
         Self {
-            storage: ChunkStorage::Single(block),
+            storage: Arc::new(ChunkStorage::Single(block)),
             dirty: false,
         }
     }
@@ -45,32 +46,28 @@ impl Chunk {
     pub fn set(&mut self, position: impl Into<IVec3>, block: usize) {
         let position = position.into();
 
-        if position.cmplt(IVec3::ZERO).any() {
+        if !check_bounds(position) {
             return;
         }
 
-        if position.cmpge(IVec3::splat(CHUNK_SIZE)).any() {
-            return;
-        }
+        Arc::make_mut(&mut self.storage).set(position, block.into());
 
-        self.storage.set(position, block.into());
+        self.dirty = true;
     }
 
     #[inline]
     pub fn remove(&mut self, position: impl Into<IVec3>) -> Option<usize> {
         let position = position.into();
 
-        if position.cmplt(IVec3::ZERO).any() {
-            return None;
-        }
-
-        if position.cmpge(IVec3::splat(CHUNK_SIZE)).any() {
+        if !check_bounds(position) {
             return None;
         }
 
         let removed = self.storage.get(position);
 
-        self.storage.set(position, *AIR);
+        Arc::make_mut(&mut self.storage).set(position, *AIR);
+
+        self.dirty = true;
 
         Some(removed)
     }
@@ -79,11 +76,7 @@ impl Chunk {
     pub fn get(&self, position: impl Into<IVec3>) -> Option<usize> {
         let position = position.into();
 
-        if position.cmplt(IVec3::ZERO).any() {
-            return None;
-        }
-
-        if position.cmpge(IVec3::splat(CHUNK_SIZE)).any() {
+        if !check_bounds(position) {
             return None;
         }
 
@@ -105,6 +98,19 @@ impl Chunk {
             (IVec3::new(x, y, z), block)
         })
     }
+}
+
+#[inline(always)]
+pub(crate) fn check_bounds(position: IVec3) -> bool {
+    if position.cmplt(IVec3::ZERO).any() {
+        return false;
+    }
+
+    if position.cmpge(IVec3::splat(CHUNK_SIZE)).any() {
+        return false;
+    }
+
+    true
 }
 
 #[derive(Component, Copy, Clone, Eq, PartialEq)]

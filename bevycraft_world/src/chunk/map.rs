@@ -123,6 +123,12 @@ impl PartialOrd for LoadRequest {
 #[derive(Resource, Clone)]
 pub struct GeneratorResource(pub Arc<dyn ChunkGenerator>);
 
+impl<T: ChunkGenerator> From<T> for GeneratorResource {
+    fn from(value: T) -> Self {
+        Self(Arc::new(value))
+    }
+}
+
 impl GeneratorResource {
     pub fn new<G: ChunkGenerator>(generator: G) -> Self {
         Self(Arc::new(generator))

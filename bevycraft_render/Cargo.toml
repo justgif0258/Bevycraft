@@ -5,9 +5,6 @@ authors.workspace = true
 version.workspace = true
 edition.workspace = true
 
-[lib]
-crate-type = ["dylib"]
-
 [dependencies]
 # Bevycraft API
 bevycraft_core.workspace = true
@@ -15,7 +12,6 @@ bevycraft_world.workspace = true
 
 # Bevy
 bevy.workspace = true
-bevy_dylib.workspace = true
 
 # Parallelism
 crossbeam.workspace = true

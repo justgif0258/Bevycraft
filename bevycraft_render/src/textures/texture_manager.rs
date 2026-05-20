@@ -1,11 +1,15 @@
-use crate::prelude::{ArrayTexture, Model, TextureId, VertexMaterial, NULL_TEXTURE_ID, NULL_TEXTURE_LOCATION};
-use bevy::ecs::resource::Resource;
-use bevy::ecs::system::SystemParam;
-use bevy::prelude::{info, Asset, Assets, Commands, Image, Res, ResMut, TypePath};
-use bevycraft_core::prelude::AssetLocation;
-use parking_lot::RwLock;
-use std::marker::PhantomData;
-use std::sync::Arc;
+use {
+    crate::prelude::{
+        ArrayTexture, Model, TextureId, VertexMaterial, NULL_TEXTURE_ID, NULL_TEXTURE_LOCATION,
+    },
+    bevy::{
+        ecs::{resource::Resource, system::SystemParam},
+        prelude::{error, Asset, Assets, Commands, Image, Res, ResMut, TypePath},
+    },
+    bevycraft_core::prelude::AssetLocation,
+    parking_lot::RwLock,
+    std::{marker::PhantomData, path::PathBuf, sync::Arc},
+};
 
 #[derive(SystemParam)]
 pub struct TextureBakery<'w, 's, M: Model> {
@@ -21,9 +25,7 @@ impl<'w, 's, M: Model> TextureBakery<'w, 's, M> {
 
         let read = self.textures.0.read();
 
-        read.textures.iter().for_each(|(location, id)| {
-            info!("Loading texture {} with ID {:?}", location, id);
-
+        read.textures.iter().for_each(|(location, _)| {
             array_texture.load_from_asset_location(location);
         });
 
@@ -70,6 +72,7 @@ impl<T: Asset + TypePath> TextureManager<T> {
     pub fn get_or_insert(&self, location: &AssetLocation) -> TextureId {
         {
             let map = self.0.read();
+
             if let Some(&(_, id)) = map.textures.iter().find(|&(loc, _)| loc == location) {
                 return id;
             }
@@ -81,12 +84,24 @@ impl<T: Asset + TypePath> TextureManager<T> {
             return id;
         }
 
-        let texture_id = TextureId(map.textures.len() as u32);
+        let path: PathBuf = PathBuf::from(format!(
+            "bevycraft_app/assets/{}/textures/{}.png",
+            location.namespace(),
+            location.path()
+        ));
 
-        map.textures.push((location.clone(), texture_id));
+        if path.exists() {
+            let texture_id = TextureId(map.textures.len() as u32);
 
-        map.dirty = true;
+            map.textures.push((location.clone(), texture_id));
 
-        texture_id
+            map.dirty = true;
+
+            texture_id
+        } else {
+            error!("Unable to find texture at: {}", location);
+
+            NULL_TEXTURE_ID
+        }
     }
 }

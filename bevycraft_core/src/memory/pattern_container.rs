@@ -37,6 +37,24 @@ where
     }
 }
 
+impl<T, const N: usize, S> Clone for PatternContainer<T, N, S>
+where
+    T: Clone,
+    S: Clone,
+{
+    #[inline]
+    fn clone(&self) -> Self {
+        Self {
+            hasher: self.hasher.clone(),
+            entries: self.entries.clone(),
+            patterns: self.patterns.clone(),
+            next_free: self.next_free,
+            container: self.container.clone(),
+            bit_cap: self.bit_cap,
+        }
+    }
+}
+
 impl<T, const N: usize> PatternContainer<T, N, RandomState>
 where
     T: Eq + Hash,
@@ -528,10 +546,21 @@ impl BitCapacity {
     }
 }
 
-#[derive(Copy, Clone)]
 union Slot<T> {
     value: ManuallyDrop<T>,
     next: usize,
+}
+
+impl<T> Copy for Slot<T> where T: Copy {}
+
+impl<T> Clone for Slot<T> 
+where 
+    T: Clone,
+{
+    #[inline(always)]
+    fn clone(&self) -> Self {
+        unsafe { Slot { value: ManuallyDrop::clone(&self.value) } }
+    }
 }
 
 impl<T> Ord for Slot<T>
