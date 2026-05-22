@@ -1,6 +1,7 @@
 #import bevy_pbr::{
     mesh_functions,
-    mesh_view_bindings::view,
+    mesh_bindings,
+    mesh_view_bindings,
     pbr_types::{STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT, PbrInput, pbr_input_new},
     pbr_functions as fns,
     pbr_bindings,
@@ -82,6 +83,8 @@ fn fragment(
 ) -> @location(0) vec4<f32> {
     var pbr_input: PbrInput = pbr_input_new();
 
+    pbr_input.flags = mesh_bindings::mesh[mesh.instance_index].flags;
+
     pbr_input.material.base_color = textureSample(texture, texture_sampler, mesh.uv, mesh.layer);
 
     #ifdef VERTEX_CUTOUT
@@ -104,7 +107,7 @@ fn fragment(
         is_front,
     );
 
-    pbr_input.is_orthographic = view.clip_from_view[3].w == 1.0;
+    pbr_input.is_orthographic = mesh_view_bindings::view.clip_from_view[3].w == 1.0;
 
     pbr_input.N = normalize(pbr_input.world_normal);
 
@@ -122,5 +125,5 @@ fn fragment(
 
     pbr_input.V = fns::calculate_view(mesh.world_position, pbr_input.is_orthographic);
 
-    return tone_mapping(fns::apply_pbr_lighting(pbr_input), view.color_grading);
+    return tone_mapping(fns::apply_pbr_lighting(pbr_input), mesh_view_bindings::view.color_grading);
 }
