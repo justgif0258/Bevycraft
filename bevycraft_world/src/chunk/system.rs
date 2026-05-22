@@ -1,8 +1,14 @@
 use {
     crate::prelude::{Chunk, ChunkLoaderConfig, ChunkMap, ChunkPos, GeneratorResource},
     bevy::{
-        prelude::{Component, Message, MessageWriter, Query, Res, ResMut, Transform, With},
-        tasks::{AsyncComputeTaskPool, futures::check_ready},
+        platform::{
+            collections::HashSet,
+            hash::NoOpHash,
+        },
+        prelude::{
+            Component, Message, MessageWriter, Query, Res, ResMut, Resource, Transform, With,
+        },
+        tasks::{futures::check_ready, AsyncComputeTaskPool},
     },
 };
 
@@ -15,10 +21,26 @@ pub struct ChunkUnloaded(pub ChunkPos);
 #[derive(Component, Default)]
 pub struct ChunkLoader;
 
+#[derive(Resource)]
+pub struct ViewVolume {
+    target: HashSet<ChunkPos, NoOpHash>,
+    last_origins: Vec<ChunkPos>,
+}
+
+impl ViewVolume {
+    pub fn new() -> Self {
+        Self {
+            target: HashSet::with_hasher(NoOpHash),
+            last_origins: Vec::new(),
+        }
+    }
+}
+
 pub fn update_queue(
     loaders: Query<&Transform, With<ChunkLoader>>,
     config: Res<ChunkLoaderConfig>,
     mut chunk_map: ResMut<ChunkMap>,
+    mut view_volume: ResMut<ViewVolume>,
 ) {
     let view = config.view_distance;
     let view_sq = view * view;
@@ -33,6 +55,12 @@ pub fn update_queue(
         return;
     }
 
+    if origins == view_volume.last_origins {
+        return;
+    }
+
+    let old_target = std::mem::take(&mut view_volume.target);
+
     for &origin in &origins {
         for dx in -view..view {
             for dy in -view..view {
@@ -40,21 +68,41 @@ pub fn update_queue(
                     let dist_sq = dx * dx + dy * dy + dz * dz;
 
                     if dist_sq <= view_sq {
-                        chunk_map
-                            .enqueue(ChunkPos::from(origin + ChunkPos::new(dx, dy, dz)), dist_sq);
+                        view_volume
+                            .target
+                            .insert(ChunkPos::new(origin.x + dx, origin.y + dy, origin.z + dz));
                     }
                 }
             }
         }
     }
 
-    let loaded: Vec<ChunkPos> = chunk_map.chunks.keys().copied().collect();
+    for &pos in &view_volume.target {
+        if !old_target.contains(&pos) {
+            let min_dist_sq = origins
+                .iter()
+                .map(|&o| {
+                    let d = pos - o;
 
-    for pos in loaded {
+                    d.x * d.x + d.y * d.y + d.z * d.z
+                })
+                .min()
+                .unwrap_or(i32::MAX);
+
+            chunk_map.enqueue(pos, min_dist_sq);
+        }
+    }
+
+    for &pos in &old_target {
+        if view_volume.target.contains(&pos) {
+            continue;
+        }
+
         let min_dist_sq = origins
             .iter()
             .map(|&o| {
                 let d = pos - o;
+
                 d.x * d.x + d.y * d.y + d.z * d.z
             })
             .min()
@@ -64,6 +112,8 @@ pub fn update_queue(
             chunk_map.enqueue_unload(pos);
         }
     }
+
+    view_volume.last_origins = origins;
 }
 
 pub fn spawn_chunk_tasks(mut chunk_map: ResMut<ChunkMap>, generator: Res<GeneratorResource>) {
@@ -84,15 +134,15 @@ pub fn spawn_chunk_tasks(mut chunk_map: ResMut<ChunkMap>, generator: Res<Generat
 
         if chunk_map.chunks.contains_key(&req.pos) {
             chunk_map.inflight.remove(&req.pos);
+
             continue;
         }
 
         let generator = generator.0.clone();
         let pos = req.pos;
 
-        let task = pool.spawn(async move {
-            generator.generate(pos)
-        });
+        let task = pool.spawn(async move { generator.generate(pos) });
+
         chunk_map.pending_load.insert(pos, task);
     }
 }
@@ -122,9 +172,7 @@ pub fn process_unload_queue(
     mut chunk_map: ResMut<ChunkMap>,
     mut unload_msg: MessageWriter<ChunkUnloaded>,
 ) {
-    const MAX_PER_TICK: usize = 12;
-
-    for _ in 0..MAX_PER_TICK {
+    loop {
         let Some(pos) = chunk_map.unload_queue.pop_front() else {
             break;
         };

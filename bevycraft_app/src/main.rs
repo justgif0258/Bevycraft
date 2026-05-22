@@ -8,15 +8,15 @@ use {
         camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
         core_pipeline::tonemapping::Tonemapping,
         light::{
-            AtmosphereEnvironmentMapLight, CascadeShadowConfigBuilder, DirectionalLightShadowMap,
-            VolumetricFog, VolumetricLight, light_consts::lux,
+            light_consts::lux, AtmosphereEnvironmentMapLight, CascadeShadowConfigBuilder,
+            DirectionalLightShadowMap, VolumetricFog, VolumetricLight,
         },
         pbr::{Atmosphere, AtmosphereMode, AtmosphereSettings, ScatteringMedium},
         post_process::bloom::Bloom,
         prelude::*,
         render::{
-            RenderPlugin,
             settings::{Backends, RenderCreation, WgpuSettings},
+            RenderPlugin,
         },
         tasks::available_parallelism,
     },
@@ -24,10 +24,9 @@ use {
     bevycraft_core::prelude::*,
     bevycraft_render::prelude::*,
     bevycraft_world::prelude::*,
-    ron::{Options, extensions::Extensions},
+    ron::{extensions::Extensions, Options},
     std::f32::consts::FRAC_PI_8,
 };
-use bevycraft_core::profile_frame;
 
 #[cfg(not(debug_assertions))]
 #[global_allocator]
@@ -63,7 +62,6 @@ fn main() -> AppExit {
             OnEnter(AppState::Finishing),
             (setup_world, view_loaded_models),
         )
-        .add_systems(Last, frame_mark)
         .run()
 }
 
@@ -164,7 +162,7 @@ fn setup_world(
         VolumetricLight,
         CascadeShadowConfigBuilder {
             num_cascades: 3,
-            maximum_distance: 128.0,
+            maximum_distance: 160.0,
             ..default()
         }
         .build(),
@@ -240,5 +238,3 @@ fn view_loaded_models(
         MeshMaterial3d(mats.get_vertex_material(RenderMode::Cutout)),
     ));
 }
-
-fn frame_mark() { profile_frame!(); }

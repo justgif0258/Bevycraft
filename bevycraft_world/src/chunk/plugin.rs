@@ -2,7 +2,7 @@ use {
     crate::{
         chunk::system::{
             poll_chunk_tasks, process_unload_queue, spawn_chunk_tasks, update_queue, ChunkReady,
-            ChunkUnloaded,
+            ChunkUnloaded, ViewVolume,
         },
         prelude::{ChunkGenerator, ChunkLoaderConfig, ChunkMap, GeneratorResource},
     },
@@ -59,6 +59,7 @@ impl<S: States> Plugin for ChunkPlugin<S> {
                 view_distance: self.view_distance,
                 unload_margin: 2,
             })
+            .insert_resource(ViewVolume::new())
             .add_message::<ChunkReady>()
             .add_message::<ChunkUnloaded>()
             .configure_sets(
