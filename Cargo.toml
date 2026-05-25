@@ -29,12 +29,7 @@ bevycraft_macros = { path = "bevycraft_macros" }
 
 # Bevy
 bevy = { version = "0.18.1", features = ["free_camera", "debug"] }
-bevy_egui = { version = "0.39.1", features = [] }
-bevy_perf_ui = { version = "0.6.0", features = [] }
 bevy_dylib = { version = "0.18.1", features = [] }
-
-# Memory
-mimalloc = { version = "0.1.50", features = [] }
 
 # Parallelism
 rayon = { version = "1.12.0" }
@@ -70,6 +65,3 @@ heed = { version = "0.22.1", features = [] }
 
 # Benchmarking
 criterion = { version = "0.8.2", features = [] }
-
-# Debug/Tracing
-tracing = { version = "0.1.44" }

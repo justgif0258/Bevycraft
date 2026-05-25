@@ -75,6 +75,11 @@ impl ChunkMap {
     pub fn pending_count(&self) -> usize {
         self.pending_load.len()
     }
+    
+    #[inline]
+    pub fn enqueued(&self) -> usize {
+        self.load_queue.len()
+    }
 
     #[inline]
     pub fn enqueue(&mut self, pos: ChunkPos, dist_sq: i32) {

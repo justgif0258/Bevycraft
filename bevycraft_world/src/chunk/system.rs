@@ -1,14 +1,11 @@
 use {
     crate::prelude::{Chunk, ChunkLoaderConfig, ChunkMap, ChunkPos, GeneratorResource},
     bevy::{
-        platform::{
-            collections::HashSet,
-            hash::NoOpHash,
-        },
+        platform::{collections::HashSet, hash::NoOpHash},
         prelude::{
             Component, Message, MessageWriter, Query, Res, ResMut, Resource, Transform, With,
         },
-        tasks::{futures::check_ready, AsyncComputeTaskPool},
+        tasks::{AsyncComputeTaskPool, futures::check_ready},
     },
 };
 
@@ -28,7 +25,7 @@ pub struct ViewVolume {
 }
 
 impl ViewVolume {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             target: HashSet::with_hasher(NoOpHash),
             last_origins: Vec::new(),
@@ -44,16 +41,11 @@ pub fn update_queue(
 ) {
     let view = config.view_distance;
     let view_sq = view * view;
-    let unload_sq = (view + config.unload_margin) * (view + config.unload_margin);
 
     let origins: Vec<ChunkPos> = loaders
         .iter()
         .map(|t| ChunkPos::from_world_pos(t.translation))
         .collect();
-
-    if origins.is_empty() {
-        return;
-    }
 
     if origins == view_volume.last_origins {
         return;
@@ -62,15 +54,17 @@ pub fn update_queue(
     let old_target = std::mem::take(&mut view_volume.target);
 
     for &origin in &origins {
-        for dx in -view..view {
-            for dy in -view..view {
-                for dz in -view..view {
+        for dx in -view..=view {
+            for dy in -view..=view {
+                for dz in -view..=view {
                     let dist_sq = dx * dx + dy * dy + dz * dz;
 
                     if dist_sq <= view_sq {
-                        view_volume
-                            .target
-                            .insert(ChunkPos::new(origin.x + dx, origin.y + dy, origin.z + dz));
+                        view_volume.target.insert(ChunkPos::new(
+                            origin.x + dx,
+                            origin.y + dy,
+                            origin.z + dz,
+                        ));
                     }
                 }
             }
@@ -94,21 +88,7 @@ pub fn update_queue(
     }
 
     for &pos in &old_target {
-        if view_volume.target.contains(&pos) {
-            continue;
-        }
-
-        let min_dist_sq = origins
-            .iter()
-            .map(|&o| {
-                let d = pos - o;
-
-                d.x * d.x + d.y * d.y + d.z * d.z
-            })
-            .min()
-            .unwrap_or(i32::MAX);
-
-        if min_dist_sq > unload_sq {
+        if !view_volume.target.contains(&pos) {
             chunk_map.enqueue_unload(pos);
         }
     }

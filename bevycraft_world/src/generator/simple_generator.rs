@@ -59,9 +59,11 @@ impl ChunkGenerator for SimpleGenerator {
                 let surface_height = (self.amplitude_min + (noise * height_range)) as i32;
 
                 for y in world_height..world_height + CHUNK_SIZE {
-                    let block = if y > surface_height {
-                        continue;
-                    } else if y == surface_height {
+                    if y > surface_height {
+                        break;
+                    }
+
+                    let block = if y == surface_height {
                         *GRASS_BLOCK
                     } else if y > surface_height - 3 {
                         *DIRT
@@ -69,7 +71,7 @@ impl ChunkGenerator for SimpleGenerator {
                         *STONE
                     };
 
-                    chunk.set([x, y.rem_euclid(CHUNK_SIZE), z], block);
+                    chunk.set([x, y - world_height, z], block);
                 }
             }
         }

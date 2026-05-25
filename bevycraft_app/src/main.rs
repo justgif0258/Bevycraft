@@ -1,5 +1,5 @@
 #[allow(unused_imports)]
-#[cfg(debug_assertions)]
+#[cfg(not(feature = "release"))]
 use bevy_dylib;
 use {
     bevy::{
@@ -8,27 +8,27 @@ use {
         camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
         core_pipeline::tonemapping::Tonemapping,
         light::{
-            light_consts::lux, AtmosphereEnvironmentMapLight, CascadeShadowConfigBuilder,
-            DirectionalLightShadowMap, VolumetricFog, VolumetricLight,
+            AtmosphereEnvironmentMapLight, CascadeShadowConfigBuilder, DirectionalLightShadowMap,
+            VolumetricFog, VolumetricLight, light_consts::lux,
         },
         pbr::{Atmosphere, AtmosphereMode, AtmosphereSettings, ScatteringMedium},
         post_process::bloom::Bloom,
         prelude::*,
         render::{
-            settings::{Backends, RenderCreation, WgpuSettings},
             RenderPlugin,
+            settings::{Backends, RenderCreation, WgpuSettings},
         },
         tasks::available_parallelism,
     },
-    bevycraft_app::*,
+    bevycraft_app::{systems::plugins::DebugHudPlugin, *},
     bevycraft_core::prelude::*,
     bevycraft_render::prelude::*,
     bevycraft_world::prelude::*,
-    ron::{extensions::Extensions, Options},
+    ron::{Options, extensions::Extensions},
     std::f32::consts::FRAC_PI_8,
 };
 
-#[cfg(not(debug_assertions))]
+#[cfg(feature = "release")]
 #[global_allocator]
 static ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
@@ -48,6 +48,7 @@ fn main() -> AppExit {
             RModelPlugin::<BlockModel>::default(),
             MaterialPlugin::<VertexMaterial>::default(),
             ChunkPlugin::new(12, available_parallelism(), AppState::InGame),
+            DebugHudPlugin,
         ))
         .init_state::<AppState>()
         .insert_resource(Time::<Fixed>::from_hz(64.0))
@@ -144,7 +145,7 @@ fn setup_world(
 ) {
     let medium = scattering.add(ScatteringMedium::earthlike(256, 256));
 
-    commands.insert_resource(DirectionalLightShadowMap { size: 1024 });
+    commands.insert_resource(DirectionalLightShadowMap { size: 4096 });
 
     commands.insert_resource(GlobalAmbientLight {
         color: Color::WHITE,
