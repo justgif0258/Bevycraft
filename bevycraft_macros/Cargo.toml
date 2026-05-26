@@ -9,6 +9,8 @@ edition.workspace = true
 proc-macro = true
 
 [dependencies]
+
+# Procedural Macros
 syn.workspace = true
 quote.workspace = true
 proc-macro-crate.workspace = true

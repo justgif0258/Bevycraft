@@ -1,6 +1,7 @@
-#[allow(unused_imports)]
-#[cfg(not(feature = "release"))]
+#[cfg(feature = "bevy_dylib")]
+#[used]
 use bevy_dylib;
+// Only enabled in dev environments
 use {
     bevy::{
         anti_alias::fxaa::Fxaa,
@@ -8,15 +9,15 @@ use {
         camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
         core_pipeline::tonemapping::Tonemapping,
         light::{
-            AtmosphereEnvironmentMapLight, CascadeShadowConfigBuilder, DirectionalLightShadowMap,
-            VolumetricFog, VolumetricLight, light_consts::lux,
+            light_consts::lux, AtmosphereEnvironmentMapLight, CascadeShadowConfigBuilder,
+            DirectionalLightShadowMap, VolumetricFog, VolumetricLight,
         },
         pbr::{Atmosphere, AtmosphereMode, AtmosphereSettings, ScatteringMedium},
         post_process::bloom::Bloom,
         prelude::*,
         render::{
-            RenderPlugin,
             settings::{Backends, RenderCreation, WgpuSettings},
+            RenderPlugin,
         },
         tasks::available_parallelism,
     },
@@ -24,13 +25,13 @@ use {
     bevycraft_core::prelude::*,
     bevycraft_render::prelude::*,
     bevycraft_world::prelude::*,
-    ron::{Options, extensions::Extensions},
+    ron::{extensions::Extensions, Options},
     std::f32::consts::FRAC_PI_8,
 };
 
 #[cfg(feature = "release")]
 #[global_allocator]
-static ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
+static ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc; // Only enabled in release
 
 const BLOCK_RES: u32 = 8;
 
@@ -47,7 +48,7 @@ fn main() -> AppExit {
             FreeCameraPlugin,
             RModelPlugin::<BlockModel>::default(),
             MaterialPlugin::<VertexMaterial>::default(),
-            ChunkPlugin::new(12, available_parallelism(), AppState::InGame),
+            ChunkPlugin::new(8, available_parallelism(), AppState::InGame),
             DebugHudPlugin,
         ))
         .init_state::<AppState>()
@@ -145,7 +146,7 @@ fn setup_world(
 ) {
     let medium = scattering.add(ScatteringMedium::earthlike(256, 256));
 
-    commands.insert_resource(DirectionalLightShadowMap { size: 4096 });
+    commands.insert_resource(DirectionalLightShadowMap { size: 1024 });
 
     commands.insert_resource(GlobalAmbientLight {
         color: Color::WHITE,

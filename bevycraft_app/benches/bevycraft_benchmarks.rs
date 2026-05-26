@@ -1,6 +1,8 @@
-use bevycraft_core::prelude::{Block, PatternContainer, Registrar, RegistrarOps, Registry};
-use criterion::{Criterion, criterion_group, criterion_main};
-use std::hint::black_box;
+use {
+    bevycraft_core::prelude::{Block, PatternContainer, Registrar, RegistrarOps, Registry},
+    criterion::{criterion_group, criterion_main, Criterion},
+    std::hint::black_box,
+};
 
 const CHUNK_SIZE: usize = 4096;
 

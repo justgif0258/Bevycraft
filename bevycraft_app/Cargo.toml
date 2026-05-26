@@ -15,7 +15,7 @@ bevycraft_render.workspace = true
 
 # Bevy
 bevy.workspace = true
-bevy_dylib.workspace = true
+bevy_dylib = { version = "0.18.1", optional = true, features = [] }
 
 # Memory
 mimalloc = { version = "0.1.50", optional = true, features = [] }

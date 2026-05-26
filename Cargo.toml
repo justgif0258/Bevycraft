@@ -29,7 +29,6 @@ bevycraft_macros = { path = "bevycraft_macros" }
 
 # Bevy
 bevy = { version = "0.18.1", features = ["free_camera", "debug"] }
-bevy_dylib = { version = "0.18.1", features = [] }
 
 # Parallelism
 rayon = { version = "1.12.0" }
@@ -45,6 +44,8 @@ geo = { version = "0.33.1", features = [] }
 bitvec = { version = "1.0.1", features = [] }
 parking_lot = { version = "0.12.5", features = [] }
 thiserror = { version = "2.0.18", features = [] }
+
+# Procedural Macros
 ctor = { version = "1.0.4", features = [] }
 syn = { version = "2.0.117", features = [] }
 quote = { version = "1.0.45", features = [] }

@@ -1,9 +1,11 @@
-use proc_macro::TokenStream;
-use proc_macro_crate::{FoundCrate, crate_name};
-use quote::{format_ident, quote};
-use syn::{
-    DeriveInput, Expr, ExprLit, Ident, Lit, MetaNameValue, Token, Type, Visibility, parse::Parse,
-    parse_macro_input,
+use {
+    proc_macro::TokenStream,
+    proc_macro_crate::{crate_name, FoundCrate},
+    quote::{format_ident, quote},
+    syn::{
+        parse::Parse, parse_macro_input, DeriveInput, Expr, ExprLit, Ident, Lit, MetaNameValue, Token,
+        Type, Visibility,
+    },
 };
 
 struct Entry {
