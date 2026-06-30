@@ -1,10 +1,10 @@
+use bevy::{anti_alias::fxaa::Fxaa, tasks::available_parallelism};
 #[cfg(feature = "bevy_dylib")]
 #[used]
 use bevy_dylib;
 // Only enabled in dev environments
 use {
     bevy::{
-        anti_alias::fxaa::Fxaa,
         camera::Exposure,
         camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
         core_pipeline::tonemapping::Tonemapping,
@@ -19,7 +19,6 @@ use {
             settings::{Backends, RenderCreation, WgpuSettings},
             RenderPlugin,
         },
-        tasks::available_parallelism,
     },
     bevycraft_app::{systems::plugins::DebugHudPlugin, *},
     bevycraft_core::prelude::*,
@@ -35,6 +34,8 @@ static ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc; // Only enabled in re
 
 const BLOCK_RES: u32 = 8;
 
+const MAX_CHUNK_TASKS_PER_THREAD: usize = 32;
+
 fn main() -> AppExit {
     App::new()
         .add_plugins((
@@ -48,7 +49,12 @@ fn main() -> AppExit {
             FreeCameraPlugin,
             RModelPlugin::<BlockModel>::default(),
             MaterialPlugin::<VertexMaterial>::default(),
-            ChunkPlugin::new(8, available_parallelism(), AppState::InGame),
+            ChunkPlugin::new(
+                8,
+                available_parallelism() * MAX_CHUNK_TASKS_PER_THREAD,
+                AppState::InGame,
+            ),
+            ChunkRenderPlugin::new(AppState::InGame),
             DebugHudPlugin,
         ))
         .init_state::<AppState>()
@@ -62,7 +68,7 @@ fn main() -> AppExit {
         )
         .add_systems(
             OnEnter(AppState::Finishing),
-            (setup_world, view_loaded_models),
+            setup_world,
         )
         .run()
 }

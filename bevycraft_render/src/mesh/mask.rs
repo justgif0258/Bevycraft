@@ -1,4 +1,4 @@
-use geo::{Intersects, LineString, Polygon, Rect, coord};
+use geo::{coord, Intersects, LineString, Polygon, Rect};
 
 const GRID_RESOLUTION: usize = 8;
 const CELL_SIZE: f32 = 0.125;
@@ -41,13 +41,13 @@ impl OcclusionMask {
     }
 
     #[inline(always)]
-    pub const fn occludes(&self, other: &Self) -> bool {
+    pub const fn occludes(&self, other: Self) -> bool {
         self.0 & other.0 == other.0
     }
 
     #[inline(always)]
-    pub const fn is_occluded_by(&self, other: &Self) -> bool {
-        other.occludes(self)
+    pub const fn is_occluded_by(&self, other: Self) -> bool {
+        other.occludes(*self)
     }
 
     #[inline(always)]

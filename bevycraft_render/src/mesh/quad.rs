@@ -1,7 +1,7 @@
-use crate::mesh::occlusion_mask::OcclusionMask;
+use crate::mesh::mask::OcclusionMask;
 use crate::prelude::TextureId;
 use bevy::math::EulerRot;
-use bevy::prelude::{Quat, Vec3};
+use bevy::prelude::{IVec3, Quat, Vec3};
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::ops::Not;
@@ -238,6 +238,18 @@ impl Direction {
         Self::PosZ,
         Self::NegZ,
     ];
+    
+    #[inline(always)]
+    pub const fn offset(self) -> IVec3 {
+        match self {
+            Direction::PosX => IVec3::new(1, 0, 0),
+            Direction::NegX => IVec3::new(-1, 0, 0),
+            Direction::PosY => IVec3::new(0, 1, 0),
+            Direction::NegY => IVec3::new(0, -1, 0),
+            Direction::PosZ => IVec3::new(0, 0, 1),
+            Direction::NegZ => IVec3::new(0, 0, -1),
+        }
+    }
 
     #[inline(always)]
     pub const fn get_normal(self) -> [f32; 3] {

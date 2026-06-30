@@ -1,11 +1,53 @@
-use crate::prelude::*;
-use bevy::asset::RenderAssetUsages;
-use bevy::mesh::{Indices, PrimitiveTopology};
-use bevy::prelude::*;
+use {
+    crate::prelude::*,
+    bevy::{
+        asset::RenderAssetUsages,
+        mesh::{Indices, PrimitiveTopology},
+        prelude::*,
+    },
+};
 
 const NEUTRAL_TINT: [[f32; 4]; 4] = [[1.0, 1.0, 1.0, 1.0]; 4];
 
+#[derive(Default)]
+pub struct VertexBufferSet {
+    pub opaque: VertexBuffer,
+    pub cutout: VertexBuffer,
+    pub translucent: VertexBuffer,
+}
+
+impl VertexBufferSet {
+    #[inline]
+    pub fn push_quads_with_offset<'a>(
+        &mut self,
+        quads: impl Iterator<Item = &'a Quad>,
+        offset: impl Into<[f32; 3]>,
+        tint: Option<[f32; 3]>,
+    ) {
+        let offset = offset.into();
+
+        for quad in quads {
+            self.push_quad_with_offset(quad, offset, tint)
+        }
+    }
+
+    #[inline]
+    pub fn push_quad_with_offset(
+        &mut self,
+        quad: &Quad,
+        offset: impl Into<[f32; 3]>,
+        tint: Option<[f32; 3]>,
+    ) {
+        match quad.render_mode {
+            RenderMode::Opaque => self.opaque.push_quad_with_offset(quad, offset, tint),
+            RenderMode::Cutout => self.cutout.push_quad_with_offset(quad, offset, tint),
+            RenderMode::Translucent => self.translucent.push_quad_with_offset(quad, offset, tint),
+        }
+    }
+}
+
 #[rustfmt::skip]
+#[derive(Default)]
 pub struct VertexBuffer {
     positions:  Vec<[f32; 3]>,
     normals:    Vec<[f32; 3]>,
@@ -114,21 +156,23 @@ impl VertexBuffer {
     }
 
     #[inline]
-    pub fn extract_mesh(&mut self) -> Mesh {
+    pub fn try_mesh(self) -> Option<Mesh> {
+        if self.next == 0 {
+            return None;
+        }
+
         let mesh = Mesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
         )
-        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, self.positions.clone())
-        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, self.normals.clone())
-        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, self.uvs.clone())
-        .with_inserted_attribute(Mesh::ATTRIBUTE_COLOR, self.colors.clone())
-        .with_inserted_attribute(ATTRIBUTE_TEXTURE_LAYER, self.textures.clone())
-        .with_inserted_indices(Indices::U32(self.indices.clone()));
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, self.positions)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, self.normals)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, self.uvs)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_COLOR, self.colors)
+        .with_inserted_attribute(ATTRIBUTE_TEXTURE_LAYER, self.textures)
+        .with_inserted_indices(Indices::U32(self.indices));
 
-        self.clear();
-
-        mesh
+        Some(mesh)
     }
 
     #[inline]

@@ -17,7 +17,7 @@ use {
 
 #[derive(Resource)]
 pub struct ChunkMap {
-    pub(crate) chunks: HashMap<ChunkPos, Chunk, NoOpHash>,
+    pub chunks: HashMap<ChunkPos, Chunk, NoOpHash>,
 
     pub(crate) pending_load: HashMap<ChunkPos, Task<Chunk>, NoOpHash>,
 
@@ -29,12 +29,12 @@ pub struct ChunkMap {
 
     pub(crate) unload_queue: VecDeque<ChunkPos>,
 
-    pub max_concurrent: usize,
+    pub max_tasks: usize,
 }
 
 impl ChunkMap {
     #[inline]
-    pub const fn new(max_concurrent: usize) -> Self {
+    pub const fn new(max_tasks: usize) -> Self {
         Self {
             chunks: HashMap::with_hasher(NoOpHash),
             pending_load: HashMap::with_hasher(NoOpHash),
@@ -42,7 +42,7 @@ impl ChunkMap {
             inflight: HashSet::with_hasher(NoOpHash),
             pending_unload: HashSet::with_hasher(NoOpHash),
             unload_queue: VecDeque::new(),
-            max_concurrent,
+            max_tasks,
         }
     }
 

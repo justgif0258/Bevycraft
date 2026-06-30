@@ -1,4 +1,5 @@
 pub mod buffer;
-pub mod occlusion_mask;
+pub mod mask;
 pub mod quad;
-pub mod chunk_mesh;
+pub mod chunk;
+pub mod input;

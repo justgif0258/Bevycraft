@@ -7,9 +7,9 @@ use {
 };
 
 context! {
-    pub static AIR: Block = register("air", || Block::default());
+    pub static AIR: Block = "air" => || Block::default();
 
-    pub static GRASS_BLOCK: Block = register("grass_block", || Block::new()
+    pub static GRASS_BLOCK: Block = "grass_block" => || Block::new()
         .behaviour(
             BlockBehaviour::new()
                 .hardness(0.65)
@@ -18,10 +18,9 @@ context! {
                 .build()
         )
         .shape(FULL_SHAPE)
-        .build()
-    );
+        .build();
 
-    pub static DIRT: Block = register("dirt", || Block::new()
+    pub static DIRT: Block = "dirt" => || Block::new()
         .behaviour(
             BlockBehaviour::new()
                 .hardness(0.5)
@@ -30,10 +29,9 @@ context! {
                 .build()
         )
         .shape(FULL_SHAPE)
-        .build()
-    );
+        .build();
 
-    pub static SAND: Block = register("sand", || Block::new()
+    pub static SAND: Block = "sand" => || Block::new()
         .behaviour(
             BlockBehaviour::new()
                 .hardness(0.5)
@@ -42,10 +40,9 @@ context! {
                 .build()
         )
         .shape(FULL_SHAPE)
-        .build()
-    );
+        .build();
 
-    pub static SNOW_BLOCK: Block = register("snow_block", || Block::new()
+    pub static SNOW_BLOCK: Block = "snow_block" => || Block::new()
         .behaviour(
             BlockBehaviour::new()
                 .hardness(0.2)
@@ -54,10 +51,9 @@ context! {
                 .build()
         )
         .shape(FULL_SHAPE)
-        .build()
-    );
+        .build();
 
-    pub static STONE: Block = register("stone", || Block::new()
+    pub static STONE: Block = "stone" => || Block::new()
         .behaviour(
             BlockBehaviour::new()
                 .hardness(2.0)
@@ -66,10 +62,9 @@ context! {
                 .build()
         )
         .shape(FULL_SHAPE)
-        .build()
-    );
+        .build();
 
-    pub static COBBLESTONE: Block = register("cobblestone", || Block::new()
+    pub static COBBLESTONE: Block = "cobblestone" => || Block::new()
         .behaviour(
             BlockBehaviour::new()
                 .hardness(2.0)
@@ -78,10 +73,9 @@ context! {
                 .build()
         )
         .shape(FULL_SHAPE)
-        .build()
-    );
+        .build();
 
-    pub static BEDROCK: Block = register("bedrock", || Block::new()
+    pub static BEDROCK: Block = "bedrock" => || Block::new()
         .behaviour(
             BlockBehaviour::new()
                 .hardness(f32::INFINITY)
@@ -90,10 +84,9 @@ context! {
                 .build()
         )
         .shape(FULL_SHAPE)
-        .build()
-    );
+        .build();
 
-    pub static OAK_LOG: Block = register("oak_log", || Block::new()
+    pub static OAK_LOG: Block = "oak_log" => || Block::new()
         .behaviour(
             BlockBehaviour::new()
                 .hardness(2.0)
@@ -102,10 +95,9 @@ context! {
                 .build()
         )
         .shape(FULL_SHAPE)
-        .build()
-    );
+        .build();
 
-    pub static OAK_PLANKS: Block = register("oak_planks", || Block::new()
+    pub static OAK_PLANKS: Block = "oak_planks" => || Block::new()
         .behaviour(
             BlockBehaviour::new()
                 .hardness(2.0)
@@ -114,10 +106,9 @@ context! {
                 .build()
         )
         .shape(FULL_SHAPE)
-        .build()
-    );
+        .build();
 
-    pub static OAK_PLANKS_SLAB: Block = register("oak_planks_slab", || Block::new()
+    pub static OAK_PLANKS_SLAB: Block = "oak_planks_slab" => || Block::new()
         .behaviour(
             BlockBehaviour::new()
                 .hardness(2.0)
@@ -126,10 +117,9 @@ context! {
                 .build()
         )
         .shape(SLAB_SHAPE)
-        .build()
-    );
+        .build();
 
-    pub static OAK_PLANKS_STAIR: Block = register("oak_planks_stair", || Block::new()
+    pub static OAK_PLANKS_STAIR: Block = "oak_planks_stair" => || Block::new()
         .behaviour(
             BlockBehaviour::new()
                 .hardness(2.0)
@@ -138,10 +128,9 @@ context! {
                 .build()
         )
         .shape(STAIR_SHAPE)
-        .build()
-    );
+        .build();
 
-    pub static OAK_TRAPDOOR: Block = register("oak_trapdoor", || Block::new()
+    pub static OAK_TRAPDOOR: Block = "oak_trapdoor" => || Block::new()
         .behaviour(
             BlockBehaviour::new()
                 .hardness(2.0)
@@ -150,10 +139,9 @@ context! {
                 .build()
         )
         .shape(TRAPDOOR_SHAPE)
-        .build()
-    );
+        .build();
 
-    pub static OAK_LEAVES: Block = register("oak_leaves", || Block::new()
+    pub static OAK_LEAVES: Block = "oak_leaves" => || Block::new()
         .behaviour(
             BlockBehaviour::new()
                 .hardness(0.2)
@@ -162,10 +150,9 @@ context! {
                 .build()
         )
         .shape(FULL_SHAPE)
-        .build()
-    );
+        .build();
 
-    pub static GRASS: Block = register("grass", || Block::new()
+    pub static GRASS: Block = "grass" => || Block::new()
         .behaviour(
             BlockBehaviour::new()
                 .hardness(0.0)
@@ -173,10 +160,9 @@ context! {
                 .flags(BlockFlags::empty())
                 .build()
         )
-        .build()
-    );
+        .build();
 
-    pub static POPPY: Block = register("poppy", || Block::new()
+    pub static POPPY: Block = "poppy" => || Block::new()
         .behaviour(
             BlockBehaviour::new()
                 .hardness(0.0)
@@ -184,6 +170,5 @@ context! {
                 .flags(BlockFlags::empty())
                 .build()
         )
-        .build()
-    );
+        .build();
 }

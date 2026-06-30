@@ -22,16 +22,16 @@ pub enum ChunkSet {
 
 pub struct ChunkPlugin<S: States> {
     pub view_distance: i32,
-    pub max_concurrent: usize,
+    pub max_tasks: usize,
     run_in_state: S,
     generator: Option<GeneratorResource>,
 }
 
 impl<S: States> ChunkPlugin<S> {
-    pub fn new(view_distance: i32, max_concurrent: usize, run_in_state: S) -> Self {
+    pub fn new(view_distance: i32, max_tasks: usize, run_in_state: S) -> Self {
         Self {
             view_distance,
-            max_concurrent,
+            max_tasks,
             run_in_state,
             generator: None,
         }
@@ -39,13 +39,13 @@ impl<S: States> ChunkPlugin<S> {
 
     pub fn with_generator<G: ChunkGenerator>(
         view_distance: i32,
-        max_concurrent: usize,
+        max_tasks: usize,
         run_in_state: S,
         generator: G,
     ) -> Self {
         Self {
             view_distance,
-            max_concurrent,
+            max_tasks,
             run_in_state,
             generator: Some(GeneratorResource::new(generator)),
         }
@@ -54,7 +54,7 @@ impl<S: States> ChunkPlugin<S> {
 
 impl<S: States> Plugin for ChunkPlugin<S> {
     fn build(&self, app: &mut App) {
-        app.insert_resource(ChunkMap::new(self.max_concurrent))
+        app.insert_resource(ChunkMap::new(self.max_tasks))
             .insert_resource(ChunkLoaderConfig {
                 view_distance: self.view_distance,
                 unload_margin: 2,

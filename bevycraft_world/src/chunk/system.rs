@@ -5,7 +5,7 @@ use {
         prelude::{
             Component, Message, MessageWriter, Query, Res, ResMut, Resource, Transform, With,
         },
-        tasks::{AsyncComputeTaskPool, futures::check_ready},
+        tasks::{futures::check_ready, AsyncComputeTaskPool},
     },
 };
 
@@ -89,7 +89,11 @@ pub fn update_queue(
 
     for &pos in &old_target {
         if !view_volume.target.contains(&pos) {
-            chunk_map.enqueue_unload(pos);
+            if chunk_map.pending_load.remove(&pos).is_some() {
+                chunk_map.inflight.remove(&pos);
+            } else {
+                chunk_map.enqueue_unload(pos)
+            }
         }
     }
 
@@ -98,7 +102,7 @@ pub fn update_queue(
 
 pub fn spawn_chunk_tasks(mut chunk_map: ResMut<ChunkMap>, generator: Res<GeneratorResource>) {
     let budget = chunk_map
-        .max_concurrent
+        .max_tasks
         .saturating_sub(chunk_map.pending_count());
 
     if budget == 0 {
@@ -127,7 +131,11 @@ pub fn spawn_chunk_tasks(mut chunk_map: ResMut<ChunkMap>, generator: Res<Generat
     }
 }
 
-pub fn poll_chunk_tasks(mut chunk_map: ResMut<ChunkMap>, mut ready_msg: MessageWriter<ChunkReady>) {
+pub fn poll_chunk_tasks(
+    mut chunk_map: ResMut<ChunkMap>,
+    mut ready_msg: MessageWriter<ChunkReady>,
+    view_volume: Res<ViewVolume>,
+) {
     let mut completed: Vec<(ChunkPos, Chunk)> = Vec::new();
 
     chunk_map
@@ -144,7 +152,12 @@ pub fn poll_chunk_tasks(mut chunk_map: ResMut<ChunkMap>, mut ready_msg: MessageW
     for (pos, chunk) in completed {
         chunk_map.inflight.remove(&pos);
         chunk_map.chunks.insert(pos, chunk);
-        ready_msg.write(ChunkReady(pos));
+
+        if view_volume.target.contains(&pos) {
+            ready_msg.write(ChunkReady(pos));
+        } else {
+            chunk_map.enqueue_unload(pos);
+        }
     }
 }
 

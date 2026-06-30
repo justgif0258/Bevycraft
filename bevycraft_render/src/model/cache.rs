@@ -24,7 +24,9 @@ impl<T: Registrable, M: Model> Clone for ModelCache<T, M> {
 impl<T: Registrable, M: Model> ModelCache<T, M> {
     #[inline]
     pub fn get(&self, index: usize) -> Option<&M> {
-        self.cache[index].as_ref()
+        self.cache.get(index)
+            .map(|m| m.as_ref())
+            .flatten()
     }
 
     #[inline]

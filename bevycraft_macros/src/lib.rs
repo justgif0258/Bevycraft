@@ -42,6 +42,12 @@ impl Parse for RegisterInput {
             let ty: Type = input.parse()?;
             input.parse::<Token![=]>()?;
 
+            let key: Expr = input.parse()?;
+            input.parse::<Token![=>]>()?;
+            let def: Expr = input.parse()?;
+            input.parse::<Token![;]>()?;
+
+            /*
             let kw: Ident = input.parse()?;
 
             if kw != "register" {
@@ -53,8 +59,7 @@ impl Parse for RegisterInput {
             let key: Expr = args.parse()?;
             args.parse::<Token![,]>()?;
             let def: Expr = args.parse()?;
-
-            input.parse::<Token![;]>()?;
+            */
 
             entries.push(Entry {
                 vis,
@@ -182,7 +187,7 @@ pub fn derive_registrar(input: TokenStream) -> TokenStream {
 
                 fn write_to_registry<'a>() -> ::parking_lot::RwLockWriteGuard<'a, #registry_type> {
                     if __LOCK.load(::std::sync::atomic::Ordering::Acquire) {
-                        panic!("Tried writing to {}'s registry while it was locked", stringify!(#name));
+                        panic!("Tried writing to {}'s registry, but it was already locked", stringify!(#name));
                     }
 
                     __REGISTRY.write()

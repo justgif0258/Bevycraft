@@ -120,6 +120,12 @@ pub struct ChunkPos {
     pub z: i32,
 }
 
+impl Into<IVec3> for ChunkPos {
+    fn into(self) -> IVec3 {
+        IVec3::new(self.x, self.y, self.z)
+    }
+}
+
 impl From<IVec3> for ChunkPos {
     fn from(value: IVec3) -> Self {
         Self {
