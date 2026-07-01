@@ -6,6 +6,7 @@ use {
     std::sync::Arc,
 };
 
+#[derive(Clone)]
 pub struct MeshInput {
     pos: ChunkPos,
     storage: Arc<ChunkStorage>,

@@ -51,7 +51,7 @@ fn main() -> AppExit {
             MaterialPlugin::<VertexMaterial>::default(),
             // CloudsPlugin,
             ChunkPlugin::new(
-                8,
+                12,
                 available_parallelism() * MAX_CHUNK_TASKS_PER_THREAD,
                 AppState::InGame,
             ),

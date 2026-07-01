@@ -1,139 +1,174 @@
 use {
-    crate::prelude::{
-        mesh_chunk, ArrayTexture, BlockModel, ChunkEntityMap, ChunkMeshLayer, ChunkMeshRoot,
-        Direction, MeshInput, ModelCache, PendingMeshTask, RenderMode,
+    crate::{
+        prelude::{
+            mesh_chunk, ArrayTexture, BlockModel, ChunkEntityMap, ChunkMeshLayer, ChunkMeshRoot,
+            Direction, MeshInput, ModelCache, RenderMode,
+        },
+        renderer::component::{BatchOutput, InflightBatch, MeshingQueue},
     },
     bevy::{
         platform::collections::HashSet,
         prelude::{
-            Assets, Children, Commands, Entity, Mesh, Mesh3d, MeshMaterial3d, MessageReader, Query,
-            Res, ResMut, Transform, Visibility,
+            Assets, Children, Commands, Mesh, Mesh3d, MeshMaterial3d, MessageReader, Res, ResMut,
+            Transform, Visibility,
         },
         tasks::{futures::check_ready, AsyncComputeTaskPool},
     },
     bevycraft_core::prelude::Block,
     bevycraft_world::prelude::{ChunkMap, ChunkPos, ChunkReady, ChunkUnloaded},
-    std::sync::LazyLock,
 };
 
-#[allow(unused)]
-static PARALLELISM: LazyLock<usize> = LazyLock::new(|| AsyncComputeTaskPool::get().thread_num());
-
 pub fn trigger_chunk_meshing(
-    mut commands: Commands,
+    mut queue: ResMut<MeshingQueue>,
     mut events: MessageReader<ChunkReady>,
-    mut entity_map: ResMut<ChunkEntityMap>,
-    model_cache: Res<ModelCache<Block, BlockModel>>,
     chunk_map: Res<ChunkMap>,
 ) {
-    let pool = AsyncComputeTaskPool::get();
-
     let mut positions: HashSet<ChunkPos> = HashSet::new();
 
     for &ChunkReady(pos) in events.read() {
         positions.insert(pos);
         for dir in Direction::ALL {
             let nb = ChunkPos::from(pos + dir.offset());
-
             if chunk_map.is_loaded(&nb) {
                 positions.insert(nb);
             }
         }
     }
 
-    /*
-    let to_mesh = positions.into_iter().collect::<Vec<_>>();
+    for pos in positions {
+        queue.pending.insert(pos);
+    }
+}
 
-    let total_chunks = to_mesh.len();
-    let batch_size = (total_chunks + *PARALLELISM - 1) / *PARALLELISM;
+pub fn dispatch_mesh_tasks(
+    mut queue: ResMut<MeshingQueue>,
+    chunk_map: Res<ChunkMap>,
+    model_cache: Res<ModelCache<Block, BlockModel>>,
+) {
+    if queue.pending.is_empty() {
+        return;
+    }
 
-    for batch in to_mesh.chunks(batch_size) {
-        let mut inputs = Vec::new();
+    let pool = AsyncComputeTaskPool::get();
+    let parallelism = pool.thread_num().max(1);
+    let budget = queue.budget;
 
-        for pos in batch {
-            if let Some(chunk) = chunk_map.get(pos) {
-                inputs.push(MeshInput::build(
-                    *pos,
-                    chunk.storage.clone(),
-                    &chunk_map,
-                    model_cache.clone(),
-                ))
-            }
+    let snapshot: Vec<ChunkPos> = queue.pending.iter().copied().collect();
+    let mut entries: Vec<(ChunkPos, MeshInput)> = Vec::with_capacity(budget);
+
+    for &pos in &snapshot {
+        if entries.len() >= budget {
+            break;
         }
 
-        let batch_task = pool.spawn(async move {
-            inputs.into_iter().map(|input| mesh_chunk(input)).collect::<Vec<_>>()
-        });
-    }
-    */
+        if queue.inflight_chunks.contains(&pos) {
+            continue;
+        }
 
-    for pos in positions {
         let Some(chunk) = chunk_map.get(&pos) else {
+            queue.pending.remove(&pos);
             continue;
         };
-
         if chunk.storage.is_empty() {
+            queue.pending.remove(&pos);
             continue;
         };
 
         let input = MeshInput::build(pos, chunk.storage.clone(), &chunk_map, model_cache.clone());
+        entries.push((pos, input));
+        queue.pending.remove(&pos);
+    }
 
-        let task = pool.spawn(async move { mesh_chunk(input) });
+    if entries.is_empty() {
+        return;
+    }
 
-        match entity_map.0.get(&pos) {
-            None => {
-                let root = commands
-                    .spawn((
-                        ChunkMeshRoot(pos),
-                        PendingMeshTask(task),
-                        Transform::from_translation(pos.into_world_pos()),
-                        Visibility::default(),
-                    ))
-                    .id();
+    for &(pos, _) in &entries {
+        queue.inflight_chunks.insert(pos);
+    }
 
-                entity_map.0.insert(pos, root);
-            }
-            Some(&root) => {
-                commands.entity(root).insert(PendingMeshTask(task));
-            }
-        }
+    let batch_size = (entries.len() + parallelism - 1) / parallelism;
+
+    for batch in entries.chunks(batch_size) {
+        let batch_owned = batch.to_vec();
+
+        let task = pool.spawn(async move {
+            let results = batch_owned
+                .into_iter()
+                .map(|(pos, input)| (pos, mesh_chunk(input)))
+                .collect();
+
+            BatchOutput { results }
+        });
+
+        queue.inflight_batches.push(InflightBatch { task });
     }
 }
 
 pub fn poll_mesh_tasks(
     mut commands: Commands,
-    mut tasks: Query<(Entity, &ChunkMeshRoot, &mut PendingMeshTask)>,
+    mut queue: ResMut<MeshingQueue>,
+    mut entity_map: ResMut<ChunkEntityMap>,
     mut meshes: ResMut<Assets<Mesh>>,
     textures: Res<ArrayTexture>,
 ) {
-    for (root_entity, _root, mut pending) in &mut tasks {
-        let Some(output) = check_ready(&mut pending.0) else {
-            continue;
-        };
+    let mut completed_outputs: Vec<BatchOutput> = Vec::new();
 
-        commands
-            .entity(root_entity)
-            .remove::<PendingMeshTask>()
-            .despawn_related::<Children>();
+    queue.inflight_batches.retain_mut(|batch| {
+        match check_ready(&mut batch.task) {
+            Some(output) => {
+                completed_outputs.push(output);
+                false // remove from inflight
+            }
+            None => true, // keep
+        }
+    });
 
-        for (mesh_opt, mode) in [
-            (output.opaque, RenderMode::Opaque),
-            (output.cutout, RenderMode::Cutout),
-            (output.translucent, RenderMode::Translucent),
-        ] {
-            let Some(mesh) = mesh_opt else { continue };
+    for output in completed_outputs {
+        for (pos, chunk_output) in output.results {
+            if !queue.inflight_chunks.remove(&pos) {
+                continue;
+            }
 
-            let child = commands
-                .spawn((
-                    ChunkMeshLayer(mode),
-                    Mesh3d(meshes.add(mesh)),
-                    MeshMaterial3d(textures.get_vertex_material(mode)),
-                    Transform::default(),
-                    Visibility::default(),
-                ))
-                .id();
+            // Create the root entity on first mesh, or reuse it on remesh.
+            let root_entity = match entity_map.0.get(&pos) {
+                Some(&entity) => entity,
+                None => {
+                    let entity = commands
+                        .spawn((
+                            ChunkMeshRoot(pos),
+                            Transform::from_translation(pos.into_world_pos()),
+                            Visibility::default(),
+                        ))
+                        .id();
+                    entity_map.0.insert(pos, entity);
+                    entity
+                }
+            };
 
-            commands.entity(root_entity).add_child(child);
+            commands.entity(root_entity).despawn_related::<Children>();
+
+            for (mesh_opt, mode) in [
+                (chunk_output.opaque, RenderMode::Opaque),
+                (chunk_output.cutout, RenderMode::Cutout),
+                (chunk_output.translucent, RenderMode::Translucent),
+            ] {
+                let Some(mesh) = mesh_opt else {
+                    continue;
+                };
+
+                let child = commands
+                    .spawn((
+                        ChunkMeshLayer(mode),
+                        Mesh3d(meshes.add(mesh)),
+                        MeshMaterial3d(textures.get_vertex_material(mode)),
+                        Transform::default(),
+                        Visibility::default(),
+                    ))
+                    .id();
+
+                commands.entity(root_entity).add_child(child);
+            }
         }
     }
 }
@@ -142,28 +177,26 @@ pub fn cleanup_chunk_entities(
     mut commands: Commands,
     mut events: MessageReader<ChunkUnloaded>,
     mut entity_map: ResMut<ChunkEntityMap>,
+    mut queue: ResMut<MeshingQueue>,
 ) {
     for &ChunkUnloaded(pos) in events.read() {
         if let Some(root) = entity_map.0.remove(&pos) {
             commands.entity(root).despawn();
         }
+        queue.pending.remove(&pos);
+        queue.inflight_chunks.remove(&pos);
     }
 }
 
-pub fn remesh_dirty_chunks(
-    mut commands: Commands,
-    mut entity_map: ResMut<ChunkEntityMap>,
-    chunk_map: Res<ChunkMap>,
-    model_cache: Res<ModelCache<Block, BlockModel>>,
-) {
-    let pool = AsyncComputeTaskPool::get();
+pub fn remesh_dirty_chunks(mut queue: ResMut<MeshingQueue>, mut chunk_map: ResMut<ChunkMap>) {
+    let mut dirty: Vec<ChunkPos> = Vec::new();
 
-    let dirty: Vec<ChunkPos> = chunk_map
-        .chunks
-        .iter()
-        .filter(|(_, c)| c.dirty)
-        .map(|(&pos, _)| pos)
-        .collect();
+    for (&pos, chunk) in chunk_map.chunks.iter_mut() {
+        if chunk.dirty {
+            chunk.dirty = false;
+            dirty.push(pos);
+        }
+    }
 
     if dirty.is_empty() {
         return;
@@ -181,33 +214,6 @@ pub fn remesh_dirty_chunks(
     }
 
     for pos in to_mesh {
-        let Some(chunk) = chunk_map.get(&pos) else {
-            continue;
-        };
-
-        if chunk.storage.is_empty() {
-            continue;
-        };
-
-        let input = MeshInput::build(pos, chunk.storage.clone(), &chunk_map, model_cache.clone());
-
-        let task = pool.spawn(async move { mesh_chunk(input) });
-
-        match entity_map.0.get(&pos) {
-            Some(&root) => {
-                commands.entity(root).insert(PendingMeshTask(task));
-            }
-            None => {
-                let root = commands
-                    .spawn((
-                        ChunkMeshRoot(pos),
-                        PendingMeshTask(task),
-                        Transform::from_translation(pos.into_world_pos()),
-                        Visibility::default(),
-                    ))
-                    .id();
-                entity_map.0.insert(pos, root);
-            }
-        }
+        queue.pending.insert(pos);
     }
 }
