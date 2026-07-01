@@ -7,15 +7,16 @@ use {
         renderer::component::{BatchOutput, InflightBatch, MeshingQueue},
     },
     bevy::{
+        camera::primitives::{Aabb, Frustum},
         platform::collections::HashSet,
         prelude::{
-            Assets, Children, Commands, Mesh, Mesh3d, MeshMaterial3d, MessageReader, Res, ResMut,
-            Transform, Visibility,
+            Assets, Children, Commands, Mesh, Mesh3d, MeshMaterial3d, MessageReader, Query, Res,
+            ResMut, Transform, Vec3, Visibility,
         },
         tasks::{futures::check_ready, AsyncComputeTaskPool},
     },
     bevycraft_core::prelude::Block,
-    bevycraft_world::prelude::{ChunkMap, ChunkPos, ChunkReady, ChunkUnloaded},
+    bevycraft_world::prelude::{ChunkMap, ChunkPos, ChunkReady, ChunkUnloaded, CHUNK_SIZE},
 };
 
 pub fn trigger_chunk_meshing(
@@ -44,6 +45,7 @@ pub fn dispatch_mesh_tasks(
     mut queue: ResMut<MeshingQueue>,
     chunk_map: Res<ChunkMap>,
     model_cache: Res<ModelCache<Block, BlockModel>>,
+    camera: Query<&Frustum>,
 ) {
     if queue.pending.is_empty() {
         return;
@@ -52,6 +54,8 @@ pub fn dispatch_mesh_tasks(
     let pool = AsyncComputeTaskPool::get();
     let parallelism = pool.thread_num().max(1);
     let budget = queue.budget;
+
+    let frustum = camera.single().ok();
 
     let snapshot: Vec<ChunkPos> = queue.pending.iter().copied().collect();
     let mut entries: Vec<(ChunkPos, MeshInput)> = Vec::with_capacity(budget);
@@ -63,6 +67,14 @@ pub fn dispatch_mesh_tasks(
 
         if queue.inflight_chunks.contains(&pos) {
             continue;
+        }
+
+        if let Some(frustum) = frustum {
+            let world_pos = pos.into_world_pos();
+            let aabb = Aabb::from_min_max(world_pos, world_pos + Vec3::splat(CHUNK_SIZE as f32));
+            if !frustum.intersects_obb_identity(&aabb) {
+                continue;
+            }
         }
 
         let Some(chunk) = chunk_map.get(&pos) else {
