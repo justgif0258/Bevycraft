@@ -49,6 +49,7 @@ fn main() -> AppExit {
             FreeCameraPlugin,
             RModelPlugin::<BlockModel>::default(),
             MaterialPlugin::<VertexMaterial>::default(),
+            // CloudsPlugin,
             ChunkPlugin::new(
                 8,
                 available_parallelism() * MAX_CHUNK_TASKS_PER_THREAD,
@@ -66,10 +67,7 @@ fn main() -> AppExit {
             FixedPostUpdate,
             await_models.run_if(in_state(AppState::AwaitModels)),
         )
-        .add_systems(
-            OnEnter(AppState::Finishing),
-            setup_world,
-        )
+        .add_systems(OnEnter(AppState::Finishing), setup_world)
         .run()
 }
 
@@ -178,7 +176,7 @@ fn setup_world(
 
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0.0, 0.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform::from_xyz(0.0, 128.0, 5.0).looking_at(Vec3::new(0.0, 128.0, 0.0), Vec3::Y),
         Atmosphere::earthlike(medium),
         AtmosphereSettings {
             rendering_method: AtmosphereMode::LookupTexture,
@@ -203,22 +201,12 @@ fn setup_world(
         ChunkLoader,
     ));
 
-    commands.insert_resource::<GeneratorResource>(
-        SimpleGenerator {
-            seed: 0,
-            amplitude_min: 0.0,
-            amplitude_max: 192.0,
-            octaves: 7,
-            frequency: 0.03,
-            gain: 1.0,
-            lacunarity: 0.5,
-        }
-        .into(),
-    );
+    commands.insert_resource::<GeneratorResource>(TerrainGenerator::default().into());
 
     state.set(AppState::InGame);
 }
 
+#[allow(unused)]
 fn view_loaded_models(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,

@@ -41,6 +41,28 @@ context! {
         )
         .shape(FULL_SHAPE)
         .build();
+    
+    pub static GRAVEL: Block = "gravel" => || Block::new()
+        .behaviour(
+            BlockBehaviour::new()
+                .hardness(0.5)
+                .toughness(0.5)
+                .flags(*FULL_BLOCK)
+                .build()
+        )
+        .shape(FULL_SHAPE)
+        .build();
+    
+    pub static WATER: Block = "water" => || Block::new()
+        .behaviour(
+            BlockBehaviour::new()
+                .hardness(0.0)
+                .toughness(0.0)
+                .flags(*FULL_BLOCK)
+                .build()
+        )
+        .shape(BlockShape::None)
+        .build();
 
     pub static SNOW_BLOCK: Block = "snow_block" => || Block::new()
         .behaviour(

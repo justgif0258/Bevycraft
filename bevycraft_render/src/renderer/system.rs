@@ -13,7 +13,11 @@ use {
     },
     bevycraft_core::prelude::Block,
     bevycraft_world::prelude::{ChunkMap, ChunkPos, ChunkReady, ChunkUnloaded},
+    std::sync::LazyLock,
 };
+
+#[allow(unused)]
+static PARALLELISM: LazyLock<usize> = LazyLock::new(|| AsyncComputeTaskPool::get().thread_num());
 
 pub fn trigger_chunk_meshing(
     mut commands: Commands,
@@ -24,20 +28,46 @@ pub fn trigger_chunk_meshing(
 ) {
     let pool = AsyncComputeTaskPool::get();
 
-    let mut to_mesh: HashSet<ChunkPos> = HashSet::new();
+    let mut positions: HashSet<ChunkPos> = HashSet::new();
 
     for &ChunkReady(pos) in events.read() {
-        to_mesh.insert(pos);
+        positions.insert(pos);
         for dir in Direction::ALL {
             let nb = ChunkPos::from(pos + dir.offset());
 
             if chunk_map.is_loaded(&nb) {
-                to_mesh.insert(nb);
+                positions.insert(nb);
             }
         }
     }
 
-    for pos in to_mesh {
+    /*
+    let to_mesh = positions.into_iter().collect::<Vec<_>>();
+
+    let total_chunks = to_mesh.len();
+    let batch_size = (total_chunks + *PARALLELISM - 1) / *PARALLELISM;
+
+    for batch in to_mesh.chunks(batch_size) {
+        let mut inputs = Vec::new();
+
+        for pos in batch {
+            if let Some(chunk) = chunk_map.get(pos) {
+                inputs.push(MeshInput::build(
+                    *pos,
+                    chunk.storage.clone(),
+                    &chunk_map,
+                    model_cache.clone(),
+                ))
+            }
+        }
+
+        let batch_task = pool.spawn(async move {
+            inputs.into_iter().map(|input| mesh_chunk(input)).collect::<Vec<_>>()
+        });
+    }
+    */
+
+    for pos in positions {
         let Some(chunk) = chunk_map.get(&pos) else {
             continue;
         };

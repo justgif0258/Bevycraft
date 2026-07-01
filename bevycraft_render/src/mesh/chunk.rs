@@ -55,9 +55,7 @@ fn mesh(input: MeshInput) -> ChunkMeshOutput {
                     continue;
                 };
 
-                let Some(model) = input.get_model_of(id) else {
-                    continue;
-                };
+                let Some(model) = input.get_model_of(id) else { continue };
 
                 let offset = [x as f32, y as f32, z as f32];
 

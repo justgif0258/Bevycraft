@@ -1,0 +1,6 @@
+(
+    parent: "bevycraft:block/fluid",
+    textures: {
+        "all": "bevycraft:block/water",
+    },
+)

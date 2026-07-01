@@ -13,5 +13,8 @@ pub struct ChunkMeshLayer(pub RenderMode);
 #[derive(Component)]
 pub struct PendingMeshTask(pub Task<ChunkMeshOutput>);
 
+#[derive(Component)]
+pub struct PendingMeshBatchTask(pub Task<Vec<ChunkMeshOutput>>);
+
 #[derive(Default, Resource)]
 pub struct ChunkEntityMap(pub HashMap<ChunkPos, Entity>);

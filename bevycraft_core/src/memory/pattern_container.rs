@@ -130,11 +130,11 @@ where
     pub fn set(&mut self, index: usize, value: T) {
         self.decay_pattern_at_index(index);
 
+        let pattern = self.get_or_insert_pattern(value);
+
         let bit_len = self.bit_cap.get();
         let start = index * bit_len;
         let end = start + bit_len;
-
-        let pattern = self.get_or_insert_pattern(value);
 
         self.container[start..end].store(pattern);
     }
@@ -553,13 +553,17 @@ union Slot<T> {
 
 impl<T> Copy for Slot<T> where T: Copy {}
 
-impl<T> Clone for Slot<T> 
-where 
+impl<T> Clone for Slot<T>
+where
     T: Clone,
 {
     #[inline(always)]
     fn clone(&self) -> Self {
-        unsafe { Slot { value: ManuallyDrop::clone(&self.value) } }
+        unsafe {
+            Slot {
+                value: ManuallyDrop::clone(&self.value),
+            }
+        }
     }
 }
 

@@ -1,0 +1,16 @@
+(
+    elements: [
+        (
+            from: (0.0, 0.0, 0.0),
+            to: (8.0, 7.0, 8.0),
+            faces: {
+               down: (uv: (0.0, 0.0, 8.0, 8.0), texture: "#all", cullface: down, render_mode: translucent),
+               up: (uv: (0.0, 0.0, 8.0, 8.0), texture: "#all", render_mode: translucent),
+               north: (uv: (0.0, 0.0, 8.0, 8.0), texture: "#all", cullface: north, render_mode: translucent),
+               south: (uv: (0.0, 0.0, 8.0, 8.0), texture: "#all", cullface: south, render_mode: translucent),
+               west: (uv: (0.0, 0.0, 8.0, 8.0), texture: "#all", cullface: west, render_mode: translucent),
+               east: (uv: (0.0, 0.0, 8.0, 8.0), texture: "#all", cullface: east, render_mode: translucent),
+            },
+        ),
+    ],
+)

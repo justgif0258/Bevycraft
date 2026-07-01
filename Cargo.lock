@@ -444,6 +444,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy-volumetric-clouds"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a2485827dffe73b35c9dd06427c0a1290c9f26d4d16aaf00ae1cbd308151a5b2"
+dependencies = [
+ "bevy",
+]
+
+[[package]]
 name = "bevy_a11y"
 version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1717,6 +1726,7 @@ name = "bevycraft_app"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "bevy-volumetric-clouds",
  "bevy_dylib",
  "bevycraft_core",
  "bevycraft_render",

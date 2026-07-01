@@ -5,7 +5,7 @@ mod morton;
 pub mod prelude {
     pub use crate::{
         chunk::{chunk::*, map::*, plugin::*, storage::*, system::*},
-        generator::simple_generator::SimpleGenerator,
+        generator::{simple_generator::SimpleGenerator, terrain_generator::TerrainGenerator},
         morton::morton_3d::{Morton3D, MortonDecodable, MortonEncodable},
     };
 }
