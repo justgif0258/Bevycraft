@@ -1,10 +1,10 @@
-use bevy::{anti_alias::fxaa::Fxaa, tasks::available_parallelism};
 #[cfg(feature = "bevy_dylib")]
 #[used]
 use bevy_dylib;
 // Only enabled in dev environments
 use {
     bevy::{
+        anti_alias::fxaa::Fxaa,
         camera::Exposure,
         camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
         core_pipeline::tonemapping::Tonemapping,
@@ -19,6 +19,7 @@ use {
             settings::{Backends, RenderCreation, WgpuSettings},
             RenderPlugin,
         },
+        tasks::available_parallelism,
     },
     bevycraft_app::{systems::plugins::DebugHudPlugin, *},
     bevycraft_core::prelude::*,
@@ -49,7 +50,6 @@ fn main() -> AppExit {
             FreeCameraPlugin,
             RModelPlugin::<BlockModel>::default(),
             MaterialPlugin::<VertexMaterial>::default(),
-            // CloudsPlugin,
             ChunkPlugin::new(
                 12,
                 available_parallelism() * MAX_CHUNK_TASKS_PER_THREAD,

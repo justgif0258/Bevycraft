@@ -29,7 +29,6 @@ bevycraft_macros = { path = "bevycraft_macros" }
 
 # Bevy
 bevy = { version = "0.18.1", features = ["free_camera", "debug"] }
-bevy-volumetric-clouds = { version = "0.2.0" }
 
 # Parallelism
 rayon = { version = "1.12.0" }

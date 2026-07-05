@@ -172,7 +172,7 @@ impl TerrainGenerator {
 
         let height = if c < -0.1 {
             let depth = (-c - 0.1) / 0.9;
-            (sl - depth * 50.0) + n * depth * 15.0
+            (sl - depth * 50.0) + n * depth * 15.0 - 0.5
         } else if c < 0.15 {
             let t = (c + 0.1) / 0.25;
             sl + (n + 0.35) * 60.0 * t

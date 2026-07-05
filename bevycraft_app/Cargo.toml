@@ -15,7 +15,6 @@ bevycraft_render.workspace = true
 
 # Bevy
 bevy.workspace = true
-bevy-volumetric-clouds.workspace = true
 bevy_dylib = { version = "0.18.1", optional = true, features = [] }
 
 # Memory

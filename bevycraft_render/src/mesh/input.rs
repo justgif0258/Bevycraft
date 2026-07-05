@@ -8,7 +8,7 @@ use {
 
 #[derive(Clone)]
 pub struct MeshInput {
-    pos: ChunkPos,
+    _pos: ChunkPos,
     storage: Arc<ChunkStorage>,
     neighbors: [Option<Arc<ChunkStorage>>; 6],
     model_cache: ModelCache<Block, BlockModel>,
@@ -28,7 +28,7 @@ impl MeshInput {
         });
 
         Self {
-            pos,
+            _pos: pos,
             storage,
             neighbors,
             model_cache,

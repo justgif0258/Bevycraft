@@ -4,7 +4,7 @@ use {
         prelude::{Direction, OcclusionMask},
     },
     bevy::prelude::{IVec3, Mesh},
-    bevycraft_core::blocks::AIR,
+    bevycraft_core::blocks::{AIR, WATER},
     bevycraft_world::prelude::CHUNK_SIZE,
 };
 
@@ -55,7 +55,9 @@ fn mesh(input: MeshInput) -> ChunkMeshOutput {
                     continue;
                 };
 
-                let Some(model) = input.get_model_of(id) else { continue };
+                let Some(model) = input.get_model_of(id) else {
+                    continue;
+                };
 
                 let offset = [x as f32, y as f32, z as f32];
 
@@ -68,6 +70,20 @@ fn mesh(input: MeshInput) -> ChunkMeshOutput {
                 for dir in Direction::ALL {
                     let nb_pos = local + dir.offset();
                     let nb_mask = sample_neighbor_mask(&input, nb_pos, dir);
+
+                    if dir == Direction::PosY && id != *WATER {
+                        let nb_id = input.get_id_at(nb_pos);
+
+                        if nb_id == *WATER {
+                            bufs.push_quads_with_offset(
+                                model.iter_outer_quads_at(dir),
+                                offset,
+                                Some([0.2, 0.8, 0.2]),
+                            );
+
+                            continue;
+                        }
+                    }
 
                     if model.mask(dir).is_occluded_by(nb_mask) {
                         continue;
@@ -92,7 +108,7 @@ fn mesh(input: MeshInput) -> ChunkMeshOutput {
 fn sample_neighbor_mask(input: &MeshInput, nb: IVec3, dir: Direction) -> OcclusionMask {
     let model = input.get_model_at(nb);
 
-    model.map(|m| m.mask(dir)).unwrap_or(OcclusionMask::EMPTY)
+    model.map(|m| m.mask(!dir)).unwrap_or(OcclusionMask::EMPTY)
 }
 
 #[inline(always)]
